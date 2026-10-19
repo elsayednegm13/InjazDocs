@@ -1,0 +1,50 @@
+{
+  "capturedAt": "2026-10-16T19:51:19.964Z",
+  "rows": [
+    {
+      "rule_id": "rr-arr",
+      "status": "ACTIVE",
+      "n": 500
+    },
+    {
+      "rule_id": "rr-bank",
+      "status": "ACTIVE",
+      "n": 100
+    },
+    {
+      "rule_id": "rr-courier",
+      "status": "PENDING",
+      "n": 100
+    },
+    {
+      "rule_id": "rr-doc-due",
+      "status": "ACTIVE",
+      "n": 450
+    },
+    {
+      "rule_id": "rr-doc-due",
+      "status": "PENDING",
+      "n": 250
+    },
+    {
+      "rule_id": "rr-doc-due",
+      "status": "RESOLVED",
+      "n": 250
+    },
+    {
+      "rule_id": "rr-doc-due",
+      "status": "SNOOZED",
+      "n": 250
+    },
+    {
+      "rule_id": "rr-eta",
+      "status": "ACTIVE",
+      "n": 500
+    },
+    {
+      "rule_id": "rr-review",
+      "status": "ACTIVE",
+      "n": 600
+    }
+  ]
+}

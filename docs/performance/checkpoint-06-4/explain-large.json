@@ -1,0 +1,194 @@
+{
+  "capturedAt": "2026-10-16T13:51:12.612Z",
+  "dataset": "large",
+  "bytes": 2789376,
+  "engine": "node:sqlite local file, not the Worker D1 binding",
+  "queries": {
+    "dashboardCounts": {
+      "n": 20,
+      "p50": 0.585,
+      "p95": 1.163,
+      "min": 0.561,
+      "max": 1.308,
+      "rowCount": 1,
+      "plan": [
+        "SCAN CONSTANT ROW",
+        "SCALAR SUBQUERY 1",
+        "SCAN export_cases USING COVERING INDEX export_cases_status_idx",
+        "SCALAR SUBQUERY 2",
+        "SEARCH export_cases USING COVERING INDEX export_cases_status_idx (status=?)",
+        "SCALAR SUBQUERY 3",
+        "SCAN operation_document_requirements",
+        "SCALAR SUBQUERY 4",
+        "SCAN export_cases",
+        "SCALAR SUBQUERY 5",
+        "SCAN courier_shipments",
+        "SCALAR SUBQUERY 6",
+        "SEARCH reminder_instances USING COVERING INDEX reminder_due_idx (status=? AND due_at<?)"
+      ]
+    },
+    "recentEvents": {
+      "n": 20,
+      "p50": 0.26,
+      "p95": 0.295,
+      "min": 0.255,
+      "max": 0.345,
+      "rowCount": 12,
+      "plan": [
+        "SCAN case_events",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    },
+    "dueReminders": {
+      "n": 20,
+      "p50": 0.603,
+      "p95": 1.15,
+      "min": 0.58,
+      "max": 1.21,
+      "rowCount": 24,
+      "plan": [
+        "SEARCH r USING INDEX reminder_due_idx (status=?)",
+        "SEARCH c USING INDEX sqlite_autoindex_export_cases_1 (id=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    },
+    "caseListCount": {
+      "n": 20,
+      "p50": 0.53,
+      "p95": 0.551,
+      "min": 0.525,
+      "max": 0.559,
+      "rowCount": 1,
+      "plan": [
+        "SCAN c USING INDEX sqlite_autoindex_export_cases_1",
+        "SEARCH cu USING COVERING INDEX sqlite_autoindex_customers_1 (id=?)",
+        "SEARCH i USING COVERING INDEX export_invoices_case_idx (case_id=?) LEFT-JOIN"
+      ]
+    },
+    "caseListPage": {
+      "n": 20,
+      "p50": 1.217,
+      "p95": 1.511,
+      "min": 1.171,
+      "max": 3.256,
+      "rowCount": 20,
+      "plan": [
+        "SCAN c USING INDEX sqlite_autoindex_export_cases_1",
+        "SEARCH cu USING INDEX sqlite_autoindex_customers_1 (id=?)",
+        "SEARCH i USING INDEX export_invoices_case_idx (case_id=?) LEFT-JOIN",
+        "USE TEMP B-TREE FOR group_concat(DISTINCT)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    },
+    "caseDetail": {
+      "n": 20,
+      "p50": 0.019,
+      "p95": 0.027,
+      "min": 0.019,
+      "max": 0.034,
+      "rowCount": 1,
+      "plan": [
+        "SEARCH export_cases USING INDEX sqlite_autoindex_export_cases_1 (id=?)"
+      ]
+    },
+    "caseInvoices": {
+      "n": 20,
+      "p50": 0.014,
+      "p95": 0.015,
+      "min": 0.014,
+      "max": 0.026,
+      "rowCount": 1,
+      "plan": [
+        "SEARCH export_invoices USING INDEX export_invoices_case_idx (case_id=?)"
+      ]
+    },
+    "caseDocs": {
+      "n": 20,
+      "p50": 0.016,
+      "p95": 0.032,
+      "min": 0.015,
+      "max": 0.034,
+      "rowCount": 3,
+      "plan": [
+        "SEARCH r USING INDEX operation_docs_case_idx (case_id=?)"
+      ]
+    },
+    "caseBookings": {
+      "n": 20,
+      "p50": 0.014,
+      "p95": 0.022,
+      "min": 0.014,
+      "max": 0.031,
+      "rowCount": 1,
+      "plan": [
+        "SEARCH bookings USING INDEX bookings_case_idx (case_id=?)"
+      ]
+    },
+    "caseContainers": {
+      "n": 20,
+      "p50": 0.021,
+      "p95": 0.034,
+      "min": 0.02,
+      "max": 0.043,
+      "rowCount": 5,
+      "plan": [
+        "SEARCH containers USING INDEX containers_case_idx (case_id=?)"
+      ]
+    },
+    "bookingsPage": {
+      "n": 20,
+      "p50": 0.489,
+      "p95": 0.656,
+      "min": 0.467,
+      "max": 0.755,
+      "rowCount": 20,
+      "plan": [
+        "SCAN b",
+        "SEARCH c USING INDEX sqlite_autoindex_export_cases_1 (id=?)",
+        "SEARCH cu USING COVERING INDEX sqlite_autoindex_customers_1 (id=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    },
+    "reminders": {
+      "n": 20,
+      "p50": 1.395,
+      "p95": 2.202,
+      "min": 1.379,
+      "max": 2.375,
+      "rowCount": 200,
+      "plan": [
+        "SEARCH r USING INDEX reminder_due_idx (status=?)",
+        "SEARCH c USING INDEX sqlite_autoindex_export_cases_1 (id=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    },
+    "schedule": {
+      "n": 20,
+      "p50": 1.182,
+      "p95": 1.628,
+      "min": 1.138,
+      "max": 1.67,
+      "rowCount": 500,
+      "plan": [
+        "SCAN b USING INDEX bookings_number_idx",
+        "SEARCH c USING INDEX sqlite_autoindex_export_cases_1 (id=?)",
+        "SEARCH cu USING COVERING INDEX sqlite_autoindex_customers_1 (id=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    },
+    "containers": {
+      "n": 20,
+      "p50": 3.374,
+      "p95": 3.717,
+      "min": 3.297,
+      "max": 3.878,
+      "rowCount": 200,
+      "plan": [
+        "SCAN ct",
+        "SEARCH b USING INDEX sqlite_autoindex_bookings_1 (id=?)",
+        "SEARCH c USING INDEX sqlite_autoindex_export_cases_1 (id=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    }
+  }
+}

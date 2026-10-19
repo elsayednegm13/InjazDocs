@@ -1,0 +1,400 @@
+{
+  "capturedAt": "2026-10-16T16:32:02.580Z",
+  "developerDb": {
+    "bytes": 638976,
+    "mtime": "2026-10-14T21:07:38.480Z"
+  },
+  "fileCount": 78,
+  "rows": [
+    {
+      "file": "drizzle/migrations/0001_init.sql",
+      "bytes": 17656,
+      "sha256": "3f8a4a08a1effa3a0e668bb3be9ef1e740de8bff61df30f9e366b0b898bf2a0a"
+    },
+    {
+      "file": "drizzle/migrations/0002_seed.sql",
+      "bytes": 9883,
+      "sha256": "215144c37d3da19173e215cebc5cef3c0178af234bc7eadabac816ceec514b62"
+    },
+    {
+      "file": "drizzle/migrations/0003_checkpoint.sql",
+      "bytes": 360,
+      "sha256": "49fb1258de001b94ac3d5b84003bd29e0078ed4f0bd1b4b123efd01bad7acbbc"
+    },
+    {
+      "file": "drizzle/migrations/0004_invoice_revisions.sql",
+      "bytes": 716,
+      "sha256": "0b1e07212592846421e0a2f1f95dbf98afd2a2b374a6f3af3050b3ae1ca705a7"
+    },
+    {
+      "file": "package.json",
+      "bytes": 2824,
+      "sha256": "4fc782e879daa811694b40bf3dba53e478e3234c5864d09494c7800820025d1e"
+    },
+    {
+      "file": "playwright.config.ts",
+      "bytes": 1260,
+      "sha256": "5bff6db13a6a5f1d8deb30e25156388d77a364e30105d0d446b3f2f08c286ad2"
+    },
+    {
+      "file": "pnpm-lock.yaml",
+      "bytes": 183558,
+      "sha256": "2d0f2ff775f2a4383c439bc8353c43d28e6373d15a4a7421e91837563214c03a"
+    },
+    {
+      "file": "scripts/bootstrap-admin.mjs",
+      "bytes": 1227,
+      "sha256": "0fb04c5fb1d7b395e73a1de4a6a224d84349d80c8d701cd9082088bad997a602"
+    },
+    {
+      "file": "scripts/build-artifact-guard.mjs",
+      "bytes": 5114,
+      "sha256": "c40373b3860709e3a954df842c96161a341d9aa3eac5c4d6f4fab500e15918f9"
+    },
+    {
+      "file": "scripts/checkpoint-06-3-probe.mjs",
+      "bytes": 13125,
+      "sha256": "b36b4cb07b43808f48ee2f03df188e29f4f6d8326f82123407ab00d1e35a5417"
+    },
+    {
+      "file": "scripts/checkpoint-06-4-bootstrap.mjs",
+      "bytes": 2399,
+      "sha256": "fb8ccc2fd9f2a7e16e0e780584b0ebb357f3b58a2eb2fbb5ce371a9d46c44e74"
+    },
+    {
+      "file": "scripts/checkpoint-06-4-browser.mjs",
+      "bytes": 8212,
+      "sha256": "84a8f5b15511f9783eaaf49479a4e991e48dac1d398559e0be9fd264529716f6"
+    },
+    {
+      "file": "scripts/checkpoint-06-4-explain.mjs",
+      "bytes": 5002,
+      "sha256": "9ac2e764c00a165ccd3b58325693ca183360e5272331ede1d3adcf3945c1aee3"
+    },
+    {
+      "file": "scripts/checkpoint-06-4-guard.mjs",
+      "bytes": 866,
+      "sha256": "66e9cfe6040c0ed12f58f0ba7c1764a210483bb965d0822fb39c37a9b8ec2257"
+    },
+    {
+      "file": "scripts/checkpoint-06-4-probe.mjs",
+      "bytes": 5774,
+      "sha256": "e8c4eed7c419ae5ac8f8a266033e4c0fec5f9e0b9f939dd647acafe6de0e1ce1"
+    },
+    {
+      "file": "scripts/checkpoint-06-4-reset.mjs",
+      "bytes": 1697,
+      "sha256": "0b23e10401fb7a38ec9743c502ca87bc512acbcee93024cbbc9b7ddb6c4a999b"
+    },
+    {
+      "file": "scripts/checkpoint-06-4-seed.mjs",
+      "bytes": 11316,
+      "sha256": "c4c7c099c58d149d997fc7892c57a1597a70bd857a9388a29603111ecb81be95"
+    },
+    {
+      "file": "scripts/checkpoint-06-4-server.mjs",
+      "bytes": 758,
+      "sha256": "bff6ce9f4cba8162c44bf5da826e8f2d53b7693967c3ca7b99b4034066a2f56a"
+    },
+    {
+      "file": "scripts/checkpoint-06-4-summary.mjs",
+      "bytes": 1253,
+      "sha256": "45fdb2f9c420ce2d2731b1a63a39dbb50788f0b24b86fbaeeaf77590d5c2fbf2"
+    },
+    {
+      "file": "scripts/checkpoint-06-4-transport.mjs",
+      "bytes": 4148,
+      "sha256": "7c2e9404576ccf7483516fee7944a17b921c9b2381e917b73628c94c2b7661f8"
+    },
+    {
+      "file": "scripts/checkpoint-06-5-cold-signin.mjs",
+      "bytes": 4310,
+      "sha256": "d10afb2729255fd84ea378a33b1a2fedca72bcdd21c4d510194e4dc70e927c77"
+    },
+    {
+      "file": "scripts/checkpoint-06-5-hash.mjs",
+      "bytes": 1722,
+      "sha256": "2f9445f8a5927201bf89f00bed832d295bb9dd55d34dace263fec67820579b26"
+    },
+    {
+      "file": "scripts/e2e-server.mjs",
+      "bytes": 1870,
+      "sha256": "db293788e88d3c589e7756cc8bdf774cdae0701f7bbe2e12e4b8e5eb6b306f83"
+    },
+    {
+      "file": "scripts/staging-preflight.mjs",
+      "bytes": 1824,
+      "sha256": "efc4db4a7a7349b338e0e4163c7266c44bd92fee08920c56b827782f1b677ac4"
+    },
+    {
+      "file": "server/auth.ts",
+      "bytes": 1542,
+      "sha256": "13fb5a5486edffd30ee8ae1070ee6446bbafc43abd79b3f198c94db9bfcbe8d4"
+    },
+    {
+      "file": "server/db/auth-schema.ts",
+      "bytes": 2294,
+      "sha256": "8f52b186ddd935fb8118d682b04af29ccd1b7c36a4f821b6b5532a09b7ee3edc"
+    },
+    {
+      "file": "server/db/sql.ts",
+      "bytes": 694,
+      "sha256": "9a561773df3e9b54ace65979058709f3479d2e5962922b9d2d5ce1d99062bd50"
+    },
+    {
+      "file": "server/domain/case-completion.ts",
+      "bytes": 3460,
+      "sha256": "d44a8779b07936074246c2e2b3590b2697fb697b188e98d06dd2b5a0122b2bb3"
+    },
+    {
+      "file": "server/domain/custom-fields.ts",
+      "bytes": 3900,
+      "sha256": "a660aa2b5448bd5d8a075dd74958a33fea231f1eab0d35cddee24a43d2ed8ae9"
+    },
+    {
+      "file": "server/domain/dates.ts",
+      "bytes": 2734,
+      "sha256": "c78e8ec8cbd078309608b383511e54e18dfd07f97cbdacdf12e8cbd72c60177a"
+    },
+    {
+      "file": "server/domain/invoice.ts",
+      "bytes": 2196,
+      "sha256": "560c3c0c7bc313c12c1b878d63e7ac56ed69a1d48137b6d40a9c6f81b0369af9"
+    },
+    {
+      "file": "server/domain/reminders.ts",
+      "bytes": 4762,
+      "sha256": "e20ed2f81ed2ba323322504145b75922bebf4eaacd3eaff80f94563a9d22e4f8"
+    },
+    {
+      "file": "server/domain/transitions.ts",
+      "bytes": 6011,
+      "sha256": "a90e21b05717796c1f7a80beb5e51f4731a918beaad0fbb40ba6984054fc2f87"
+    },
+    {
+      "file": "server/http/app.ts",
+      "bytes": 28818,
+      "sha256": "0038cefeec8cea588e38ef3c4a0e146d4b7aff7d3c397fa3b50fe4a0e785e92b"
+    },
+    {
+      "file": "server/http/client-ip.ts",
+      "bytes": 786,
+      "sha256": "b0ec838e17df76a008029b41d005a72e7fea9b990e82c44bf9b44d6f7cebb415"
+    },
+    {
+      "file": "server/http/errors.ts",
+      "bytes": 3474,
+      "sha256": "88152265589bacc8a3ad8bd5746bda95ba0ae3f71d9d1e402a338c1fb1dd5699"
+    },
+    {
+      "file": "server/services/actor.ts",
+      "bytes": 3695,
+      "sha256": "e8bbbc98b05e29c917c313a54523ba921e017910de7c4212b4d64e51a78f4d47"
+    },
+    {
+      "file": "server/services/audit.ts",
+      "bytes": 2416,
+      "sha256": "3d9ecc57d9fe0d6d6f43ea852bb07c460f85583ae1b4fa7fb9c3c6d52867159b"
+    },
+    {
+      "file": "server/services/bank-courier.ts",
+      "bytes": 9039,
+      "sha256": "cdf35e8bc3a7173d8d7e5648c2b872afd51c9351f39036cacbdfc54478a7b453"
+    },
+    {
+      "file": "server/services/bookings.ts",
+      "bytes": 16599,
+      "sha256": "6946b942f31355f9c3a26202524a7164af11223865379b5b8709dba66d4d6756"
+    },
+    {
+      "file": "server/services/cases.ts",
+      "bytes": 24761,
+      "sha256": "40ac5eb582115b3974dd5f74f9122f37ec3a14993f9007b51a72fb0f54013600"
+    },
+    {
+      "file": "server/services/custom-fields.ts",
+      "bytes": 16886,
+      "sha256": "eb51bf07b39b57b3ecf234b6fd408b7a791f1f5807041107acd0efbc1d64e466"
+    },
+    {
+      "file": "server/services/customers.ts",
+      "bytes": 6661,
+      "sha256": "5cb22af75131d39e1e4d4806797ecd8abf0a260a305955a61f05337822298c75"
+    },
+    {
+      "file": "server/services/documents.ts",
+      "bytes": 10356,
+      "sha256": "91199609dd6cff0fa1ff60ac89e60d85dab7791d661996bf3ce732f98507a1ad"
+    },
+    {
+      "file": "server/services/reminders.ts",
+      "bytes": 21698,
+      "sha256": "ba33ec2fcfe269ae98c55c6b724d304187eb01e6bde343ee8345c763c050476d"
+    },
+    {
+      "file": "server/services/reports.ts",
+      "bytes": 5685,
+      "sha256": "bb876814868e0a3de2ee5fec4fae11b5400fcb682499d37d26661139510566a3"
+    },
+    {
+      "file": "server/services/tracking.ts",
+      "bytes": 9389,
+      "sha256": "ae6602244d21d128c7b360a70b93dbaa9a1264e0e20fe54d807173dafbab1efe"
+    },
+    {
+      "file": "server/services/uploads.ts",
+      "bytes": 11322,
+      "sha256": "bbda012ddd3aee1f55f7b6b096808795cf313fd3c226ad87d944552945f9c4d5"
+    },
+    {
+      "file": "server/services/users.ts",
+      "bytes": 8540,
+      "sha256": "8b0582d3998ec52c71d90bf5966696e86703a3f44d9f528babdd84b77b103da1"
+    },
+    {
+      "file": "src/app/access.ts",
+      "bytes": 306,
+      "sha256": "10401fcf6ae1878a6a8a8f7709b894a52410e210f15dbf6471c726d0d8acba32"
+    },
+    {
+      "file": "src/app/i18n.ts",
+      "bytes": 666,
+      "sha256": "750cad2c7103b8492499dead8fbf0ee3ec985c4e03c54b25bed15859642d1271"
+    },
+    {
+      "file": "src/app/router.tsx",
+      "bytes": 2787,
+      "sha256": "32ce3aa171801be8750fcf389e48ed079a50c89e8c173ba383f231c148876b46"
+    },
+    {
+      "file": "src/app/session-context.ts",
+      "bytes": 277,
+      "sha256": "665896ccac738b98b3b8215893d98afc6c0d51c1f45192077e46ecf973a8f648"
+    },
+    {
+      "file": "src/app/session.tsx",
+      "bytes": 640,
+      "sha256": "16e330bde7404c6df164f9d9e1abe565c70c5bad64fb5bf8129c4d193c9a962a"
+    },
+    {
+      "file": "src/app/shell.tsx",
+      "bytes": 6882,
+      "sha256": "c6142991e066a21599bc311c16ba967213a56e33e50abde6f87bd2891948e055"
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "bytes": 1253,
+      "sha256": "e03743ba20fd97405e03cc5c53b823d3c8da57d1fc9e8d71f924270b0c8d298d"
+    },
+    {
+      "file": "src/components/ui/chrome.tsx",
+      "bytes": 5989,
+      "sha256": "7c3a87b583afcf3735a123ad2c7e4bd858aa4d3d1788bea71bbb030a5eecbda9"
+    },
+    {
+      "file": "src/components/ui/input.tsx",
+      "bytes": 1731,
+      "sha256": "6c81a6e0c665f3454e5189c6ffee64c790b55f24cee979120b416ac2dbbec816"
+    },
+    {
+      "file": "src/components/ui/status.tsx",
+      "bytes": 1410,
+      "sha256": "05dfb269df7a6de7fea4278e570e3378cfada7f5f30e56df22260b7a51ca0c07"
+    },
+    {
+      "file": "src/features/admin/AdminPages.tsx",
+      "bytes": 14637,
+      "sha256": "f3042974e40fc0de541a507638775cbbad133a4c09ff6c311e1102bc78015c18"
+    },
+    {
+      "file": "src/features/auth/LoginPage.tsx",
+      "bytes": 9125,
+      "sha256": "1dd9f8ee82822ee975c978936d5b5966e41a1660037967507fb1e3a7c5a0b602"
+    },
+    {
+      "file": "src/features/cases/CasesPages.tsx",
+      "bytes": 40488,
+      "sha256": "67eee858be89413e1e20741af9617e0809268d3c422640d852295acf6e7fb0e5"
+    },
+    {
+      "file": "src/features/customers/CustomersPages.tsx",
+      "bytes": 10424,
+      "sha256": "e4da6759cea3599a46ac9d2ab7a0997d9184ce9f95a9b9fa3d61b6c23c343529"
+    },
+    {
+      "file": "src/features/dashboard/DashboardPage.tsx",
+      "bytes": 6259,
+      "sha256": "fc2eba16315d22332abe7a0409d00d25da9f997929b39ff9cc06430132e5c7ab"
+    },
+    {
+      "file": "src/features/fields/CustomFieldsPanel.tsx",
+      "bytes": 7259,
+      "sha256": "d085269ff1bac0d87969008b88af660279dd79bbbddfb878656b120dad80c253"
+    },
+    {
+      "file": "src/features/ops/OpsPages.tsx",
+      "bytes": 19215,
+      "sha256": "d03ad1b35abedd04f12131a8debda5a73d52650e965a697ee093156fec551ce2"
+    },
+    {
+      "file": "src/features/track/TrackPage.tsx",
+      "bytes": 5518,
+      "sha256": "9305920128dbb1e60ffe3d1b24bac5333acc70833842302c7c1e8e3104f1468e"
+    },
+    {
+      "file": "src/index.css",
+      "bytes": 1201,
+      "sha256": "5169a7a4ec2bd0235b57c5e23a920d91ce7bf56085630b48b8d2f727c270c280"
+    },
+    {
+      "file": "src/lib/api.ts",
+      "bytes": 3906,
+      "sha256": "eb11762b5dc67829015471f762cc0f83cfca4fe3b47b1eb4c2c01671e9fd92b6"
+    },
+    {
+      "file": "src/lib/copy.ts",
+      "bytes": 4679,
+      "sha256": "7695fad38a8133624a8897007fe82a7fda4c42bd6a7bf0559f156dbac68ff88a"
+    },
+    {
+      "file": "src/lib/fail.ts",
+      "bytes": 3658,
+      "sha256": "d381d7d0cd73aae388d78b09093ae1a4d012dbae0702654161af69fbe4c85e1c"
+    },
+    {
+      "file": "src/lib/utils.ts",
+      "bytes": 596,
+      "sha256": "9f915995484c4e0fb801e2b72e5e0b0ec22671dac4c31057c784567fcf19cd21"
+    },
+    {
+      "file": "src/locales/ar.json",
+      "bytes": 30943,
+      "sha256": "ba6381e2a7e4a9a45d90f8c1183078ad37e2144c672ea8c2dac7536bffe39ee0"
+    },
+    {
+      "file": "src/locales/en.json",
+      "bytes": 22989,
+      "sha256": "1130315ac28b4175a57677627144525a7fd717c9cb6286205ccbcf92224da46a"
+    },
+    {
+      "file": "src/main.tsx",
+      "bytes": 652,
+      "sha256": "c0ef02061d8d7c4e0810ea707b0b79edb5df50a2f3d49ebcf7c20763d96e2030"
+    },
+    {
+      "file": "tsconfig.json",
+      "bytes": 161,
+      "sha256": "13c8b3dea02616c7c4239eeab9d72242810263c202c3f5b1814554a4a4adc1ff"
+    },
+    {
+      "file": "vite.config.ts",
+      "bytes": 3084,
+      "sha256": "8d55c330aabc574e9c59c4123e36a1a91c489d8319afa4b117fe5613550a0fb0"
+    },
+    {
+      "file": "wrangler.jsonc",
+      "bytes": 890,
+      "sha256": "0f9fa0c2f1b384c704704434a71b6206bda4750dc12ac22a79d4895fa5802b53"
+    }
+  ]
+}

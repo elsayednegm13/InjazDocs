@@ -1,0 +1,25 @@
+{
+  "checkpoint": "06.6.1",
+  "beforeCount": 24,
+  "afterCount": 24,
+  "beforeDir": "docs/qa-screenshots/checkpoint-06-6-1/before",
+  "afterDir": "docs/qa-screenshots/checkpoint-06-6-1/after",
+  "readyAssertion": "[data-dossier=loaded] and h1 containing EF-",
+  "cells": ["bank", "direct", "completed", "limited"],
+  "locales": ["ar", "en"],
+  "viewports": ["390x844", "768x1024", "1366x900"],
+  "reviewedByAgent": [
+    "after/bank-ar-390.png",
+    "after/bank-ar-768.png",
+    "after/bank-ar-1366.png",
+    "after/bank-en-390.png",
+    "after/bank-en-768.png",
+    "after/bank-en-1366.png",
+    "after/direct-ar-390.png",
+    "after/direct-ar-768.png",
+    "after/direct-ar-1366.png",
+    "after/completed-ar-768.png",
+    "after/limited-en-390.png"
+  ],
+  "note": "Remaining after cells were captured by the same data-ready test and were not each opened in the image viewer."
+}

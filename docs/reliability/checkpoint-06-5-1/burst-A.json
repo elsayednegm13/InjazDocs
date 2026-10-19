@@ -1,0 +1,1857 @@
+{
+  "summary": {
+    "arm": "A",
+    "base": "http://127.0.0.1:43176",
+    "time_utc": "2026-10-16T18:36:56.545Z",
+    "observations": 204,
+    "fetch_failed": 0,
+    "statuses": {
+      "200": 136,
+      "401": 68
+    },
+    "scheduled": {
+      "status": 200,
+      "fetch_failed": false,
+      "html": false,
+      "duration_ms": 123
+    }
+  },
+  "samples": [
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 527,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 82,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 79,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 80,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 78,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 77,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 79,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 79,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 88,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 80,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 78,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 78,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 73,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 89,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 78,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 94,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 79,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 103,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 89,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 87,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 96,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 85,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 87,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 70,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 101,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 176,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 827,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 108,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 106,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 103,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 105,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 120,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 113,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 104,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 123,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 369,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 142,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 100,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 88,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 86,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 85,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 53,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 67,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 711,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 53,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 46,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 55,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 52,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 56,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 55,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 53,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 52,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 54,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 55,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 61,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 56,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 187,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 54,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 62,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 54,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 1
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 122,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 122,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 123,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 124,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 113,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 112,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 112,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 111,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 154,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 154,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 155,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 157,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 139,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 139,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 138,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 137,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 146,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 147,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 149,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 150,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 178,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 179,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 179,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 181,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 162,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 163,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 163,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 161,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 1178,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 1177,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 1177,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 1176,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 69,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 70,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 71,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 72,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 96,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 96,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 96,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 96,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 102,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 102,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 102,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 104,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 114,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 114,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 114,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 113,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 4
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 283,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 284,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 286,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 290,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 291,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 293,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 294,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 296,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 248,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 248,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 248,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 245,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 246,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 245,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 245,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 244,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 210,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 211,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 212,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 213,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 214,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 215,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 216,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 217,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 229,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 228,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 229,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 229,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 230,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 230,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 230,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 231,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 62,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 63,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 64,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 65,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 66,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 67,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 67,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 68,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 81,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 81,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 81,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 82,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 81,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 81,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 81,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 80,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 8
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 557,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 558,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 559,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 560,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 562,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 563,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 563,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 565,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 566,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 567,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 568,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 568,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 569,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 570,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 571,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/health",
+      "status": 200,
+      "duration_ms": 571,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 721,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 722,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 726,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 726,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 727,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 728,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 728,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 729,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 729,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 730,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 732,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 733,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 734,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 735,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 736,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/auth/bootstrap-status",
+      "status": 200,
+      "duration_ms": 738,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 84,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 85,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 86,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 87,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 88,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 89,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 89,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 90,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 91,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 96,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 96,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 97,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 98,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 99,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 100,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    },
+    {
+      "route": "/api/v1/me",
+      "status": 401,
+      "duration_ms": 101,
+      "fetch_failed": false,
+      "html": false,
+      "error_cause_code": null,
+      "concurrency": 16
+    }
+  ]
+}

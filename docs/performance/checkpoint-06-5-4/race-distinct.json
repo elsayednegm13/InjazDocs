@@ -1,0 +1,46 @@
+{
+  "rounds": [
+    {
+      "pair": [
+        6,
+        7
+      ],
+      "beforeOffset": 9,
+      "http": [
+        200,
+        409
+      ],
+      "codes": [
+        "",
+        "REMINDER_STALE"
+      ],
+      "html": [
+        false,
+        false
+      ],
+      "afterOffset": 6,
+      "singleWinner": true
+    },
+    {
+      "pair": [
+        8,
+        11
+      ],
+      "beforeOffset": 6,
+      "http": [
+        200,
+        409
+      ],
+      "codes": [
+        "",
+        "REMINDER_STALE"
+      ],
+      "html": [
+        false,
+        false
+      ],
+      "afterOffset": 8,
+      "singleWinner": true
+    }
+  ]
+}

@@ -1,0 +1,198 @@
+[
+  {
+    "tick": 1,
+    "utc": "2026-10-17T17:31:53.749Z",
+    "beforeEligible": 1250,
+    "afterEligible": 1150,
+    "beforeDeliveries": 900,
+    "afterDeliveries": 1000,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 34772,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 2,
+    "utc": "2026-10-17T17:32:30.430Z",
+    "beforeEligible": 1150,
+    "afterEligible": 1050,
+    "beforeDeliveries": 1000,
+    "afterDeliveries": 1100,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 36259,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 3,
+    "utc": "2026-10-17T17:33:10.111Z",
+    "beforeEligible": 1050,
+    "afterEligible": 950,
+    "beforeDeliveries": 1100,
+    "afterDeliveries": 1200,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 38860,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 4,
+    "utc": "2026-10-17T17:34:24.500Z",
+    "beforeEligible": 950,
+    "afterEligible": 850,
+    "beforeDeliveries": 1200,
+    "afterDeliveries": 1300,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 72869,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 5,
+    "utc": "2026-10-17T17:35:02.341Z",
+    "beforeEligible": 850,
+    "afterEligible": 750,
+    "beforeDeliveries": 1300,
+    "afterDeliveries": 1400,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 37438,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 6,
+    "utc": "2026-10-17T17:35:44.627Z",
+    "beforeEligible": 750,
+    "afterEligible": 650,
+    "beforeDeliveries": 1400,
+    "afterDeliveries": 1500,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 41892,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 7,
+    "utc": "2026-10-17T17:36:29.923Z",
+    "beforeEligible": 650,
+    "afterEligible": 550,
+    "beforeDeliveries": 1500,
+    "afterDeliveries": 1600,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 44933,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 8,
+    "utc": "2026-10-17T17:37:17.458Z",
+    "beforeEligible": 550,
+    "afterEligible": 450,
+    "beforeDeliveries": 1600,
+    "afterDeliveries": 1700,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 45431,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 9,
+    "utc": "2026-10-17T17:38:05.786Z",
+    "beforeEligible": 450,
+    "afterEligible": 350,
+    "beforeDeliveries": 1700,
+    "afterDeliveries": 1800,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 47182,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 10,
+    "utc": "2026-10-17T17:39:02.454Z",
+    "beforeEligible": 350,
+    "afterEligible": 250,
+    "beforeDeliveries": 1800,
+    "afterDeliveries": 1900,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 52612,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 11,
+    "utc": "2026-10-17T17:39:51.691Z",
+    "beforeEligible": 250,
+    "afterEligible": 150,
+    "beforeDeliveries": 1900,
+    "afterDeliveries": 2000,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 48559,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 12,
+    "utc": "2026-10-17T17:40:52.825Z",
+    "beforeEligible": 150,
+    "afterEligible": 50,
+    "beforeDeliveries": 2000,
+    "afterDeliveries": 2100,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 60465,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 13,
+    "utc": "2026-10-17T17:41:45.847Z",
+    "beforeEligible": 50,
+    "afterEligible": 0,
+    "beforeDeliveries": 2100,
+    "afterDeliveries": 2150,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 52282,
+      "body": "ok"
+    }
+  },
+  {
+    "tick": 14,
+    "utc": "2026-10-17T17:42:39.138Z",
+    "beforeEligible": 0,
+    "afterEligible": 0,
+    "beforeDeliveries": 2150,
+    "afterDeliveries": 2150,
+    "duplicateCycles": 0,
+    "http": {
+      "status": 200,
+      "ms": 52749,
+      "body": "ok"
+    }
+  }
+]

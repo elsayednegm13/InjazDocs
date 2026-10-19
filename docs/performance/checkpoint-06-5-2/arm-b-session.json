@@ -1,0 +1,47 @@
+{
+  "capturedAt": "2026-10-16T20:23:47.877Z",
+  "healthFixture": "reliability-b",
+  "accountMode": "reset",
+  "varsFile": ".wrangler-reliability-b\\.dev.vars",
+  "varNames": [
+    "BETTER_AUTH_SECRET",
+    "BETTER_AUTH_URL",
+    "BOOTSTRAP_SECRET",
+    "EXPORTFLOW_TRACE",
+    "EXPORTFLOW_FIXTURE"
+  ],
+  "bootstrap": 409,
+  "badOrigin": 403,
+  "anonymousMe": 401,
+  "unknownTrack": 410,
+  "scheduled": 200,
+  "browserAfterLogin": "/dashboard->logout",
+  "browserError": null,
+  "browserEndedOn": "/login",
+  "secondSetupAlert": 0,
+  "pageErrors": [],
+  "cookieFlags": [
+    {
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "me": 200,
+  "rules": 200,
+  "patch": {
+    "status": 200,
+    "duration_ms": 961
+  },
+  "signOut": 200,
+  "meAfterSignOut": 401,
+  "cookieNames": [],
+  "longRun": {
+    "requests": 0,
+    "ok": 0,
+    "expected401": 0,
+    "unexpected": 0,
+    "resets": 0,
+    "duration_ms": 1
+  }
+}

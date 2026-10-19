@@ -1,0 +1,318 @@
+{
+  "capturedAt": "2026-10-16T09:37:37.189Z",
+  "journeys": [
+    {
+      "name": "login",
+      "ms": 2418,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/auth/bootstrap-status",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/auth/sign-in/email",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/auth/bootstrap-status",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboard",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        }
+      ]
+    },
+    {
+      "name": "dashboard-reload",
+      "ms": 1651,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboard",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "cases",
+      "ms": 431,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "bookings",
+      "ms": 715,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/export-cases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "schedule",
+      "ms": 662,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bookings",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "reminders",
+      "ms": 623,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/schedule",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "settings",
+      "ms": 645,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/reminders",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "dashboard-warm-1",
+      "ms": 2505,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/custom-fields",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/reminder-rules",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/document-templates",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboard",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "dashboard-warm-2",
+      "ms": 1059,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboard",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "dashboard-warm-3",
+      "ms": 1048,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboard",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "dashboard-warm-4",
+      "ms": 1067,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboard",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "dashboard-warm-5",
+      "ms": 1033,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboard",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    },
+    {
+      "name": "spa-cases",
+      "ms": 104,
+      "apiCalls": [],
+      "srcRequests": 0,
+      "consoleAdded": []
+    },
+    {
+      "name": "spa-dashboard",
+      "ms": 105,
+      "apiCalls": [],
+      "srcRequests": 0,
+      "consoleAdded": []
+    },
+    {
+      "name": "dashboard-390",
+      "ms": 1240,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/export-cases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboard",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboard",
+          "status": 200
+        }
+      ],
+      "srcRequests": 26,
+      "consoleAdded": []
+    }
+  ],
+  "apiPathCounts": {
+    "/api/v1/me": 14,
+    "/api/v1/auth/bootstrap-status": 2,
+    "/api/auth/sign-in/email": 1,
+    "/api/v1/dashboard": 9,
+    "/api/v1/export-cases": 2,
+    "/api/v1/bookings": 1,
+    "/api/v1/schedule": 1,
+    "/api/v1/reminders": 1,
+    "/api/v1/custom-fields": 1,
+    "/api/v1/reminder-rules": 1,
+    "/api/v1/document-templates": 1
+  },
+  "consoleEvents": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    }
+  ],
+  "requestCount": 372
+}

@@ -1,0 +1,225 @@
+[
+  {
+    "phase": "before",
+    "scenario": "bank",
+    "locale": "en",
+    "viewport": "390x844",
+    "caseId": "acd6fa2c-7ab3-48d1-8955-92adac9ff080",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/bank-en-390.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "bank",
+    "locale": "en",
+    "viewport": "768x1024",
+    "caseId": "acd6fa2c-7ab3-48d1-8955-92adac9ff080",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/bank-en-768.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "bank",
+    "locale": "en",
+    "viewport": "1366x900",
+    "caseId": "acd6fa2c-7ab3-48d1-8955-92adac9ff080",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/bank-en-1366.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "bank",
+    "locale": "ar",
+    "viewport": "390x844",
+    "caseId": "acd6fa2c-7ab3-48d1-8955-92adac9ff080",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/bank-ar-390.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "bank",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "caseId": "acd6fa2c-7ab3-48d1-8955-92adac9ff080",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/bank-ar-768.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "bank",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "caseId": "acd6fa2c-7ab3-48d1-8955-92adac9ff080",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/bank-ar-1366.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "direct",
+    "locale": "en",
+    "viewport": "390x844",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/direct-en-390.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "direct",
+    "locale": "en",
+    "viewport": "768x1024",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/direct-en-768.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "direct",
+    "locale": "en",
+    "viewport": "1366x900",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/direct-en-1366.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "direct",
+    "locale": "ar",
+    "viewport": "390x844",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/direct-ar-390.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "direct",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/direct-ar-768.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "direct",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/direct-ar-1366.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "completed",
+    "locale": "en",
+    "viewport": "390x844",
+    "caseId": "4f030838-1fc7-48d6-aab4-1f923975964d",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/completed-en-390.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "completed",
+    "locale": "en",
+    "viewport": "768x1024",
+    "caseId": "4f030838-1fc7-48d6-aab4-1f923975964d",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/completed-en-768.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "completed",
+    "locale": "en",
+    "viewport": "1366x900",
+    "caseId": "4f030838-1fc7-48d6-aab4-1f923975964d",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/completed-en-1366.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "completed",
+    "locale": "ar",
+    "viewport": "390x844",
+    "caseId": "4f030838-1fc7-48d6-aab4-1f923975964d",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/completed-ar-390.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "completed",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "caseId": "4f030838-1fc7-48d6-aab4-1f923975964d",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/completed-ar-768.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "completed",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "caseId": "4f030838-1fc7-48d6-aab4-1f923975964d",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/completed-ar-1366.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "limited",
+    "locale": "en",
+    "viewport": "390x844",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/limited-en-390.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "limited",
+    "locale": "en",
+    "viewport": "768x1024",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/limited-en-768.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "limited",
+    "locale": "en",
+    "viewport": "1366x900",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/limited-en-1366.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "limited",
+    "locale": "ar",
+    "viewport": "390x844",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/limited-ar-390.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "limited",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/limited-ar-768.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "limited",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "caseId": "34aba43a-c48e-4582-aaca-ed56c8d25bec",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1/before/limited-ar-1366.png",
+    "ready": "data-dossier=loaded"
+  },
+  {
+    "phase": "before",
+    "scenario": "limited-denied-bank",
+    "status": "200",
+    "caseId": "acd6fa2c-7ab3-48d1-8955-92adac9ff080",
+    "file": ""
+  }
+]

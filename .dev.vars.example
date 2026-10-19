@@ -1,0 +1,14 @@
+# Local Worker secrets. Copy to .dev.vars (gitignored) and fill locally.
+# Generate: openssl rand -base64 32
+
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://127.0.0.1:43173
+BOOTSTRAP_SECRET=
+
+# Optional: required only for REAL Cloudflare R2 presigned multipart (staging/prod).
+# Local development uses the R2 binding + Worker part endpoints when these are empty.
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+R2_S3_ENDPOINT=

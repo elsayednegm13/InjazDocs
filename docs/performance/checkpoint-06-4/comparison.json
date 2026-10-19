@@ -1,0 +1,580 @@
+{
+  "dev-large": {
+    "dataset": "large",
+    "capturedAt": "2026-10-16T13:53:05.590Z",
+    "signInAttempts": [
+      {
+        "status": 200,
+        "ms": 994,
+        "ok": true,
+        "reset": false,
+        "error": null
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reset": false,
+        "error": null
+      }
+    ],
+    "routes": {
+      "/api/v1/health": {
+        "n": 20,
+        "p50": 75,
+        "p95": 138,
+        "min": 66,
+        "max": 142,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/me": {
+        "n": 20,
+        "p50": 188,
+        "p95": 538,
+        "min": 146,
+        "max": 846,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/dashboard": {
+        "n": 20,
+        "p50": 254,
+        "p95": 929,
+        "min": 234,
+        "max": 1072,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/export-cases": {
+        "n": 20,
+        "p50": 234,
+        "p95": 863,
+        "min": 219,
+        "max": 897,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/export-cases/pcase-0": {
+        "n": 20,
+        "p50": 411,
+        "p95": 1060,
+        "min": 384,
+        "max": 1331,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/bookings": {
+        "n": 20,
+        "p50": 202,
+        "p95": 241,
+        "min": 197,
+        "max": 856,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/reminders": {
+        "n": 20,
+        "p50": 216,
+        "p95": 547,
+        "min": 188,
+        "max": 898,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/schedule": {
+        "n": 20,
+        "p50": 209,
+        "p95": 869,
+        "min": 199,
+        "max": 882,
+        "failures": 0,
+        "resets": 0
+      }
+    },
+    "parallel": {
+      "1": {
+        "n": 8,
+        "p50": 257,
+        "p95": null,
+        "failures": 0,
+        "resets": 0
+      },
+      "2": {
+        "n": 16,
+        "p50": 448,
+        "p95": null,
+        "failures": 0,
+        "resets": 0
+      },
+      "4": {
+        "n": 32,
+        "p50": 847,
+        "p95": 1566,
+        "failures": 0,
+        "resets": 0
+      },
+      "8": {
+        "n": 64,
+        "p50": 1775,
+        "p95": 2621,
+        "failures": 0,
+        "resets": 0
+      },
+      "16": {
+        "n": 64,
+        "p50": 3337,
+        "p95": 3697,
+        "failures": 0,
+        "resets": 0
+      }
+    }
+  },
+  "dev-large-after": {
+    "dataset": "large",
+    "capturedAt": "2026-10-16T14:07:33.281Z",
+    "signInAttempts": [
+      {
+        "status": 200,
+        "ms": 332,
+        "ok": true,
+        "reset": false,
+        "error": null
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reset": false,
+        "error": null
+      }
+    ],
+    "routes": {
+      "/api/v1/health": {
+        "n": 20,
+        "p50": 75,
+        "p95": 86,
+        "min": 67,
+        "max": 90,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/me": {
+        "n": 20,
+        "p50": 179,
+        "p95": 857,
+        "min": 153,
+        "max": 958,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/dashboard": {
+        "n": 20,
+        "p50": 215,
+        "p95": 575,
+        "min": 198,
+        "max": 775,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/export-cases": {
+        "n": 20,
+        "p50": 221,
+        "p95": 444,
+        "min": 219,
+        "max": 1178,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/export-cases/pcase-0": {
+        "n": 20,
+        "p50": 261,
+        "p95": 863,
+        "min": 202,
+        "max": 1021,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/bookings": {
+        "n": 20,
+        "p50": 202,
+        "p95": 714,
+        "min": 198,
+        "max": 1025,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/reminders": {
+        "n": 20,
+        "p50": 229,
+        "p95": 971,
+        "min": 182,
+        "max": 1018,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/schedule": {
+        "n": 20,
+        "p50": 202,
+        "p95": 932,
+        "min": 160,
+        "max": 1056,
+        "failures": 0,
+        "resets": 0
+      }
+    },
+    "parallel": {
+      "1": {
+        "n": 8,
+        "p50": 193,
+        "p95": null,
+        "failures": 0,
+        "resets": 0
+      },
+      "2": {
+        "n": 16,
+        "p50": 321,
+        "p95": null,
+        "failures": 0,
+        "resets": 0
+      },
+      "4": {
+        "n": 32,
+        "p50": 638,
+        "p95": 1534,
+        "failures": 0,
+        "resets": 0
+      },
+      "8": {
+        "n": 64,
+        "p50": 1109,
+        "p95": 2089,
+        "failures": 0,
+        "resets": 0
+      },
+      "16": {
+        "n": 64,
+        "p50": 2836,
+        "p95": 3694,
+        "failures": 0,
+        "resets": 0
+      }
+    }
+  },
+  "dev-medium-after": {
+    "dataset": "medium",
+    "capturedAt": "2026-10-16T14:21:12.346Z",
+    "signInAttempts": [
+      {
+        "status": 200,
+        "ms": 535,
+        "ok": true,
+        "reset": false,
+        "error": null
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reset": false,
+        "error": null
+      }
+    ],
+    "routes": {
+      "/api/v1/health": {
+        "n": 20,
+        "p50": 74,
+        "p95": 77,
+        "min": 66,
+        "max": 263,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/me": {
+        "n": 20,
+        "p50": 187,
+        "p95": 874,
+        "min": 139,
+        "max": 1008,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/dashboard": {
+        "n": 20,
+        "p50": 200,
+        "p95": 427,
+        "min": 166,
+        "max": 968,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/export-cases": {
+        "n": 20,
+        "p50": 220,
+        "p95": 642,
+        "min": 212,
+        "max": 920,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/export-cases/pcase-0": {
+        "n": 20,
+        "p50": 269,
+        "p95": 951,
+        "min": 220,
+        "max": 974,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/bookings": {
+        "n": 20,
+        "p50": 191,
+        "p95": 632,
+        "min": 166,
+        "max": 1318,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/reminders": {
+        "n": 20,
+        "p50": 200,
+        "p95": 537,
+        "min": 197,
+        "max": 1196,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/schedule": {
+        "n": 20,
+        "p50": 200,
+        "p95": 424,
+        "min": 160,
+        "max": 952,
+        "failures": 0,
+        "resets": 0
+      }
+    },
+    "parallel": {}
+  },
+  "dev-small-after": {
+    "dataset": "small",
+    "capturedAt": "2026-10-16T14:22:40.192Z",
+    "signInAttempts": [
+      {
+        "status": 200,
+        "ms": 764,
+        "ok": true,
+        "reset": false,
+        "error": null
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reset": false,
+        "error": null
+      }
+    ],
+    "routes": {
+      "/api/v1/health": {
+        "n": 20,
+        "p50": 75,
+        "p95": 83,
+        "min": 65,
+        "max": 90,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/me": {
+        "n": 20,
+        "p50": 170,
+        "p95": 859,
+        "min": 144,
+        "max": 1205,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/dashboard": {
+        "n": 20,
+        "p50": 199,
+        "p95": 207,
+        "min": 183,
+        "max": 911,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/export-cases": {
+        "n": 20,
+        "p50": 227,
+        "p95": 466,
+        "min": 219,
+        "max": 851,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/export-cases/pcase-0": {
+        "n": 20,
+        "p50": 261,
+        "p95": 1097,
+        "min": 237,
+        "max": 1242,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/bookings": {
+        "n": 20,
+        "p50": 207,
+        "p95": 444,
+        "min": 191,
+        "max": 635,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/reminders": {
+        "n": 20,
+        "p50": 183,
+        "p95": 1135,
+        "min": 138,
+        "max": 1406,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/schedule": {
+        "n": 20,
+        "p50": 199,
+        "p95": 803,
+        "min": 175,
+        "max": 875,
+        "failures": 0,
+        "resets": 0
+      }
+    },
+    "parallel": {}
+  },
+  "built-large": {
+    "dataset": "large",
+    "capturedAt": "2026-10-16T14:17:28.857Z",
+    "signInAttempts": [
+      {
+        "status": 200,
+        "ms": 655,
+        "ok": true,
+        "reset": false,
+        "error": null
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reset": false,
+        "error": null
+      }
+    ],
+    "routes": {
+      "/api/v1/health": {
+        "n": 20,
+        "p50": 62,
+        "p95": 65,
+        "min": 53,
+        "max": 73,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/me": {
+        "n": 20,
+        "p50": 157,
+        "p95": 625,
+        "min": 133,
+        "max": 854,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/dashboard": {
+        "n": 20,
+        "p50": 185,
+        "p95": 513,
+        "min": 174,
+        "max": 879,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/export-cases": {
+        "n": 20,
+        "p50": 207,
+        "p95": 593,
+        "min": 199,
+        "max": 916,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/export-cases/pcase-0": {
+        "n": 20,
+        "p50": 249,
+        "p95": 663,
+        "min": 210,
+        "max": 1021,
+        "failures": 1,
+        "resets": 1
+      },
+      "/api/v1/bookings": {
+        "n": 20,
+        "p50": 188,
+        "p95": 570,
+        "min": 177,
+        "max": 889,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/reminders": {
+        "n": 20,
+        "p50": 189,
+        "p95": 476,
+        "min": 169,
+        "max": 881,
+        "failures": 0,
+        "resets": 0
+      },
+      "/api/v1/schedule": {
+        "n": 20,
+        "p50": 162,
+        "p95": 993,
+        "min": 136,
+        "max": 1631,
+        "failures": 0,
+        "resets": 0
+      }
+    },
+    "parallel": {
+      "1": {
+        "n": 8,
+        "p50": 147,
+        "p95": null,
+        "failures": 0,
+        "resets": 0
+      },
+      "2": {
+        "n": 16,
+        "p50": 287,
+        "p95": null,
+        "failures": 0,
+        "resets": 0
+      },
+      "4": {
+        "n": 32,
+        "p50": 572,
+        "p95": 1147,
+        "failures": 0,
+        "resets": 0
+      },
+      "8": {
+        "n": 64,
+        "p50": 1002,
+        "p95": 2172,
+        "failures": 0,
+        "resets": 0
+      },
+      "16": {
+        "n": 64,
+        "p50": 1353,
+        "p95": 3561,
+        "failures": 0,
+        "resets": 0
+      }
+    }
+  }
+}

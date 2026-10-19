@@ -1,0 +1,28 @@
+{
+  "checkpoint": "06.5.2",
+  "playwright": [
+    {
+      "run": 1,
+      "started": "2026-10-16T20:26:38.393Z",
+      "ended": "2026-10-16T20:40:01.798Z",
+      "elapsed_ms": 803405,
+      "passed": 32,
+      "exit": 0,
+      "trace_resets": 5,
+      "vite_fetch_failed_lines": 6
+    },
+    {
+      "run": 2,
+      "started": "2026-10-16T20:40:58.865Z",
+      "ended": "2026-10-16T20:53:39.486Z",
+      "elapsed_ms": 760621,
+      "passed": 32,
+      "exit": 0,
+      "trace_resets": 3,
+      "vite_fetch_failed_lines": 4
+    }
+  ],
+  "review_rule_before_ms": 220528,
+  "arm_b_long_run": { "requests": 1950, "ok": 1950, "resets": 0, "duration_ms": 605485 },
+  "developer_db": { "bytes": 638976, "mtime": "2026-10-14T21:07:38.4798993Z" }
+}

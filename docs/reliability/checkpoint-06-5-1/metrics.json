@@ -1,0 +1,12 @@
+{
+  "checkpoint": "06.5.1",
+  "rule_patch": [
+    { "phase": "serial-all-rules", "cases": 500, "server_ms": 537447, "client_ms": 308936, "client_outcome": "UND_ERR_HEADERS_TIMEOUT", "handler_status_after_client_left": 200 },
+    { "phase": "serial-one-rule", "cases": 500, "server_ms": 143652, "client_ms": 143957, "status": 200 },
+    { "phase": "document-batch", "requirements": 1000, "server_ms": 161, "client_ms": 453, "status": 200 }
+  ],
+  "playwright_after_fix": [
+    { "run": 1, "started_utc": "2026-10-16T18:57:04.371Z", "passed": 32, "total": 32, "exit": 0, "elapsed_ms": 616524, "econnreset": 4 },
+    { "run": 2, "started_utc": "2026-10-16T19:07:36.233Z", "passed": 32, "total": 32, "exit": 0, "elapsed_ms": 697205, "econnreset": 5 }
+  ]
+}

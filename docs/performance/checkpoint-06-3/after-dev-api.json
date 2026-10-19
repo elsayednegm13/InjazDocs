@@ -1,0 +1,763 @@
+{
+  "capturedAt": "2026-10-16T09:41:55.027Z",
+  "base": "http://127.0.0.1:43174",
+  "note": "Isolated E2E Vite+Miniflare on 43174. Bodies, cookies, and credentials are not stored.",
+  "healthReady": {
+    "path": "/api/v1/health",
+    "status": 200,
+    "ms": 171,
+    "ok": true,
+    "reset": false,
+    "contentType": "application/json"
+  },
+  "sequential8": {
+    "label": "health-sequential",
+    "n": 8,
+    "min": 55,
+    "median": 62,
+    "p95": 63,
+    "max": 63,
+    "failures": 0,
+    "resets": 0,
+    "samples": [
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 55,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 61,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 63,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 61,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 63,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      }
+    ]
+  },
+  "parallel2": {
+    "label": "health-parallel-2",
+    "n": 2,
+    "min": 88,
+    "median": 88,
+    "p95": 89,
+    "max": 89,
+    "failures": 0,
+    "resets": 0,
+    "samples": [
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 88,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 89,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      }
+    ]
+  },
+  "parallel4": {
+    "label": "health-parallel-4",
+    "n": 4,
+    "min": 140,
+    "median": 141,
+    "p95": 143,
+    "max": 143,
+    "failures": 0,
+    "resets": 0,
+    "samples": [
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 140,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 141,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 143,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 143,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      }
+    ]
+  },
+  "parallel8": {
+    "label": "health-parallel-8",
+    "n": 8,
+    "min": 186,
+    "median": 187,
+    "p95": 190,
+    "max": 190,
+    "failures": 0,
+    "resets": 0,
+    "samples": [
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 186,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 186,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 187,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 187,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 188,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 189,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 190,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 190,
+        "ok": true,
+        "reset": false,
+        "contentType": "application/json"
+      }
+    ]
+  },
+  "keepAlive8": {
+    "label": "health-keepalive-8",
+    "n": 8,
+    "min": 57,
+    "median": 61,
+    "p95": 63,
+    "max": 63,
+    "failures": 0,
+    "resets": 0,
+    "samples": [
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 60,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 57,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 61,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 63,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 61,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 63,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false
+      }
+    ]
+  },
+  "freshAgent8": {
+    "label": "health-fresh-agent-8",
+    "n": 8,
+    "min": 61,
+    "median": 62,
+    "p95": 63,
+    "max": 63,
+    "failures": 0,
+    "resets": 0,
+    "samples": [
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 63,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 61,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/health",
+        "status": 200,
+        "ms": 62,
+        "ok": true,
+        "reset": false
+      }
+    ]
+  },
+  "bootstrapRace": {
+    "label": "bootstrap-parallel-2",
+    "n": 2,
+    "min": 109,
+    "median": 109,
+    "p95": 503,
+    "max": 503,
+    "failures": 1,
+    "resets": 0,
+    "samples": [
+      {
+        "path": "/api/v1/auth/bootstrap",
+        "status": 201,
+        "ms": 503,
+        "ok": true,
+        "reset": false
+      },
+      {
+        "path": "/api/v1/auth/bootstrap",
+        "status": 409,
+        "ms": 109,
+        "ok": false,
+        "reset": false
+      }
+    ]
+  },
+  "signIn": {
+    "status": 200,
+    "ms": null,
+    "ok": true,
+    "reset": false,
+    "cookieCount": 1
+  },
+  "passwordChange": {
+    "status": 200,
+    "ms": 544,
+    "ok": true,
+    "reset": false
+  },
+  "authenticated": {
+    "/api/v1/me": {
+      "n": 5,
+      "min": 165,
+      "median": 168,
+      "p95": 856,
+      "max": 856,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 856,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 165,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 166,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 168,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 175,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/dashboard": {
+      "n": 5,
+      "min": 227,
+      "median": 235,
+      "p95": 264,
+      "max": 264,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 235,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 235,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 227,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 249,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 264,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/export-cases": {
+      "n": 5,
+      "min": 207,
+      "median": 208,
+      "p95": 946,
+      "max": 946,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 208,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 207,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 225,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 946,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 207,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/bookings": {
+      "n": 5,
+      "min": 199,
+      "median": 205,
+      "p95": 228,
+      "max": 228,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 205,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 200,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 228,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 223,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/reminders": {
+      "n": 5,
+      "min": 186,
+      "median": 209,
+      "p95": 491,
+      "max": 491,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 213,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 209,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 491,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 186,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 188,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    }
+  },
+  "playwrightReuse": {
+    "sequential": {
+      "n": 12,
+      "min": 226,
+      "median": 241,
+      "p95": 974,
+      "max": 974,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 226,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 272,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 243,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 244,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 241,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 242,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 268,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 230,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 241,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 974,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 226,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 228,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "parallel8": {
+      "n": 8,
+      "min": 1964,
+      "median": 1971,
+      "p95": 1988,
+      "max": 1988,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 1964,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1965,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1966,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1971,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1981,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1987,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1988,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1988,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "checkpoint": "06.6.1-A",
+  "afterDir": "docs/qa-screenshots/checkpoint-06-6-1-a/after",
+  "cellCount": 24,
+  "openedAndReviewed": 24,
+  "staleFixtureIdsInThisSet": 0,
+  "containerIds": ["TCLU0000009", "HLXU1111119"],
+  "detail": "completed-invoices-locked-1366.png",
+  "sourceManifest": "docs/qa-screenshots/checkpoint-06-6-1-a/after/evidence-manifest.json"
+}

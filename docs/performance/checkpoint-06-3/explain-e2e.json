@@ -1,0 +1,138 @@
+{
+  "capturedAt": "2026-10-16T09:45:11.343Z",
+  "dataset": {
+    "cases": 0,
+    "reminders": 0,
+    "events": 0
+  },
+  "plans": {
+    "dashboardCounts": [
+      {
+        "id": 1,
+        "parent": 0,
+        "notused": 0,
+        "detail": "SCAN CONSTANT ROW"
+      },
+      {
+        "id": 4,
+        "parent": 0,
+        "notused": 0,
+        "detail": "SCALAR SUBQUERY 1"
+      },
+      {
+        "id": 9,
+        "parent": 4,
+        "notused": 211,
+        "detail": "SCAN export_cases USING COVERING INDEX export_cases_status_idx"
+      },
+      {
+        "id": 27,
+        "parent": 0,
+        "notused": 0,
+        "detail": "SCALAR SUBQUERY 2"
+      },
+      {
+        "id": 32,
+        "parent": 27,
+        "notused": 54,
+        "detail": "SEARCH export_cases USING COVERING INDEX export_cases_status_idx (status=?)"
+      },
+      {
+        "id": 45,
+        "parent": 0,
+        "notused": 0,
+        "detail": "SCALAR SUBQUERY 3"
+      },
+      {
+        "id": 50,
+        "parent": 45,
+        "notused": 216,
+        "detail": "SCAN operation_document_requirements"
+      },
+      {
+        "id": 83,
+        "parent": 0,
+        "notused": 0,
+        "detail": "SCALAR SUBQUERY 4"
+      },
+      {
+        "id": 88,
+        "parent": 83,
+        "notused": 216,
+        "detail": "SCAN export_cases"
+      },
+      {
+        "id": 102,
+        "parent": 0,
+        "notused": 0,
+        "detail": "SCALAR SUBQUERY 5"
+      },
+      {
+        "id": 107,
+        "parent": 102,
+        "notused": 216,
+        "detail": "SCAN courier_shipments"
+      },
+      {
+        "id": 121,
+        "parent": 0,
+        "notused": 0,
+        "detail": "SCALAR SUBQUERY 6"
+      },
+      {
+        "id": 126,
+        "parent": 121,
+        "notused": 46,
+        "detail": "SEARCH reminder_instances USING COVERING INDEX reminder_due_idx (status=? AND due_at<?)"
+      }
+    ],
+    "recentEvents": [
+      {
+        "id": 4,
+        "parent": 0,
+        "notused": 216,
+        "detail": "SCAN case_events"
+      },
+      {
+        "id": 19,
+        "parent": 0,
+        "notused": 0,
+        "detail": "USE TEMP B-TREE FOR ORDER BY"
+      }
+    ],
+    "dueReminders": [
+      {
+        "id": 6,
+        "parent": 0,
+        "notused": 71,
+        "detail": "SEARCH r USING INDEX reminder_due_idx (status=?)"
+      },
+      {
+        "id": 25,
+        "parent": 0,
+        "notused": 44,
+        "detail": "SEARCH c USING COVERING INDEX sqlite_autoindex_export_cases_1 (id=?)"
+      },
+      {
+        "id": 40,
+        "parent": 0,
+        "notused": 0,
+        "detail": "USE TEMP B-TREE FOR ORDER BY"
+      }
+    ],
+    "caseList": [
+      {
+        "id": 4,
+        "parent": 0,
+        "notused": 216,
+        "detail": "SCAN export_cases"
+      },
+      {
+        "id": 16,
+        "parent": 0,
+        "notused": 0,
+        "detail": "USE TEMP B-TREE FOR ORDER BY"
+      }
+    ]
+  }
+}

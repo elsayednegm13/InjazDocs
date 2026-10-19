@@ -1,0 +1,70 @@
+{
+  "label": "candidate",
+  "base": "http://127.0.0.1:43180",
+  "n": 12,
+  "overlay": 0,
+  "heading": 12,
+  "timeout": 0,
+  "rows": [
+    {
+      "i": 0,
+      "winner": "heading",
+      "ms": 1397
+    },
+    {
+      "i": 1,
+      "winner": "heading",
+      "ms": 1163
+    },
+    {
+      "i": 2,
+      "winner": "heading",
+      "ms": 1229
+    },
+    {
+      "i": 3,
+      "winner": "heading",
+      "ms": 1419
+    },
+    {
+      "i": 4,
+      "winner": "heading",
+      "ms": 2628
+    },
+    {
+      "i": 5,
+      "winner": "heading",
+      "ms": 1219
+    },
+    {
+      "i": 6,
+      "winner": "heading",
+      "ms": 1148
+    },
+    {
+      "i": 7,
+      "winner": "heading",
+      "ms": 1065
+    },
+    {
+      "i": 8,
+      "winner": "heading",
+      "ms": 1139
+    },
+    {
+      "i": 9,
+      "winner": "heading",
+      "ms": 1070
+    },
+    {
+      "i": 10,
+      "winner": "heading",
+      "ms": 1752
+    },
+    {
+      "i": 11,
+      "winner": "heading",
+      "ms": 1688
+    }
+  ]
+}

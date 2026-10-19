@@ -1,0 +1,105 @@
+{
+  "capturedAt": "2026-10-16T19:48:17.561Z",
+  "base": "http://127.0.0.1:43176",
+  "results": [
+    {
+      "id": "rr-doc-due",
+      "family": "DOCUMENT_REQUIREMENT_NOT_READY",
+      "status": 200,
+      "duration_ms": 5095,
+      "fetch_failed": false,
+      "html": false,
+      "error": null
+    },
+    {
+      "id": "rr-review",
+      "family": "DOCUMENT_REVIEW_PENDING",
+      "status": 200,
+      "duration_ms": 6132,
+      "fetch_failed": false,
+      "html": false,
+      "error": null
+    },
+    {
+      "id": "rr-bank",
+      "family": "BANK_REVIEW_OVERDUE",
+      "status": 500,
+      "duration_ms": 316,
+      "fetch_failed": true,
+      "html": true,
+      "error": null
+    },
+    {
+      "id": "rr-courier",
+      "family": "COURIER_STATUS_CHECK",
+      "status": 200,
+      "duration_ms": 864,
+      "fetch_failed": false,
+      "html": false,
+      "error": null
+    },
+    {
+      "id": "rr-load",
+      "family": "BOOKING_LOADING_APPROACHING",
+      "status": 200,
+      "duration_ms": 680,
+      "fetch_failed": false,
+      "html": false,
+      "error": null
+    },
+    {
+      "id": "rr-cutoff",
+      "family": "BOOKING_CUTOFF_APPROACHING",
+      "status": 200,
+      "duration_ms": 467,
+      "fetch_failed": false,
+      "html": false,
+      "error": null
+    },
+    {
+      "id": "rr-etd",
+      "family": "BOOKING_ETD_FOLLOWUP",
+      "status": 200,
+      "duration_ms": 2299,
+      "fetch_failed": false,
+      "html": false,
+      "error": null
+    },
+    {
+      "id": "rr-ctr",
+      "family": "CONTAINER_STATUS_FOLLOWUP",
+      "status": 200,
+      "duration_ms": 1699,
+      "fetch_failed": false,
+      "html": false,
+      "error": null
+    },
+    {
+      "id": "rr-eta",
+      "family": "VESSEL_ETA_APPROACHING",
+      "status": 200,
+      "duration_ms": 3490,
+      "fetch_failed": false,
+      "html": false,
+      "error": null
+    },
+    {
+      "id": "rr-arr",
+      "family": "ARRIVAL_OVERDUE",
+      "status": 200,
+      "duration_ms": 4274,
+      "fetch_failed": false,
+      "html": false,
+      "error": null
+    },
+    {
+      "id": "rr-goods",
+      "family": "GOODS_DELIVERY_PENDING",
+      "status": 200,
+      "duration_ms": 580,
+      "fetch_failed": false,
+      "html": false,
+      "error": null
+    }
+  ]
+}

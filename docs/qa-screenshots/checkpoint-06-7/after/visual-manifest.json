@@ -1,0 +1,249 @@
+[
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "dashboard",
+    "locale": "en",
+    "viewport": "390x844",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-admin-en-390.png",
+    "ready": "h1",
+    "readyMs": "1247"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "dashboard",
+    "locale": "en",
+    "viewport": "768x1024",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-admin-en-768.png",
+    "ready": "h1",
+    "readyMs": "1247"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "dashboard",
+    "locale": "en",
+    "viewport": "1366x900",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-admin-en-1366.png",
+    "ready": "h1",
+    "readyMs": "1247"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "dashboard",
+    "locale": "ar",
+    "viewport": "390x844",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-admin-ar-390.png",
+    "ready": "h1",
+    "readyMs": "1247"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "dashboard",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-admin-ar-768.png",
+    "ready": "h1",
+    "readyMs": "1247"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "dashboard",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-admin-ar-1366.png",
+    "ready": "h1",
+    "readyMs": "1247"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "cases",
+    "locale": "en",
+    "viewport": "390x844",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-admin-en-390.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1237"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "cases",
+    "locale": "en",
+    "viewport": "768x1024",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-admin-en-768.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1237"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "cases",
+    "locale": "en",
+    "viewport": "1366x900",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-admin-en-1366.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1237"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "cases",
+    "locale": "ar",
+    "viewport": "390x844",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-admin-ar-390.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1237"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "cases",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-admin-ar-768.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1237"
+  },
+  {
+    "phase": "after",
+    "role": "admin",
+    "page": "cases",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-admin-ar-1366.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1237"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "dashboard",
+    "locale": "en",
+    "viewport": "390x844",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-limited-en-390.png",
+    "ready": "h1",
+    "readyMs": "1873"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "dashboard",
+    "locale": "en",
+    "viewport": "768x1024",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-limited-en-768.png",
+    "ready": "h1",
+    "readyMs": "1873"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "dashboard",
+    "locale": "en",
+    "viewport": "1366x900",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-limited-en-1366.png",
+    "ready": "h1",
+    "readyMs": "1873"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "dashboard",
+    "locale": "ar",
+    "viewport": "390x844",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-limited-ar-390.png",
+    "ready": "h1",
+    "readyMs": "1873"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "dashboard",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-limited-ar-768.png",
+    "ready": "h1",
+    "readyMs": "1873"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "dashboard",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/dashboard-limited-ar-1366.png",
+    "ready": "h1",
+    "readyMs": "1873"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "cases",
+    "locale": "en",
+    "viewport": "390x844",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-limited-en-390.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1342"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "cases",
+    "locale": "en",
+    "viewport": "768x1024",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-limited-en-768.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1342"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "cases",
+    "locale": "en",
+    "viewport": "1366x900",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-limited-en-1366.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1342"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "cases",
+    "locale": "ar",
+    "viewport": "390x844",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-limited-ar-390.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1342"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "cases",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-limited-ar-768.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1342"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "cases",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "file": "docs/qa-screenshots/checkpoint-06-7/after/cases-limited-ar-1366.png",
+    "ready": "[data-cases='ready']",
+    "readyMs": "1342"
+  },
+  {
+    "phase": "after",
+    "role": "limited",
+    "page": "users-api",
+    "status": "403",
+    "file": ""
+  }
+]

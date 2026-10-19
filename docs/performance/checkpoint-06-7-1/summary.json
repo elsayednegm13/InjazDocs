@@ -1,0 +1,14 @@
+{
+  "checkpoint": "06.7.1",
+  "method": "Playwright navigation until data-ready marker. Admin samples mix first dashboard load, four extra dashboard loads, and first cases load.",
+  "beforeAdminMs": [1963, 1435, 1428, 1372, 941, 1994],
+  "afterAdminMs": [1764, 941, 1019, 819, 1331, 1039],
+  "n": 6,
+  "note": "Not a pure p95. Median of first five after samples is 1019ms. Fixtures differ: INV-DESK-158307 before, INV-DESK-625064 after.",
+  "clientCssGzipBytes": 6570,
+  "clientJsGzipBytes": 168110,
+  "clientCssRawBytes": 31710,
+  "clientJsRawBytes": 554050,
+  "fontBytes": 0,
+  "local320msMitigation": "RETAINED_LOCAL_ONLY"
+}

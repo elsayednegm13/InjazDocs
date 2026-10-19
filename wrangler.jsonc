@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "exportflow",
+  "compatibility_date": "2026-10-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./worker/index.ts",
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "exportflow-local",
+      "database_id": "local-exportflow-not-a-remote-id",
+      "migrations_dir": "drizzle/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "DOCUMENTS",
+      "bucket_name": "exportflow-documents-local"
+    }
+  ],
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
+  "vars": {
+    "APP_NAME": "ExportFlow",
+    "COMPANY_TIMEZONE": "Africa/Cairo",
+    "INCOTERMS_EDITION_DEFAULT": "Incoterms 2020",
+    "MAX_UPLOAD_BYTES": "419430400",
+    "UPLOAD_PART_SIZE_BYTES": "10485760"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "checkpoint": "06.6.1-A",
+  "mode": "vite-dev",
+  "metric": "navigation-to-data-dossier-loaded",
+  "samples": [
+    { "scenario": "BANK", "n": 1, "readyMs": 1602 },
+    { "scenario": "DIRECT", "n": 1, "readyMs": 1421 },
+    { "scenario": "COMPLETED", "n": 1, "readyMs": 1298 },
+    { "scenario": "LIMITED", "n": 1, "readyMs": 1628 }
+  ],
+  "p95": "NOT_COMPUTED_N_LT_20"
+}

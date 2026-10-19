@@ -1,0 +1,43 @@
+{
+  "checkpoint": "06.5.4",
+  "developerDb": { "bytes": 638976, "mtime": "2026-10-14T21:07:38.4798993Z" },
+  "transport": {
+    "serialJsonPost": { "n": 20, "bad": 0, "status": 404 },
+    "parallelJsonPostMs": [356, 705, 1321, 1668, 2024, 2388, 2738, 3092],
+    "serialGetMs": [422, 81, 102, 85, 87, 96, 86, 88, 88, 88, 87, 96, 85, 87, 88, 112]
+  },
+  "playwrightRun1": {
+    "startedAt": "2026-10-17T17:35:10.643Z",
+    "endedAt": "2026-10-17T17:49:51.840Z",
+    "elapsedMs": 881197,
+    "passed": 32,
+    "exit": 0,
+    "econnreset": 0,
+    "fetchFailed": 0,
+    "honoEnter": null,
+    "note": "EXPORTFLOW_TRACE was off, so handler entries were not logged"
+  },
+  "playwrightRun2": {
+    "startedAt": "2026-10-17T17:52:05.688Z",
+    "endedAt": "2026-10-17T18:03:50.269Z",
+    "elapsedMs": 704581,
+    "passed": 32,
+    "exit": 0,
+    "honoEnter": 749,
+    "honoStatusLines": 749,
+    "econnreset": 0,
+    "fetchFailed": 0,
+    "internalServerError": 0
+  },
+  "cronCountedWindow": {
+    "eligibleStart": 1250,
+    "eligibleEnd": 0,
+    "deliveriesStart": 900,
+    "deliveriesEnd": 2150,
+    "duplicateCycles": 0,
+    "workTicks": 13,
+    "idleDeliveryTicks": 1,
+    "httpMsMin": 34772,
+    "httpMsMax": 72869
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "label": "candidate",
+  "port": "43180",
+  "n": 10,
+  "ok": 10,
+  "reset": 0,
+  "reachedHono": 10,
+  "capturedAt": "2026-10-16T16:51:21.243Z",
+  "rows": [
+    {
+      "i": 0,
+      "healthMs": 9206,
+      "status": 200,
+      "ms": 325,
+      "ok": true,
+      "reset": false,
+      "error": null,
+      "handler": "reached",
+      "traceLine": null,
+      "handlerLine": "[exportflow-handler] POST /api/auth/sign-in/email 200 270"
+    },
+    {
+      "i": 1,
+      "healthMs": 9919,
+      "status": 200,
+      "ms": 376,
+      "ok": true,
+      "reset": false,
+      "error": null,
+      "handler": "reached",
+      "traceLine": null,
+      "handlerLine": "[exportflow-handler] POST /api/auth/sign-in/email 200 316"
+    },
+    {
+      "i": 2,
+      "healthMs": 10815,
+      "status": 200,
+      "ms": 399,
+      "ok": true,
+      "reset": false,
+      "error": null,
+      "handler": "reached",
+      "traceLine": null,
+      "handlerLine": "[exportflow-handler] POST /api/auth/sign-in/email 200 328"
+    },
+    {
+      "i": 3,
+      "healthMs": 11775,
+      "status": 200,
+      "ms": 392,
+      "ok": true,
+      "reset": false,
+      "error": null,
+      "handler": "reached",
+      "traceLine": null,
+      "handlerLine": "[exportflow-handler] POST /api/auth/sign-in/email 200 331"
+    },
+    {
+      "i": 4,
+      "healthMs": 10316,
+      "status": 200,
+      "ms": 655,
+      "ok": true,
+      "reset": false,
+      "error": null,
+      "handler": "reached",
+      "traceLine": null,
+      "handlerLine": "[exportflow-handler] POST /api/auth/sign-in/email 200 594"
+    },
+    {
+      "i": 5,
+      "healthMs": 10466,
+      "status": 200,
+      "ms": 652,
+      "ok": true,
+      "reset": false,
+      "error": null,
+      "handler": "reached",
+      "traceLine": null,
+      "handlerLine": "[exportflow-handler] POST /api/auth/sign-in/email 200 587"
+    },
+    {
+      "i": 6,
+      "healthMs": 9969,
+      "status": 200,
+      "ms": 369,
+      "ok": true,
+      "reset": false,
+      "error": null,
+      "handler": "reached",
+      "traceLine": null,
+      "handlerLine": "[exportflow-handler] POST /api/auth/sign-in/email 200 297"
+    },
+    {
+      "i": 7,
+      "healthMs": 10566,
+      "status": 200,
+      "ms": 364,
+      "ok": true,
+      "reset": false,
+      "error": null,
+      "handler": "reached",
+      "traceLine": null,
+      "handlerLine": "[exportflow-handler] POST /api/auth/sign-in/email 200 304"
+    },
+    {
+      "i": 8,
+      "healthMs": 10099,
+      "status": 200,
+      "ms": 397,
+      "ok": true,
+      "reset": false,
+      "error": null,
+      "handler": "reached",
+      "traceLine": null,
+      "handlerLine": "[exportflow-handler] POST /api/auth/sign-in/email 200 310"
+    },
+    {
+      "i": 9,
+      "healthMs": 10106,
+      "status": 200,
+      "ms": 343,
+      "ok": true,
+      "reset": false,
+      "error": null,
+      "handler": "reached",
+      "traceLine": null,
+      "handlerLine": "[exportflow-handler] POST /api/auth/sign-in/email 200 280"
+    }
+  ]
+}

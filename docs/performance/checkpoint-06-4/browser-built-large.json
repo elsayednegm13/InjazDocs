@@ -1,0 +1,116 @@
+{
+  "tag": "browser-built-large",
+  "dataset": "large",
+  "base": "http://127.0.0.1:43176",
+  "capturedAt": "2026-10-16T14:19:39.105Z",
+  "environment": "LOCAL BUILT authenticated preview, isolated perf database",
+  "loginMs": 1033,
+  "dashboardWarm": {
+    "n": 10,
+    "min": 397,
+    "p50": 421,
+    "max": 998,
+    "samples": [
+      438,
+      403,
+      397,
+      998,
+      439,
+      913,
+      548,
+      421,
+      413,
+      418
+    ]
+  },
+  "dashboardColdLogin": {
+    "n": 3,
+    "samples": [
+      1414,
+      893,
+      1906
+    ]
+  },
+  "casesListMs": 297,
+  "openCaseMs": 391,
+  "caseHeadingHasReference": true,
+  "spaNav": [
+    {
+      "to": "dashboard",
+      "ms": 104
+    },
+    {
+      "to": "cases",
+      "ms": 116
+    },
+    {
+      "to": "dashboard",
+      "ms": 131
+    },
+    {
+      "to": "cases",
+      "ms": 101
+    },
+    {
+      "to": "dashboard",
+      "ms": 116
+    },
+    {
+      "to": "cases",
+      "ms": 112
+    }
+  ],
+  "routes": [
+    {
+      "label": "bookings",
+      "ms": 1222
+    },
+    {
+      "label": "schedule",
+      "ms": 372
+    },
+    {
+      "label": "reminders",
+      "ms": 1183
+    }
+  ],
+  "viewports": [
+    {
+      "viewport": 768,
+      "ms": 975
+    },
+    {
+      "viewport": 390,
+      "ms": 943
+    }
+  ],
+  "track": [
+    {
+      "kind": "active",
+      "ms": 1121,
+      "heading": "PF-2026-xxxx",
+      "unavailable": false,
+      "dirBefore": "ltr",
+      "dirAfter": "rtl",
+      "leakedAmount": false
+    },
+    {
+      "kind": "revoked",
+      "ms": 483,
+      "heading": "Tracking unavailable",
+      "unavailable": true,
+      "dirBefore": "ltr",
+      "dirAfter": "ltr",
+      "leakedAmount": false
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 410 (Gone)"
+  ],
+  "pageErrors": [],
+  "requestFailed": []
+}

@@ -1,0 +1,42 @@
+{
+  "customer": 201,
+  "case": 201,
+  "booking": 201,
+  "bookingUpdate": 200,
+  "touched": {
+    "rr-load": {
+      "status": 200,
+      "html": false
+    },
+    "rr-cutoff": {
+      "status": 200,
+      "html": false
+    },
+    "rr-eta": {
+      "status": 200,
+      "html": false
+    },
+    "rr-goods": {
+      "status": 200,
+      "html": false
+    },
+    "rr-bank": {
+      "status": 200,
+      "html": false
+    }
+  },
+  "goodsBefore": 0,
+  "goodsPatch": 200,
+  "openByRule": {
+    "rr-doc-due": 3,
+    "rr-cutoff": 1,
+    "rr-load": 1,
+    "rr-eta": 1,
+    "rr-goods": 1
+  },
+  "directCaseBankReminders": 0,
+  "cron": {
+    "status": 200,
+    "ms": 1288
+  }
+}

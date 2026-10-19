@@ -1,0 +1,38 @@
+{
+  "capturedAt": "2026-10-16T16:46:18.856Z",
+  "notes": [
+    {
+      "url": "http://127.0.0.1:43176/login",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+      "url": "http://127.0.0.1:43176/login",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+      "url": "http://127.0.0.1:43176/login",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+      "url": "http://127.0.0.1:43176/dashboard",
+      "text": "[vite] Internal Server Error\nfetch failed\n    at Object.processResponse (I:\\WORK\\InjazDocs\\node_modules\\.pnpm\\undici@7.29.1\\node_modules\\undici\\lib\\web\\fetch\\index.js:237:16)\n    a"
+    },
+    {
+      "url": "http://127.0.0.1:43176/dashboard",
+      "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    },
+    {
+      "url": "http://127.0.0.1:43176/track/:token",
+      "text": "Failed to load resource: the server responded with a status of 410 (Gone)"
+    },
+    {
+      "url": "http://127.0.0.1:43176/track/:token",
+      "text": "Failed to load resource: the server responded with a status of 410 (Gone)"
+    },
+    {
+      "url": "http://127.0.0.1:43176/track/:token",
+      "text": "Failed to load resource: the server responded with a status of 410 (Gone)"
+    }
+  ],
+  "noteCount": 8
+}

@@ -1,0 +1,1089 @@
+{
+  "tag": "dev-small-after",
+  "dataset": "small",
+  "base": "http://127.0.0.1:43176",
+  "capturedAt": "2026-10-16T14:22:40.192Z",
+  "samples": 20,
+  "signInAttempts": [
+    {
+      "status": 200,
+      "ms": 764,
+      "ok": true,
+      "reset": false,
+      "error": null
+    },
+    {
+      "status": 200,
+      "ok": true,
+      "reset": false,
+      "error": null
+    }
+  ],
+  "routes": {
+    "/api/v1/health": {
+      "path": "/api/v1/health",
+      "n": 20,
+      "min": 65,
+      "p50": 75,
+      "p95": 83,
+      "p95Label": "sample",
+      "max": 90,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 75,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 75,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 76,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 74,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 74,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 90,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 75,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 75,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 65,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 67,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 75,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 67,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 74,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 75,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 75,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 66,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 83,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 66,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 66,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 75,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/me": {
+      "path": "/api/v1/me",
+      "n": 20,
+      "min": 144,
+      "p50": 170,
+      "p95": 859,
+      "p95Label": "sample",
+      "max": 1205,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 144,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 859,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 174,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 153,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 155,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 153,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 154,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 153,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 392,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 186,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 186,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 195,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 203,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 194,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 154,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 170,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1205,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 153,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 156,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 555,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/dashboard": {
+      "path": "/api/v1/dashboard",
+      "n": 20,
+      "min": 183,
+      "p50": 199,
+      "p95": 207,
+      "p95Label": "sample",
+      "max": 911,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 183,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 183,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 191,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 207,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 192,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 190,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 911,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 196,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 198,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 203,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 196,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 200,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 191,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 200,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 206,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/export-cases": {
+      "path": "/api/v1/export-cases",
+      "n": 20,
+      "min": 219,
+      "p50": 227,
+      "p95": 466,
+      "p95Label": "sample",
+      "max": 851,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 219,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 466,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 228,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 227,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 222,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 219,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 220,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 220,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 244,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 428,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 426,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 851,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 220,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 220,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 224,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 331,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 232,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 230,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 219,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 236,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/export-cases/pcase-0": {
+      "path": "/api/v1/export-cases/pcase-0",
+      "n": 20,
+      "min": 237,
+      "p50": 261,
+      "p95": 1097,
+      "p95Label": "sample",
+      "max": 1242,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 1097,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 259,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 261,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 270,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 286,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 311,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 366,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 253,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 246,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 283,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1242,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 254,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 246,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 243,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 262,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 237,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 561,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 261,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 261,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 255,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/bookings": {
+      "path": "/api/v1/bookings",
+      "n": 20,
+      "min": 191,
+      "p50": 207,
+      "p95": 444,
+      "p95Label": "sample",
+      "max": 635,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 208,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 206,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 233,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 208,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 198,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 198,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 207,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 441,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 207,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 444,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 635,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 208,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 207,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 305,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 207,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 223,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 273,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 191,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/reminders": {
+      "path": "/api/v1/reminders",
+      "n": 20,
+      "min": 138,
+      "p50": 183,
+      "p95": 1135,
+      "p95Label": "sample",
+      "max": 1406,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 175,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 376,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1406,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 138,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 167,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 174,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 183,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 167,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 176,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 155,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 470,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 215,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 207,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 206,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 158,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1135,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 211,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 173,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 186,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 1025,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    },
+    "/api/v1/schedule": {
+      "path": "/api/v1/schedule",
+      "n": 20,
+      "min": 175,
+      "p50": 199,
+      "p95": 803,
+      "p95Label": "sample",
+      "max": 875,
+      "failures": 0,
+      "resets": 0,
+      "samples": [
+        {
+          "status": 200,
+          "ms": 182,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 320,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 279,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 387,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 803,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 216,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 191,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 175,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 198,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 182,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 177,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 190,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 200,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 202,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 179,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 199,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 875,
+          "ok": true,
+          "reset": false
+        },
+        {
+          "status": 200,
+          "ms": 194,
+          "ok": true,
+          "reset": false
+        }
+      ]
+    }
+  },
+  "dashboardParallel": {}
+}

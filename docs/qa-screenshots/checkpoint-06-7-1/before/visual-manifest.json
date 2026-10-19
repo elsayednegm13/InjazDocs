@@ -1,0 +1,283 @@
+{
+  "manifest": [
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "dashboard",
+      "locale": "en",
+      "viewport": "390x844",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-admin-en-390.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1963",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "dashboard",
+      "locale": "en",
+      "viewport": "768x1024",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-admin-en-768.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1963",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "dashboard",
+      "locale": "en",
+      "viewport": "1366x900",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-admin-en-1366.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1963",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "dashboard",
+      "locale": "ar",
+      "viewport": "390x844",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-admin-ar-390.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1963",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "dashboard",
+      "locale": "ar",
+      "viewport": "768x1024",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-admin-ar-768.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1963",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "dashboard",
+      "locale": "ar",
+      "viewport": "1366x900",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-admin-ar-1366.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1963",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "cases",
+      "locale": "en",
+      "viewport": "390x844",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-admin-en-390.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1994",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "cases",
+      "locale": "en",
+      "viewport": "768x1024",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-admin-en-768.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1994",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "cases",
+      "locale": "en",
+      "viewport": "1366x900",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-admin-en-1366.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1994",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "cases",
+      "locale": "ar",
+      "viewport": "390x844",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-admin-ar-390.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1994",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "cases",
+      "locale": "ar",
+      "viewport": "768x1024",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-admin-ar-768.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1994",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "admin",
+      "page": "cases",
+      "locale": "ar",
+      "viewport": "1366x900",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-admin-ar-1366.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1994",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "dashboard",
+      "locale": "en",
+      "viewport": "390x844",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-limited-en-390.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1767",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "dashboard",
+      "locale": "en",
+      "viewport": "768x1024",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-limited-en-768.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1767",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "dashboard",
+      "locale": "en",
+      "viewport": "1366x900",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-limited-en-1366.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1767",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "dashboard",
+      "locale": "ar",
+      "viewport": "390x844",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-limited-ar-390.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1767",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "dashboard",
+      "locale": "ar",
+      "viewport": "768x1024",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-limited-ar-768.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1767",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "dashboard",
+      "locale": "ar",
+      "viewport": "1366x900",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/dashboard-limited-ar-1366.png",
+      "ready": "[data-dashboard='ready']",
+      "readyMs": "1767",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "cases",
+      "locale": "en",
+      "viewport": "390x844",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-limited-en-390.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1469",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "cases",
+      "locale": "en",
+      "viewport": "768x1024",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-limited-en-768.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1469",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "cases",
+      "locale": "en",
+      "viewport": "1366x900",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-limited-en-1366.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1469",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "cases",
+      "locale": "ar",
+      "viewport": "390x844",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-limited-ar-390.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1469",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "cases",
+      "locale": "ar",
+      "viewport": "768x1024",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-limited-ar-768.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1469",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "cases",
+      "locale": "ar",
+      "viewport": "1366x900",
+      "file": "docs/qa-screenshots/checkpoint-06-7-1/before/cases-limited-ar-1366.png",
+      "ready": "[data-cases='ready']",
+      "readyMs": "1469",
+      "fixture": "INV-DESK-158307"
+    },
+    {
+      "phase": "before",
+      "role": "limited",
+      "page": "users-api",
+      "status": "403",
+      "file": ""
+    }
+  ],
+  "adminDashboardWarmMs": [
+    1963,
+    1435,
+    1428,
+    1372,
+    941,
+    1994
+  ]
+}

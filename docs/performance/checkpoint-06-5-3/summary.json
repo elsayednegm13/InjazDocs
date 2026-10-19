@@ -1,0 +1,66 @@
+{
+  "checkpoint": "06.5.3",
+  "capturedAt": "2026-10-16T22:43:39.004Z",
+  "host": "Windows 10.0.26300",
+  "node": "v24.19.0",
+  "postReuseBeforeFix": {
+    "label": "CURRENT_BEFORE_MEASUREMENT",
+    "arm": "canonical-vite-plugin",
+    "port": 43176,
+    "fixture": "perf-500",
+    "serialJsonPost": { "n": 12, "http404": 6, "preHandlerHtml500": 6, "pattern": "strict-alternate" },
+    "serialGetHealth": { "n": 8, "http200": 8, "bad": 0 },
+    "emptyPost": { "n": 10, "bad": 0 },
+    "jsonPostGap300ms": { "n": 10, "bad": 0 }
+  },
+  "postReuseAfterFix": {
+    "label": "CURRENT_AFTER_MEASUREMENT",
+    "settleMs": 320,
+    "serialJsonPost": { "n": 20, "bad": 0, "statuses": [404] },
+    "parallelJsonPost": { "n": 8, "bad": 0 }
+  },
+  "playwrightRun1": {
+    "startedAt": "2026-10-16T22:28:47.445Z",
+    "endedAt": "2026-10-16T22:43:39.004Z",
+    "elapsedMs": 891559,
+    "passed": 32,
+    "total": 32,
+    "exit": 0,
+    "honoEnter": 741,
+    "honoStatusLines": 741,
+    "econnreset": 0,
+    "fetchFailed": 0,
+    "internalServerError": 0,
+    "secretsFile": ".dev.vars.e2e",
+    "port": 43174
+  },
+  "d1BatchProbe": {
+    "sizesCommitted": [1, 80, 100, 200, 500, 1000, 1500, 2000],
+    "poisonRolledBackToZero": [5, 80, 500, 1500]
+  },
+  "cron": {
+    "beforeFixTick2": { "httpMs": 41050, "deliveriesBefore": 100, "deliveriesAfter": 100, "due": 2650 },
+    "afterFixTick1": { "httpMs": 34326, "scanned": 100, "recomputed": 89, "delivered": 100, "ms": 33044, "deliveries": "100->200" },
+    "afterFixTick2": { "httpMs": 34678, "scanned": 100, "recomputed": 100, "delivered": 100, "ms": 33876, "deliveries": "200->300" }
+  },
+  "playwrightRun2": {
+    "startedAt": "2026-10-16T22:44:15.790Z",
+    "endedAt": "2026-10-16T22:57:54.848Z",
+    "elapsedMs": 819058,
+    "passed": 32,
+    "total": 32,
+    "exit": 0,
+    "honoEnter": 739,
+    "econnreset": 0,
+    "fetchFailed": 0,
+    "internalServerError": 0,
+    "secretsFile": ".dev.vars.e2e",
+    "port": 43174
+  },
+  "atomicRulePatch": {
+    "poisonCourier": { "status": 500, "offsetUnchanged": true, "clientMs": 1548 },
+    "courier": { "status": 200, "statements": 102, "rows": 100, "serverMs": 227, "clientMs": 766 },
+    "review": { "status": 200, "statements": 602, "rows": 1500, "serverMs": 960, "clientMs": 1523 },
+    "docDue": { "status": 200, "statements": 202, "rows": 1000, "serverMs": 1197, "clientMs": 1802 }
+  }
+}

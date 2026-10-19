@@ -1,0 +1,33 @@
+{
+  "checkpoint": "06.6",
+  "playwrightRun1": {
+    "startedAt": "2026-10-17T18:30:39.690Z",
+    "endedAt": "2026-10-17T18:46:29.640Z",
+    "elapsedMs": 949950,
+    "passed": 32,
+    "exit": 0,
+    "econnreset": 0,
+    "fetchFailed": 0,
+    "honoEnter": null
+  },
+  "playwrightRun2": {
+    "startedAt": "2026-10-17T18:47:14.613Z",
+    "endedAt": "2026-10-17T19:01:41.333Z",
+    "elapsedMs": 866720,
+    "passed": 32,
+    "exit": 0,
+    "honoEnter": 750,
+    "econnreset": 0,
+    "fetchFailed": 0
+  },
+  "bundle": {
+    "css": "dist/client/assets/index-BBBpUe8_.css",
+    "cssBytes": 30240,
+    "cssGzip": 6300,
+    "js": "dist/client/assets/index-7jAYYOi2.js",
+    "jsBytes": 544160,
+    "jsGzip": 165440
+  },
+  "developerDb": { "bytes": 638976, "mtime": "2026-10-14T21:07:38.4798993Z" },
+  "unitTests": { "passed": 31, "files": 7, "exit": 0 }
+}

@@ -1,0 +1,249 @@
+[
+  {
+    "phase": "after",
+    "scenario": "bank",
+    "locale": "en",
+    "viewport": "390x844",
+    "caseId": "85eab408-1f55-4b12-bfde-a8cefc9db9af",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/bank-en-390.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1602"
+  },
+  {
+    "phase": "after",
+    "scenario": "bank",
+    "locale": "en",
+    "viewport": "768x1024",
+    "caseId": "85eab408-1f55-4b12-bfde-a8cefc9db9af",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/bank-en-768.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1602"
+  },
+  {
+    "phase": "after",
+    "scenario": "bank",
+    "locale": "en",
+    "viewport": "1366x900",
+    "caseId": "85eab408-1f55-4b12-bfde-a8cefc9db9af",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/bank-en-1366.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1602"
+  },
+  {
+    "phase": "after",
+    "scenario": "bank",
+    "locale": "ar",
+    "viewport": "390x844",
+    "caseId": "85eab408-1f55-4b12-bfde-a8cefc9db9af",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/bank-ar-390.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1602"
+  },
+  {
+    "phase": "after",
+    "scenario": "bank",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "caseId": "85eab408-1f55-4b12-bfde-a8cefc9db9af",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/bank-ar-768.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1602"
+  },
+  {
+    "phase": "after",
+    "scenario": "bank",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "caseId": "85eab408-1f55-4b12-bfde-a8cefc9db9af",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/bank-ar-1366.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1602"
+  },
+  {
+    "phase": "after",
+    "scenario": "direct",
+    "locale": "en",
+    "viewport": "390x844",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/direct-en-390.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1421"
+  },
+  {
+    "phase": "after",
+    "scenario": "direct",
+    "locale": "en",
+    "viewport": "768x1024",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/direct-en-768.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1421"
+  },
+  {
+    "phase": "after",
+    "scenario": "direct",
+    "locale": "en",
+    "viewport": "1366x900",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/direct-en-1366.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1421"
+  },
+  {
+    "phase": "after",
+    "scenario": "direct",
+    "locale": "ar",
+    "viewport": "390x844",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/direct-ar-390.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1421"
+  },
+  {
+    "phase": "after",
+    "scenario": "direct",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/direct-ar-768.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1421"
+  },
+  {
+    "phase": "after",
+    "scenario": "direct",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/direct-ar-1366.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1421"
+  },
+  {
+    "phase": "after",
+    "scenario": "completed",
+    "locale": "en",
+    "viewport": "390x844",
+    "caseId": "d50da491-19dc-4ef2-9399-4ccb32f288ae",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/completed-en-390.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1298"
+  },
+  {
+    "phase": "after",
+    "scenario": "completed",
+    "locale": "en",
+    "viewport": "768x1024",
+    "caseId": "d50da491-19dc-4ef2-9399-4ccb32f288ae",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/completed-en-768.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1298"
+  },
+  {
+    "phase": "after",
+    "scenario": "completed",
+    "locale": "en",
+    "viewport": "1366x900",
+    "caseId": "d50da491-19dc-4ef2-9399-4ccb32f288ae",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/completed-en-1366.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1298"
+  },
+  {
+    "phase": "after",
+    "scenario": "completed",
+    "locale": "ar",
+    "viewport": "390x844",
+    "caseId": "d50da491-19dc-4ef2-9399-4ccb32f288ae",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/completed-ar-390.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1298"
+  },
+  {
+    "phase": "after",
+    "scenario": "completed",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "caseId": "d50da491-19dc-4ef2-9399-4ccb32f288ae",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/completed-ar-768.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1298"
+  },
+  {
+    "phase": "after",
+    "scenario": "completed",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "caseId": "d50da491-19dc-4ef2-9399-4ccb32f288ae",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/completed-ar-1366.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1298"
+  },
+  {
+    "phase": "after",
+    "scenario": "limited",
+    "locale": "en",
+    "viewport": "390x844",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/limited-en-390.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1628"
+  },
+  {
+    "phase": "after",
+    "scenario": "limited",
+    "locale": "en",
+    "viewport": "768x1024",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/limited-en-768.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1628"
+  },
+  {
+    "phase": "after",
+    "scenario": "limited",
+    "locale": "en",
+    "viewport": "1366x900",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/limited-en-1366.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1628"
+  },
+  {
+    "phase": "after",
+    "scenario": "limited",
+    "locale": "ar",
+    "viewport": "390x844",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/limited-ar-390.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1628"
+  },
+  {
+    "phase": "after",
+    "scenario": "limited",
+    "locale": "ar",
+    "viewport": "768x1024",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/limited-ar-768.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1628"
+  },
+  {
+    "phase": "after",
+    "scenario": "limited",
+    "locale": "ar",
+    "viewport": "1366x900",
+    "caseId": "0b3290e1-dd8d-4379-a2fb-59220c8cee08",
+    "file": "docs/qa-screenshots/checkpoint-06-6-1-a/after/limited-ar-1366.png",
+    "ready": "data-dossier=loaded",
+    "readyMs": "1628"
+  },
+  {
+    "phase": "after",
+    "scenario": "limited-denied-bank",
+    "status": "200",
+    "caseId": "85eab408-1f55-4b12-bfde-a8cefc9db9af",
+    "file": ""
+  }
+]

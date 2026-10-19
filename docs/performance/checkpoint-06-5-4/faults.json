@@ -1,0 +1,58 @@
+[
+  {
+    "boundary": "before-batch",
+    "http": 409,
+    "code": "REMINDER_TEST_FAULT",
+    "html": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "unchanged": true
+  },
+  {
+    "boundary": "batch-poison",
+    "http": 500,
+    "code": "SERVER_TEMPORARILY_UNAVAILABLE",
+    "html": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "unchanged": true
+  },
+  {
+    "boundary": "after-commit",
+    "http": 503,
+    "code": "REMINDER_SAVE_UNCONFIRMED",
+    "html": false,
+    "offsetBefore": 2,
+    "offsetAfter": 3,
+    "committed": true,
+    "retried": false
+  },
+  {
+    "boundary": "statements-2000",
+    "status": 200,
+    "body": "{\"data\":{\"size\":2000,\"poison\":false,\"failed\":false,\"n\":2000},\"meta\":{\"requestId\":\"aaa5a76f-1fc0-41ef-ade2-6dbe3ce47ef1\"}}",
+    "html": false
+  },
+  {
+    "boundary": "statements-2001",
+    "status": 200,
+    "body": "{\"data\":{\"size\":2001,\"poison\":false,\"failed\":false,\"refused\":true,\"n\":null},\"meta\":{\"requestId\":\"1ba538fb-f578-4caf-9f45-56fc07c464a2\"}}",
+    "html": false
+  },
+  {
+    "boundary": "statements-1999",
+    "status": 200,
+    "body": "{\"data\":{\"size\":1999,\"poison\":false,\"failed\":false,\"n\":1999},\"meta\":{\"requestId\":\"1b687e9f-d8a2-485f-8a04-ca2c44307cb5\"}}",
+    "html": false
+  },
+  {
+    "boundary": "poison-80",
+    "status": 200,
+    "body": "{\"data\":{\"size\":80,\"poison\":true,\"failed\":true,\"n\":0},\"meta\":{\"requestId\":\"f4eab61a-ba8d-43d3-9e45-d5324d43bfa4\"}}",
+    "html": false
+  },
+  {
+    "boundary": "probe-without-header",
+    "status": 404
+  }
+]

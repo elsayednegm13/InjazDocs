@@ -1,0 +1,6 @@
+{
+  "capturedAt": "2026-10-16T09:38:32.617Z",
+  "skipped": "sign-in did not return a session; browser journeys were not run against an unknown account",
+  "journeys": [],
+  "consoleEvents": []
+}

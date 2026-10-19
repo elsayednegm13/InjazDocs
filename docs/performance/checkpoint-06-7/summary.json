@@ -1,0 +1,10 @@
+{
+  "checkpoint": "06.7",
+  "comparableBeforeAfter": "NOT_MEASURED",
+  "reason": "No five-sample authenticated data-ready series was captured for dashboard or cases before and after on the same fixture.",
+  "clientCssGzipBytes": 6350,
+  "clientJsGzipBytes": 165980,
+  "clientJsRawBytes": 546530,
+  "fontBytes": 0,
+  "local320msMitigation": "RETAINED_LOCAL_ONLY"
+}

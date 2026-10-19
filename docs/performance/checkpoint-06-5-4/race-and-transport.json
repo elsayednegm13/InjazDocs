@@ -1,0 +1,149 @@
+{
+  "races": [
+    {
+      "round": 1,
+      "rule": "rr-courier",
+      "beforeOffset": 2,
+      "http": [
+        200,
+        409
+      ],
+      "codes": [
+        "",
+        "REMINDER_STALE"
+      ],
+      "html": [
+        false,
+        false
+      ],
+      "afterOffset": 5,
+      "lost": false
+    },
+    {
+      "round": 2,
+      "rule": "rr-courier",
+      "beforeOffset": 5,
+      "http": [
+        200,
+        200
+      ],
+      "codes": [
+        "",
+        ""
+      ],
+      "html": [
+        false,
+        false
+      ],
+      "afterOffset": 9,
+      "lost": true
+    }
+  ],
+  "controls": [
+    {
+      "step": "create-second-admin",
+      "status": 201,
+      "code": ""
+    },
+    {
+      "step": "second-signin",
+      "status": 200,
+      "cookie": true
+    },
+    {
+      "step": "missing-expected",
+      "status": 409,
+      "code": "REMINDER_STALE",
+      "offsetUnchanged": true
+    },
+    {
+      "step": "stale-expected",
+      "status": 409,
+      "code": "REMINDER_STALE",
+      "offsetUnchanged": true
+    },
+    {
+      "step": "two-rules",
+      "http": [
+        200,
+        200
+      ],
+      "courierOffset": 9,
+      "loadOffset": 4
+    }
+  ],
+  "transport": {
+    "serialPost": {
+      "n": 20,
+      "bad": 0,
+      "statuses": [
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404
+      ]
+    },
+    "parallelPost": {
+      "n": 8,
+      "bad": 0,
+      "statuses": [
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404,
+        404
+      ],
+      "ms": [
+        356,
+        705,
+        1321,
+        1668,
+        2024,
+        2388,
+        2738,
+        3092
+      ]
+    },
+    "serialGet": {
+      "n": 16,
+      "bad": 0,
+      "ms": [
+        422,
+        81,
+        102,
+        85,
+        87,
+        96,
+        86,
+        88,
+        88,
+        88,
+        87,
+        96,
+        85,
+        87,
+        88,
+        112
+      ]
+    }
+  }
+}
