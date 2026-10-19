@@ -553,11 +553,20 @@ export function createApp() {
     const key = c.req.query("key");
     if (!key) throw errors.badRequest("key is required");
     await authorizeObjectKey(c.env.DB, c.get("actor"), key);
+    const stored = await one<{ original_name: string; content_type: string }>(
+      c.env.DB,
+      "SELECT original_name, content_type FROM document_versions WHERE r2_key = ? ORDER BY created_at DESC LIMIT 1",
+      key,
+    );
     const object = await downloadObject(c.env.DOCUMENTS, key);
+    const filename = stored?.original_name || "document";
+    const contentType = object.httpMetadata?.contentType || stored?.content_type || "application/octet-stream";
+    const canInline = contentType === "application/pdf" || contentType.startsWith("image/");
+    const asciiName = filename.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
     return new Response(object.body, {
       headers: {
-        "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-        "Content-Disposition": `attachment; filename="document"`,
+        "Content-Type": contentType,
+        "Content-Disposition": `${canInline ? "inline" : "attachment"}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
       },

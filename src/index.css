@@ -1,7 +1,8 @@
+@import "./assets/fonts/fonts.css";
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Segoe UI", "Noto Sans Arabic", Tahoma, sans-serif;
+  --font-sans: "IBM Plex Sans Arabic", "Segoe UI", "Noto Sans Arabic", Tahoma, sans-serif;
   --color-ink: #182839;
   --color-ink-muted: #4a5d70;
   --color-paper: #f7f9fc;
@@ -39,7 +40,7 @@ body {
 }
 
 [dir="rtl"] body {
-  font-family: "Segoe UI", "Noto Sans Arabic", Tahoma, sans-serif;
+  font-family: "IBM Plex Sans Arabic", "Segoe UI", "Noto Sans Arabic", Tahoma, sans-serif;
   line-height: 1.7;
 }
 

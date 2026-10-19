@@ -9,6 +9,7 @@ import { can, useSession } from "@/app/access";
 import { CustomFieldsPanel } from "@/features/fields/CustomFieldsPanel";
 import { api, uploadFile } from "@/lib/api";
 import { fieldErrorsOf } from "@/lib/fail";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
 import { formatMoney, gramsLabel } from "@/lib/utils";
 import { minorToDecimalString } from "@shared/money";
@@ -258,6 +259,7 @@ type CaseOverview = {
   bookings: Array<Record<string, string | number>>;
   containers: Array<Record<string, string | number>>;
   reminders: Array<Record<string, string>>;
+  documentVersions?: Array<Record<string, string | number>>;
 };
 
 export function CaseDetailPage() {
@@ -394,7 +396,7 @@ export function CaseDetailPage() {
         </div>
       ) : null}
       {tab === "invoices" ? <InvoicePanel invoices={data.invoices} caseStatus={String(data.case.status)} /> : null}
-      {tab === "documents" ? <DocumentsPanel caseId={String(id)} requirements={data.requirements} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
+      {tab === "documents" ? <DocumentsPanel caseId={String(id)} requirements={data.requirements} versions={(data.documentVersions ?? []) as Array<Record<string, string | number>>} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
       {tab === "bank" ? <BankPanel caseId={String(id)} route={String(data.case.document_route)} status={String(data.case.bank_path_status)} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
       {tab === "courier" ? <CourierPanel caseId={String(id)} /> : null}
       {tab === "bookings" ? <BookingPanel caseId={String(id)} bookings={data.bookings} /> : null}
@@ -530,19 +532,33 @@ function RevisionList({ invoiceId }: { invoiceId: string }) {
   );
 }
 
+function formatBytes(value: number | string, language: string) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "—";
+  const units = language.startsWith("ar")
+    ? ["بايت", "ك.ب", "م.ب", "ج.ب"]
+    : ["B", "KB", "MB", "GB"];
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const size = bytes / 1024 ** index;
+  return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
 function DocumentsPanel({
   caseId,
   requirements,
+  versions,
   onDone,
 }: {
   caseId: string;
   requirements: Array<Record<string, string | number>>;
+  versions: Array<Record<string, string | number>>;
   onDone: () => void;
 }) {
-  const { tx, fail, ar } = useCopy();
+  const { tx, fail, ar, i18n } = useCopy();
   const [typeError, setTypeError] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Record<string, number>>({});
   const types = useQuery({
     queryKey: ["doctypes"],
     queryFn: async () => (await api<Array<Record<string, string>>>("/api/v1/document-types")).data,
@@ -550,26 +566,42 @@ function DocumentsPanel({
   return (
     <div className="space-y-3">
       {uploadError ? <AlertText>{uploadError}</AlertText> : null}
-      {requirements.map((req) => (
-        <div key={String(req.id)} className="rounded-xl border border-line bg-card p-4">
+      {requirements.map((req) => {
+        const reqId = String(req.id);
+        const uploading = progress[reqId] != null;
+        const rows = versions.filter((v) => String(v.requirement_id) === reqId);
+        return (
+        <div key={reqId} className="rounded-xl border border-line bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="font-medium">{(ar && String(req.name_ar || "").trim()) ? String(req.name_ar) : String(req.name_en)} {Number(req.required) ? `(${tx("required", "required")})` : `(${tx("optional", "optional")})`}</div>
               <StatusBadge value={String(req.status)} />
             </div>
-            <label className="inline-flex cursor-pointer items-center rounded-md border border-line bg-paper px-3 py-1.5 text-sm font-medium">
-              {tx("chooseFile", "Choose file")}
+            <label className={`inline-flex cursor-pointer items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium ${uploading ? "bg-paper text-ink-muted" : "bg-paper"}`}>
+              {uploading ? (
+                <>
+                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-line border-t-accent" aria-hidden="true" />
+                  {tx("uploading", "Uploading…")} {progress[reqId]}%
+                </>
+              ) : (
+                tx("chooseFile", "Choose file")
+              )}
               <input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
                 className="sr-only"
+                disabled={uploading}
                 onChange={async (event) => {
-                  const file = event.target.files?.[0];
+                  const input = event.currentTarget;
+                  const file = input.files?.[0];
                   if (!file) return;
+                  setUploadError(null);
+                  setProgress((current) => ({ ...current, [reqId]: 0 }));
                   try {
-                    setUploadError(null);
-                    const uploaded = await uploadFile(file, "document_requirement", String(req.id));
-                    await api(`/api/v1/document-requirements/${req.id}/versions`, {
+                    const uploaded = await uploadFile(file, "document_requirement", reqId, (pct) =>
+                      setProgress((current) => ({ ...current, [reqId]: pct })),
+                    );
+                    await api(`/api/v1/document-requirements/${reqId}/versions`, {
                       method: "POST",
                       body: JSON.stringify({
                         r2Key: uploaded.objectKey,
@@ -578,14 +610,28 @@ function DocumentsPanel({
                         byteSize: uploaded.byteSize,
                       }),
                     });
+                    notifySuccess(tx("documentUploaded", "File uploaded"), file.name);
                     onDone();
                   } catch (error) {
                     setUploadError(fail(error));
+                    notifyError(error);
+                  } finally {
+                    setProgress((current) => {
+                      const next = { ...current };
+                      delete next[reqId];
+                      return next;
+                    });
+                    input.value = "";
                   }
                 }}
               />
             </label>
           </div>
+          {uploading ? (
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={progress[reqId]} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress[reqId]}%` }} />
+            </div>
+          ) : null}
           <div className="mt-2 flex flex-wrap gap-2">
             {["UNDER_REVIEW", "APPROVED", "NEEDS_CORRECTION", "WAIVED"].map((decision) => (
               <Button
@@ -594,19 +640,52 @@ function DocumentsPanel({
                 size="sm"
                 variant="outline"
                 onClick={async () => {
-                  await api(`/api/v1/document-requirements/${req.id}/review`, {
-                    method: "POST",
-                    body: JSON.stringify({ decision, reason: decision === "WAIVED" ? "Authorized waiver" : undefined }),
-                  });
-                  onDone();
+                  try {
+                    await api(`/api/v1/document-requirements/${reqId}/review`, {
+                      method: "POST",
+                      body: JSON.stringify({ decision, reason: decision === "WAIVED" ? "Authorized waiver" : undefined }),
+                    });
+                    notifySuccess(tx("reviewUpdated", "Review status updated"));
+                    onDone();
+                  } catch (error) {
+                    notifyError(error);
+                  }
                 }}
               >
                 {tx(`status.${decision}`, decision)}
               </Button>
             ))}
           </div>
+          {rows.length ? (
+            <ul className="mt-3 divide-y divide-line rounded-lg border border-line bg-paper/40 text-sm">
+              {rows.map((version) => (
+                <li key={String(version.id)} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{String(version.original_name)}</p>
+                    <p className="text-xs text-ink-muted">
+                      {tx("version", "Version")} <Ltr>{String(version.version)}</Ltr>
+                      {" · "}<Ltr>{formatBytes(version.byte_size, i18n.language)}</Ltr>
+                      {" · "}<Ltr>{formatWhen(String(version.created_at))}</Ltr>
+                      {" · "}<StatusBadge value={String(version.review_state)} />
+                    </p>
+                  </div>
+                  <a
+                    className="shrink-0 rounded-md border border-line bg-card px-2.5 py-1 text-xs font-medium underline-offset-2 hover:underline"
+                    href={`/api/v1/files/download?key=${encodeURIComponent(String(version.r2_key))}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {tx("openFile", "Open file")}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-xs text-ink-muted">{tx("noFileYet", "No file uploaded for this requirement yet.")}</p>
+          )}
         </div>
-      ))}
+        );
+      })}
       <form
         className="grid gap-2 rounded-xl border border-dashed border-line bg-card p-4 md:grid-cols-[1fr_8rem_auto]"
         onSubmit={async (event) => {
@@ -626,12 +705,14 @@ function DocumentsPanel({
               method: "POST",
               body: JSON.stringify({ documentTypeId: typeId, required: data.get("required") === "1" }),
             });
+            notifySuccess(tx("requirementAdded", "Document added to this case"));
             form.reset();
             onDone();
           } catch (error) {
             const fields = fieldErrorsOf(error);
             setTypeError(fields.documentTypeId ? tx("errors.DOCUMENT_TYPE_REQUIRED", fields.documentTypeId) : null);
             setAddError(fail(error));
+            notifyError(error);
           }
         }}
       >
@@ -678,8 +759,13 @@ function BankPanel({ caseId, route, status, onDone }: { caseId: string; route: s
       <div className="flex flex-wrap gap-2">
         {steps.map((to) => (
           <Button key={to} data-decision={to} size="sm" variant="outline" onClick={async () => {
-            await api(`/api/v1/export-cases/${caseId}/bank/status`, { method: "POST", body: JSON.stringify({ to }) });
-            onDone();
+            try {
+              await api(`/api/v1/export-cases/${caseId}/bank/status`, { method: "POST", body: JSON.stringify({ to }) });
+              notifySuccess(tx("bankStageSaved", "Bank stage saved"));
+              onDone();
+            } catch (error) {
+              notifyError(error);
+            }
           }}>{tx(`status.${to}`, to)}</Button>
         ))}
       </div>
@@ -693,8 +779,13 @@ function DirectButtons({ caseId, onDone }: { caseId: string; onDone: () => void 
     <div className="mt-3 flex flex-wrap gap-2">
       {["SCANNED", "INTERNAL_REVIEW", "READY_FOR_DISPATCH"].map((to) => (
         <Button key={to} data-decision={to} size="sm" variant="outline" onClick={async () => {
-          await api(`/api/v1/export-cases/${caseId}/direct/status`, { method: "POST", body: JSON.stringify({ to }) });
-          onDone();
+          try {
+            await api(`/api/v1/export-cases/${caseId}/direct/status`, { method: "POST", body: JSON.stringify({ to }) });
+            notifySuccess(tx("directStageSaved", "Direct route stage saved"));
+            onDone();
+          } catch (error) {
+            notifyError(error);
+          }
         }}>{tx(`status.${to}`, to)}</Button>
       ))}
     </div>
@@ -714,17 +805,24 @@ function CourierPanel({ caseId }: { caseId: string }) {
         className="grid gap-2 rounded-xl border border-line bg-card p-4 md:grid-cols-2"
         onSubmit={async (event) => {
           event.preventDefault();
-          const form = new FormData(event.currentTarget);
-          await api(`/api/v1/export-cases/${caseId}/courier`, {
-            method: "POST",
-            body: JSON.stringify({
-              sender: form.get("sender"),
-              carrier: form.get("carrier"),
-              trackingNumber: form.get("trackingNumber"),
-              recipientSummary: form.get("recipientSummary"),
-            }),
-          });
-          await client.invalidateQueries({ queryKey: ["courier", caseId] });
+          const formEl = event.currentTarget;
+          const form = new FormData(formEl);
+          try {
+            await api(`/api/v1/export-cases/${caseId}/courier`, {
+              method: "POST",
+              body: JSON.stringify({
+                sender: form.get("sender"),
+                carrier: form.get("carrier"),
+                trackingNumber: form.get("trackingNumber"),
+                recipientSummary: form.get("recipientSummary"),
+              }),
+            });
+            formEl.reset();
+            notifySuccess(tx("courierShipmentAdded", "Manual shipment added"));
+            await client.invalidateQueries({ queryKey: ["courier", caseId] });
+          } catch (error) {
+            notifyError(error);
+          }
         }}
       >
         <Field label={tx("sender", "Sender")}>
@@ -744,8 +842,13 @@ function CourierPanel({ caseId }: { caseId: string }) {
           <div className="mt-2 flex flex-wrap gap-2">
             {["DISPATCHED", "IN_TRANSIT", "DELIVERED"].map((status) => (
               <Button key={status} size="sm" variant="outline" onClick={async () => {
-                await api(`/api/v1/courier/${s.id}/status`, { method: "POST", body: JSON.stringify({ status, version: s.version }) });
-                await client.invalidateQueries({ queryKey: ["courier", caseId] });
+                try {
+                  await api(`/api/v1/courier/${s.id}/status`, { method: "POST", body: JSON.stringify({ status, version: s.version }) });
+                  notifySuccess(tx("courierStatusSaved", "Shipment status updated"));
+                  await client.invalidateQueries({ queryKey: ["courier", caseId] });
+                } catch (error) {
+                  notifyError(error);
+                }
               }} data-decision={status}>{tx(`status.${status}`, status)}</Button>
             ))}
           </div>
@@ -755,7 +858,7 @@ function CourierPanel({ caseId }: { caseId: string }) {
   );
 }
 
-function BookingPanel({ caseId, bookings }: { caseId: string; bookings: Array<Record<string, string | number>> }) {
+export function BookingPanel({ caseId, bookings }: { caseId: string; bookings: Array<Record<string, string | number>> }) {
   const { tx } = useCopy();
   return (
     <div className="space-y-3">
@@ -764,21 +867,26 @@ function BookingPanel({ caseId, bookings }: { caseId: string; bookings: Array<Re
         onSubmit={async (event) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
-          const created = await api<{ id: string }>("/api/v1/bookings", {
-            method: "POST",
-            body: JSON.stringify({
-              caseId,
-              bookingNumber: form.get("bookingNumber"),
-              ucr: form.get("ucr") || undefined,
-              shippingLine: form.get("shippingLine"),
-              expectedContainers: Number(form.get("expectedContainers") || 0),
-              plannedLoadingDate: form.get("plannedLoadingDate") || undefined,
-              cutoffDate: form.get("cutoffDate") || undefined,
-              plannedEtd: form.get("plannedEtd") || undefined,
-              plannedEta: form.get("plannedEta") || undefined,
-            }),
-          });
-          window.location.href = `/bookings/${created.data.id}`;
+          try {
+            const created = await api<{ id: string }>("/api/v1/bookings", {
+              method: "POST",
+              body: JSON.stringify({
+                caseId,
+                bookingNumber: form.get("bookingNumber"),
+                ucr: form.get("ucr") || undefined,
+                shippingLine: form.get("shippingLine"),
+                expectedContainers: Number(form.get("expectedContainers") || 0),
+                plannedLoadingDate: form.get("plannedLoadingDate") || undefined,
+                cutoffDate: form.get("cutoffDate") || undefined,
+                plannedEtd: form.get("plannedEtd") || undefined,
+                plannedEta: form.get("plannedEta") || undefined,
+              }),
+            });
+            notifySuccess(tx("bookingCreated", "Booking created"));
+            window.location.href = `/bookings/${created.data.id}`;
+          } catch (error) {
+            notifyError(error);
+          }
         }}
       >
         <Field label={tx("bookingNumber", "Booking number")}><Input name="bookingNumber" required dir="ltr" /></Field>
@@ -812,15 +920,28 @@ function SharePanel({ caseId }: { caseId: string }) {
     <div className="space-y-3 rounded-xl border border-line bg-card p-4">
       <p className="text-sm">{tx("shareHint", "The token is shown once. Revoked or rotated links fail immediately. Bank details and files are never included.")}</p>
       <Button onClick={async () => {
-        const res = await api<{ token: string }>(`/api/v1/export-cases/${caseId}/tracking-links`, { method: "POST", body: JSON.stringify({}) });
-        setToken(res.data.token);
-        await client.invalidateQueries({ queryKey: ["links", caseId] });
+        try {
+          const res = await api<{ token: string }>(`/api/v1/export-cases/${caseId}/tracking-links`, { method: "POST", body: JSON.stringify({}) });
+          setToken(res.data.token);
+          notifySuccess(tx("trackingCreated", "Tracking link created"));
+          await client.invalidateQueries({ queryKey: ["links", caseId] });
+        } catch (error) {
+          notifyError(error);
+        }
       }}>{tx("createTrackingLink", "Create tracking link")}</Button>
       {token ? <p className="break-all rounded bg-paper p-2 text-sm">{`${window.location.origin}/track/${token}`}</p> : null}
       {query.data?.map((l) => (
         <div key={l.id} className="flex items-center justify-between text-sm">
           <span>{l.revoked_at ? tx("revoked", "revoked") : tx("active", "active")} · {tx("expires", "expires")} <Ltr>{l.expires_at || tx("none", "none")}</Ltr></span>
-          <Button size="sm" variant="outline" onClick={async () => { await api(`/api/v1/tracking-links/${l.id}/revoke`, { method: "POST" }); }}>{tx("revoke", "Revoke")}</Button>
+          <Button size="sm" variant="outline" onClick={async () => {
+            try {
+              await api(`/api/v1/tracking-links/${l.id}/revoke`, { method: "POST" });
+              notifySuccess(tx("trackingRevoked", "Tracking link revoked"));
+              await client.invalidateQueries({ queryKey: ["links", caseId] });
+            } catch (error) {
+              notifyError(error);
+            }
+          }}>{tx("revoke", "Revoke")}</Button>
         </div>
       ))}
     </div>

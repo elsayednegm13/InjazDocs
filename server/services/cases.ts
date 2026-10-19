@@ -94,7 +94,7 @@ export async function listCases(
 
 export async function getCaseOverview(db: D1Database, actor: Actor, id: string) {
   const current = await assertCaseAccess(db, actor, id);
-  const [customerResult, snapshotResult, invoiceResult, requirementResult, bookingResult, containerResult, reminderResult] = await db.batch([
+  const [customerResult, snapshotResult, invoiceResult, requirementResult, bookingResult, containerResult, reminderResult, versionResult] = await db.batch([
     db.prepare("SELECT id, legal_name, trade_name, country_code FROM customers WHERE id = ?").bind(current.customer_id),
     db.prepare("SELECT * FROM export_case_customer_snapshots WHERE case_id = ?").bind(id),
     db.prepare("SELECT * FROM export_invoices WHERE case_id = ? ORDER BY invoice_date").bind(id),
@@ -109,6 +109,14 @@ export async function getCaseOverview(db: D1Database, actor: Actor, id: string) 
     db.prepare(
       "SELECT * FROM reminder_instances WHERE case_id = ? AND status IN ('PENDING','ACTIVE','SNOOZED','ACKNOWLEDGED') ORDER BY due_at",
     ).bind(id),
+    db.prepare(
+      `SELECT v.id, v.requirement_id, v.version, v.r2_key, v.original_name, v.content_type, v.byte_size, v.review_state, v.created_at, u.name AS uploaded_by_name
+       FROM document_versions v
+       JOIN operation_document_requirements r ON r.id = v.requirement_id
+       LEFT JOIN user u ON u.id = v.uploaded_by
+       WHERE r.case_id = ?
+       ORDER BY v.created_at DESC`,
+    ).bind(id),
   ]);
   return {
     case: current,
@@ -119,6 +127,7 @@ export async function getCaseOverview(db: D1Database, actor: Actor, id: string) 
     bookings: bookingResult.results ?? [],
     containers: containerResult.results ?? [],
     reminders: reminderResult.results ?? [],
+    documentVersions: versionResult.results ?? [],
     customFields: await readCustomFields(db, actor, "EXPORT_CASE", id),
   };
 }
