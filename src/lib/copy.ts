@@ -61,6 +61,16 @@ const ACTIVITY: Record<string, string> = {
   "custom_field.create": "activity.customFieldCreate",
   "custom_field.update": "activity.customFieldUpdate",
   "custom_field.save": "activity.customFieldSave",
+  CASE_CREATED: "activity.caseCreate",
+  CASE_STATUS: "activity.caseStatus",
+  BANK_STATUS: "activity.bankTransition",
+  DIRECT_STATUS: "activity.directTransition",
+  COURIER_STATUS: "activity.courierStatus",
+  CONTAINER_STATUS: "activity.containerStatus",
+  BOOKING_CREATED: "activity.bookingCreate",
+  DOCUMENT_UPLOADED: "activity.documentUpload",
+  DOCUMENT_REVIEW: "activity.documentReview",
+  ROUTE_CHANGED: "activity.caseRoute",
 };
 
 const RULES: Record<string, string> = {
@@ -79,8 +89,10 @@ export function useCopy() {
     const code = errorCode(error);
     return tx(`errors.${code}`, fallbackFor(code));
   }
-  function activity(action: string) {
-    return tx(ACTIVITY[action] ?? "activity.generic", action.replaceAll(".", " "));
+  function activity(action: string, fallback?: string) {
+    const key = ACTIVITY[action];
+    if (!key) return fallback ?? action.replaceAll(".", " ");
+    return tx(key, fallback ?? action.replaceAll(".", " "));
   }
   function ruleName(id: string, fallback: string) {
     const key = RULES[id];
@@ -105,7 +117,7 @@ export function formatWhen(value: string | number | null | undefined, language: 
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat(language.startsWith("ar") ? "ar-EG" : "en-GB", {
+  return new Intl.DateTimeFormat(language.startsWith("ar") ? "ar-EG-u-nu-latn" : "en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);

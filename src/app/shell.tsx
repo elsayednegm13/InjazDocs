@@ -1,4 +1,4 @@
-import { Bell, Boxes, Building2, CalendarRange, ClipboardList, FileStack, LayoutDashboard, LogOut, Menu, Search, Settings2, Ship, Users, X } from "lucide-react";
+import { Bell, Boxes, Building2, CalendarRange, ClipboardList, FileStack, Globe2, LayoutDashboard, LogOut, Menu, Search, Settings2, Ship, Users, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router";
 import { can, useSession } from "@/app/access";
@@ -34,13 +34,17 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           to={item.to}
           onClick={onNavigate}
           className={({ isActive }) =>
-            `flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium ${
-              isActive ? "bg-white text-ink" : "text-[#d5e2ec] hover:bg-white/10 hover:text-white"
+            `flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition ${
+              isActive ? "bg-white text-ink shadow-[0_1px_0_rgb(255_255_255/0.4),0_8px_20px_rgb(0_0_0/0.18)]" : "text-[#d5e2ec] hover:bg-white/10 hover:text-white"
             }`
           }
         >
-          <item.icon className="h-4 w-4 shrink-0" />
-          <span className="truncate">{tx(item.key, item.english)}</span>
+          {({ isActive }) => (
+            <>
+              <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-accent" : "text-white/65"}`} />
+              <span className="truncate">{tx(item.key, item.english)}</span>
+            </>
+          )}
         </NavLink>
       ))}
     </>
@@ -54,6 +58,7 @@ export function AppShell() {
   const [open, setOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const ar = i18n.language.startsWith("ar");
+  const initials = (user?.name ?? "").trim().charAt(0).toUpperCase();
 
   useEffect(() => {
     if (!open) return;
@@ -91,20 +96,34 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-paper lg:ps-64">
       <aside className="fixed inset-y-0 start-0 z-20 hidden w-64 flex-col bg-accent-2 px-4 py-5 text-white lg:flex">
-        <Link to="/dashboard" className="mb-6 block px-2">
-          <span className="block text-lg font-semibold tracking-tight">ExportFlow</span>
-          <span className="mt-1 block text-xs text-white/65">{tx("productMark", "Export operations")}</span>
+        <Link to="/dashboard" className="mb-6 flex items-center gap-2.5 px-2">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/10 text-[#5eead4] ring-1 ring-white/10">
+            <Ship className="h-5 w-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-lg font-semibold leading-tight tracking-tight">ExportFlow</span>
+            <span className="mt-0.5 block truncate text-[11px] text-white/60">{tx("productMark", "Export operations")}</span>
+          </span>
         </Link>
         <nav className="flex flex-1 flex-col gap-1 overflow-auto" aria-label={tx("exportOperations", "Export operations")}>
           <NavItems />
         </nav>
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
+          <div className="flex items-center gap-2 text-[#5eead4]">
+            <FileStack className="h-4 w-4" />
+            <span className="text-xs font-semibold">ExportFlow</span>
+          </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-white/60">
+            {tx("sidebarHint", "Every document, stage and reminder stays with the case file.")}
+          </p>
+        </div>
       </aside>
-      <header className="sticky top-0 z-20 border-b border-line bg-card/95 backdrop-blur">
-        <div className="flex items-center gap-3 px-4 py-3">
+      <header className="sticky top-0 z-20 border-b border-line/80 bg-card/95 backdrop-blur">
+        <div className="flex items-center gap-2.5 px-4 py-3 md:px-6">
           <button
             ref={menuButton}
             type="button"
-            className="inline-flex h-8 items-center justify-center rounded-md border border-line bg-card px-2.5 text-ink lg:hidden"
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-card px-2.5 text-ink lg:hidden"
             onClick={() => setOpen(true)}
             aria-label={tx("openMenu", "Open menu")}
             aria-expanded={open}
@@ -122,7 +141,7 @@ export function AppShell() {
               navigate(`/export-cases?q=${encodeURIComponent(String(q ?? ""))}`);
             }}
           >
-            <div className="relative">
+            <div className="relative mx-auto max-w-xl">
               <Search className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-ink-muted" />
               <Input
                 name="q"
@@ -132,14 +151,34 @@ export function AppShell() {
               />
             </div>
           </form>
-          <button type="button" className="rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold" onClick={toggleLanguage}>
-            {ar ? "EN" : "ع"}
-          </button>
-          <span className="hidden max-w-40 truncate text-sm font-medium md:inline">{user?.name}</span>
-          <Button variant="outline" size="sm" className="border-line bg-card text-ink" onClick={() => void signOut()}>
-            <LogOut className="h-4 w-4" />
-            {tx("signOut", "Sign out")}
-          </Button>
+          <div className="ms-auto flex shrink-0 items-center gap-2">
+            <Link
+              to="/notifications"
+              aria-label={tx("notifications", "Notifications")}
+              className="grid h-9 w-9 place-items-center rounded-full border border-line bg-card text-ink-muted transition hover:border-accent/40 hover:text-accent"
+            >
+              <Bell className="h-4 w-4" />
+            </Link>
+            <button
+              type="button"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-card px-3 text-xs font-semibold text-ink"
+              onClick={toggleLanguage}
+              aria-label={ar ? "Switch to English" : "التبديل إلى العربية"}
+            >
+              <Globe2 className="h-3.5 w-3.5 text-ink-muted" />
+              {ar ? "EN" : "ع"}
+            </button>
+            <div className="hidden items-center gap-2 rounded-full border border-line bg-paper/60 py-1 pe-3 ps-1 md:flex">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent text-[11px] font-semibold text-white">
+                {initials || "?"}
+              </span>
+              <span className="max-w-32 truncate text-sm font-medium" dir="auto">{user?.name}</span>
+            </div>
+            <Button variant="outline" size="sm" className="rounded-full border-line bg-card text-ink" onClick={() => void signOut()}>
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">{tx("signOut", "Sign out")}</span>
+            </Button>
+          </div>
         </div>
       </header>
       {open ? (

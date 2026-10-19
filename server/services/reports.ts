@@ -17,7 +17,7 @@ export async function overview(db: D1Database, actor: Actor) {
       (SELECT COUNT(*) FROM reminder_instances r JOIN export_cases c ON c.id = r.case_id WHERE r.status = 'ACTIVE' AND r.due_at < datetime('now') AND ${vis.sql}) AS overdue`,
     ).bind(...scope, ...scope, ...scope, ...scope, ...scope, ...scope),
     db.prepare(
-      `SELECT e.id, e.event_type, e.summary, e.created_at, e.case_id
+      `SELECT e.id, e.event_type, e.summary, e.created_at, e.case_id, c.case_reference
        FROM case_events e JOIN export_cases c ON c.id = e.case_id
        WHERE ${vis.sql}
        ORDER BY e.created_at DESC LIMIT 12`,

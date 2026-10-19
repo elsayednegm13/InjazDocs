@@ -1,8 +1,9 @@
+import { Bell, Boxes, CheckCircle2, ClipboardList, FileStack, MousePointerClick, Package } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
-import { AlertText, DualLane, EmptyState, Ltr, PageHeader } from "@/components/ui/chrome";
+import { AlertText, DualLane, EmptyState, Ltr, PageHeader, SectionCard, StatCard } from "@/components/ui/chrome";
 import { Field, Input, Select } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status";
 import { can, useSession } from "@/app/access";
@@ -17,7 +18,7 @@ import { minorToDecimalString } from "@shared/money";
 function formatWhen(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  const locale = document.documentElement.lang.startsWith("ar") ? "ar-EG" : "en-GB";
+  const locale = document.documentElement.lang.startsWith("ar") ? "ar-EG-u-nu-latn" : "en-GB";
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
@@ -47,22 +48,22 @@ export function CasesListPage() {
       />
       {counts.data ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-[14px] border border-line bg-card px-4 py-3 text-sm">{tx("openCases", "Open cases")} <Ltr className="block text-2xl font-semibold">{counts.data.counts.total_cases}</Ltr></div>
-          <div className="rounded-[14px] border border-line bg-card px-4 py-3 text-sm">{tx("completedCases", "Completed cases")} <Ltr className="block text-2xl font-semibold">{counts.data.counts.completed}</Ltr></div>
-          <div className="rounded-[14px] border border-line bg-card px-4 py-3 text-sm">{tx("docsPending", "Documents pending")} <Ltr className="block text-2xl font-semibold">{counts.data.counts.docs_pending}</Ltr></div>
-          <div className="rounded-[14px] border border-line bg-card px-4 py-3 text-sm">{tx("courierOpen", "Courier in transit")} <Ltr className="block text-2xl font-semibold">{counts.data.counts.courier_open}</Ltr></div>
+          <StatCard label={tx("openCases", "Open cases")} value={counts.data.counts.total_cases} icon={<Boxes className="h-5 w-5" />} tone="blue" />
+          <StatCard label={tx("completedCases", "Completed cases")} value={counts.data.counts.completed} icon={<CheckCircle2 className="h-5 w-5" />} tone="green" />
+          <StatCard label={tx("docsPending", "Documents pending")} value={counts.data.counts.docs_pending} icon={<FileStack className="h-5 w-5" />} tone="amber" />
+          <StatCard label={tx("courierOpen", "Courier in transit")} value={counts.data.counts.courier_open} icon={<Package className="h-5 w-5" />} tone="teal" />
         </div>
       ) : null}
       <form
-        className="flex flex-wrap gap-2"
+        className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-[var(--shadow-card)]"
         onSubmit={(event) => {
           event.preventDefault();
           const next = new FormData(event.currentTarget).get("q");
           navigate(`/export-cases?q=${encodeURIComponent(String(next ?? ""))}`);
         }}
       >
-        <Input name="q" defaultValue={q} aria-label={tx("search", "Search cases, invoices, customers")} className="max-w-md" />
-        <Button type="submit" variant="outline">{tx("searchAction", "Search")}</Button>
+        <Input name="q" defaultValue={q} aria-label={tx("search", "Search cases, invoices, customers")} className="max-w-md rounded-full border-line bg-paper" />
+        <Button type="submit" variant="outline" className="rounded-full">{tx("searchAction", "Search")}</Button>
       </form>
       {query.isLoading ? <p>{tx("loadingCases", "Loading cases…")}</p> : null}
       {query.isError ? <p className="text-danger">{tx("casesError", "Could not load cases.")}</p> : null}
@@ -70,7 +71,7 @@ export function CasesListPage() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_16rem]">
         <div className="grid gap-3 lg:hidden">
           {query.data?.map((row) => (
-            <Link key={row.id} className="rounded-[14px] border border-line bg-card p-4 shadow-[var(--shadow-card)]" to={`/export-cases/${row.id}`}>
+            <Link key={row.id} className="rounded-2xl border border-line bg-card p-4 shadow-[var(--shadow-card)] transition hover:border-accent/30" to={`/export-cases/${row.id}`}>
               <div className="flex items-start justify-between gap-2">
                 <Ltr className="font-semibold text-accent">{row.case_reference}</Ltr>
                 <StatusBadge value={row.status} />
@@ -83,54 +84,78 @@ export function CasesListPage() {
             </Link>
           ))}
         </div>
-        <div className="hidden overflow-x-auto rounded-[14px] border border-line bg-card lg:block" aria-label={tx("exportOperations", "Export operations")}>
-          <table className="w-full min-w-[860px] text-sm">
-            <thead className="bg-paper text-start text-xs font-semibold text-ink-muted">
-              <tr>
-                <th className="p-3 text-start">{tx("case", "Case")}</th>
-                <th className="p-3 text-start">{tx("customer", "Customer")}</th>
-                <th className="p-3 text-start">{tx("invoices", "Invoices")}</th>
-                <th className="p-3 text-start">{tx("country", "Country")}</th>
-                <th className="p-3 text-start">{tx("documentRoute", "Document route")}</th>
-                <th className="p-3 text-start">{tx("nextAction", "Next action")}</th>
-                <th className="p-3 text-start">{tx("docs", "Docs")}</th>
-                <th className="p-3 text-start">{tx("goods", "Goods")}</th>
-                <th className="p-3 text-start">{tx("status", "Status")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {query.data?.map((row) => (
-                <tr
-                  key={row.id}
-                  className={`cursor-pointer border-t border-line ${selectedId === row.id ? "bg-paper" : ""}`}
-                  onClick={() => setSelectedId(row.id)}
-                >
-                  <td className="whitespace-nowrap p-3"><Link aria-label={`${row.case_reference} ${row.customer_name}`} className="font-medium text-accent" to={`/export-cases/${row.id}`}><Ltr>{row.case_reference}</Ltr></Link></td>
-                  <td className="p-3">{row.customer_name}</td>
-                  <td className="p-3"><Ltr>{row.invoice_numbers || "—"}</Ltr></td>
-                  <td className="p-3"><Ltr>{row.destination_country || "—"}</Ltr></td>
-                  <td className="p-3">{tx(`status.${row.document_route}`, row.document_route)}</td>
-                  <td className="p-3">{stored(row.next_action)}</td>
-                  <td className="p-3"><StatusBadge value={row.document_route === "BANK_ROUTE" ? row.bank_path_status : row.direct_path_status} /></td>
-                  <td className="p-3 text-ink-muted">{tx("goodsIndependent", "Independent of document delivery")}</td>
-                  <td className="p-3"><StatusBadge value={row.status} /></td>
+        <div className="hidden overflow-hidden rounded-2xl border border-line bg-card shadow-[var(--shadow-card)] lg:block">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-sm" aria-label={tx("exportOperations", "Export operations")}>
+              <thead className="bg-paper/80 text-start text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                <tr>
+                  <th scope="col" className="p-3 text-start">{tx("case", "Case")}</th>
+                  <th scope="col" className="p-3 text-start">{tx("customer", "Customer")}</th>
+                  <th scope="col" className="p-3 text-start">{tx("invoices", "Invoices")}</th>
+                  <th scope="col" className="p-3 text-start">{tx("country", "Country")}</th>
+                  <th scope="col" className="p-3 text-start">{tx("documentRoute", "Document route")}</th>
+                  <th scope="col" className="p-3 text-start">{tx("nextAction", "Next action")}</th>
+                  <th scope="col" className="p-3 text-start">{tx("docs", "Docs")}</th>
+                  <th scope="col" className="p-3 text-start">{tx("goods", "Goods")}</th>
+                  <th scope="col" className="p-3 text-start">{tx("status", "Status")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {query.data?.map((row) => (
+                  <tr
+                    key={row.id}
+                    className={`cursor-pointer border-t border-line/70 transition ${selectedId === row.id ? "bg-accent/5" : "hover:bg-paper/60"}`}
+                    onClick={() => setSelectedId(row.id)}
+                  >
+                    <td className="whitespace-nowrap p-3"><Link aria-label={`${row.case_reference} ${row.customer_name}`} className="font-semibold text-accent" to={`/export-cases/${row.id}`}><Ltr>{row.case_reference}</Ltr></Link></td>
+                    <td className="p-3">{row.customer_name}</td>
+                    <td className="p-3"><Ltr>{row.invoice_numbers || "—"}</Ltr></td>
+                    <td className="p-3"><Ltr>{row.destination_country || "—"}</Ltr></td>
+                    <td className="whitespace-nowrap p-3">{tx(`status.${row.document_route}`, row.document_route)}</td>
+                    <td className="p-3">{stored(row.next_action)}</td>
+                    <td className="p-3"><StatusBadge value={row.document_route === "BANK_ROUTE" ? row.bank_path_status : row.direct_path_status} /></td>
+                    <td className="whitespace-nowrap p-3 text-xs text-ink-muted">
+                      <span className="rounded-full bg-paper px-2 py-0.5">{tx("goodsIndependentShort", "Independent")}</span>
+                    </td>
+                    <td className="p-3"><StatusBadge value={row.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         {selected ? (
-          <aside className="hidden rounded-[14px] border border-line bg-card p-4 xl:block">
-            <p className="text-xs text-ink-muted">{tx("casePreview", "Selected case")}</p>
-            <p className="mt-1 text-lg font-semibold"><Ltr>{selected.case_reference}</Ltr></p>
-            <p className="mt-2 text-sm">{selected.customer_name}</p>
-            <p className="mt-1 text-sm">{tx(`status.${selected.document_route}`, selected.document_route)}</p>
-            <p className="mt-2 text-sm text-ink-muted">{stored(selected.next_action)}</p>
-            <p className="mt-2 text-xs text-ink-muted">{tx("noCargoKpi", "This board has no cargo-delivery total. Port arrival is not customer delivery.")}</p>
-            <Button asChild className="mt-4"><Link to={`/export-cases/${selected.id}`}>{tx("openFullCase", "Open full case")}</Link></Button>
+          <aside className="hidden rounded-2xl border border-line bg-card p-4 shadow-[var(--shadow-card)] xl:block">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{tx("casePreview", "Selected case")}</p>
+            <p className="mt-1 text-lg font-semibold text-ink"><Ltr>{selected.case_reference}</Ltr></p>
+            <dl className="mt-3 space-y-2.5 border-t border-line pt-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-ink-muted">{tx("customer", "Customer")}</dt>
+                <dd className="min-w-0 truncate font-medium">{selected.customer_name}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-ink-muted">{tx("documentRoute", "Document route")}</dt>
+                <dd className="font-medium">{tx(`status.${selected.document_route}`, selected.document_route)}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-ink-muted">{tx("docs", "Docs")}</dt>
+                <dd><StatusBadge value={selected.document_route === "BANK_ROUTE" ? selected.bank_path_status : selected.direct_path_status} /></dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-ink-muted">{tx("status", "Status")}</dt>
+                <dd><StatusBadge value={selected.status} /></dd>
+              </div>
+            </dl>
+            <p className="mt-3 rounded-lg bg-paper/70 px-2.5 py-2 text-xs leading-snug text-ink-muted">{stored(selected.next_action)}</p>
+            <Button asChild className="mt-4 w-full"><Link to={`/export-cases/${selected.id}`}>{tx("openFullCase", "Open full case")}</Link></Button>
           </aside>
         ) : (
-          <aside className="hidden rounded-[14px] border border-dashed border-line bg-card p-4 text-sm text-ink-muted xl:block">{tx("selectCase", "Select a case to preview fields already on this list.")}</aside>
+          <aside className="hidden rounded-2xl border border-dashed border-line bg-card p-6 xl:grid xl:place-items-center">
+            <div className="text-center text-sm text-ink-muted">
+              <MousePointerClick className="mx-auto h-6 w-6 text-ink-muted/70" aria-hidden />
+              <p className="mt-2">{tx("selectCase", "Select a case to preview fields already on this list.")}</p>
+            </div>
+          </aside>
         )}
       </div>
     </div>
@@ -278,39 +303,68 @@ export function CaseDetailPage() {
   const tabs = ["overview", "invoices", "documents", "bank", "courier", "bookings", "reminders", "share"];
   return (
     <div className="space-y-5" data-dossier="loaded">
-      <header className="rounded-2xl border border-line bg-card p-4 shadow-[var(--shadow-card)]">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-ink"><Ltr>{String(data.case.case_reference)}</Ltr></h1>
-          <p className="mt-1 text-sm text-ink">{data.customer?.legal_name}</p>
-          <p className="mt-1 max-w-3xl text-sm text-ink-muted">{data.snapshot?.legal_name} {tx("snapshotOf", "snapshot")} · {tx("liveProfile", "live profile is")} {data.customer?.legal_name}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <StatusBadge value={String(data.case.status)} />
-          {data.case.status === "DRAFT" ? (
+      <header className="overflow-hidden rounded-2xl border border-line bg-card shadow-[var(--shadow-card)]">
+        <div className="flex flex-wrap items-start justify-between gap-4 p-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">{tx("caseFile", "Case file")}</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink"><Ltr>{String(data.case.case_reference)}</Ltr></h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <StatusBadge value={String(data.case.status)} />
+              <span className="text-sm font-medium text-ink">{data.customer?.legal_name}</span>
+            </div>
+            <p className="mt-1 max-w-3xl text-xs text-ink-muted">{tx("snapshotOf", "snapshot")}: {data.snapshot?.legal_name} · {tx("liveProfile", "live profile is")} {data.customer?.legal_name}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {data.case.status === "DRAFT" ? (
+              <Button size="sm" variant="outline" onClick={async () => {
+                try {
+                  await api(`/api/v1/export-cases/${id}/status`, { method: "POST", body: JSON.stringify({ to: "ACTIVE", version: data.case.version }) });
+                  setCaseError(null);
+                  notifySuccess(tx("caseMarkedActive", "Case marked active"));
+                  await client.invalidateQueries({ queryKey: ["case", id] });
+                } catch (error) {
+                  setCaseError(fail(error));
+                  notifyError(error);
+                }
+              }}>{tx("markActive", "Mark active")}</Button>
+            ) : null}
             <Button size="sm" variant="outline" onClick={async () => {
               try {
-                await api(`/api/v1/export-cases/${id}/status`, { method: "POST", body: JSON.stringify({ to: "ACTIVE", version: data.case.version }) });
+                await api(`/api/v1/export-cases/${id}/status`, { method: "POST", body: JSON.stringify({ to: "COMPLETED", version: data.case.version }) });
                 setCaseError(null);
+                notifySuccess(tx("caseCompleted", "Case completed"));
                 await client.invalidateQueries({ queryKey: ["case", id] });
               } catch (error) {
                 setCaseError(fail(error));
+                notifyError(error);
               }
-            }}>{tx("markActive", "Mark active")}</Button>
-          ) : null}
-          <Button size="sm" variant="outline" onClick={async () => {
-            try {
-              await api(`/api/v1/export-cases/${id}/status`, { method: "POST", body: JSON.stringify({ to: "COMPLETED", version: data.case.version }) });
-              await client.invalidateQueries({ queryKey: ["case", id] });
-            } catch (error) {
-              setCaseError(fail(error));
-            }
-          }}>{tx("completeCase", "Complete case")}</Button>
+            }}>{tx("completeCase", "Complete case")}</Button>
+          </div>
         </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line bg-paper/60 px-4 py-3 text-xs text-ink-muted">
+          <span>
+            {tx("documentRoute", "Document route")}:{" "}
+            <span className="font-semibold text-ink">{tx(`status.${String(data.case.document_route)}`, String(data.case.document_route))}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            {tx("docs", "Docs")}:
+            <StatusBadge value={String(data.case.document_route === "BANK_ROUTE" ? data.case.bank_path_status : data.case.direct_path_status)} />
+          </span>
+          <span>
+            {tx("containers", "Containers")}: <span className="font-semibold text-ink tabular-nums"><Ltr>{data.containers.length}</Ltr></span>
+          </span>
+          <span>
+            {tx("invoices", "Invoices")}: <span className="font-semibold text-ink tabular-nums"><Ltr>{data.invoices.length}</Ltr></span>
+          </span>
         </div>
-        <div className="mt-4 rounded-xl bg-paper px-3 py-3">
-          <h2 className="text-sm font-semibold text-ink">{tx("nextAction", "Next action")}</h2>
-          <p className="mt-1 text-sm text-ink">{stored(String(data.case.next_action || "Review checklist"))}</p>
+        <div className="flex items-start gap-2.5 border-t border-line px-4 py-3">
+          <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent/10 text-accent" aria-hidden>
+            <ClipboardList className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{tx("nextAction", "Next action")}</p>
+            <p className="text-sm font-medium text-ink">{stored(String(data.case.next_action || "Review checklist"))}</p>
+          </div>
         </div>
       </header>
       {caseError ? <AlertText>{caseError}</AlertText> : null}
@@ -383,16 +437,57 @@ export function CaseDetailPage() {
         ))}
       </nav>
       {tab === "overview" ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-xl border border-line bg-card p-4 text-sm">
-            {tx("nextAction", "Next action")}: {stored(String(data.case.next_action || "Review checklist"))}
+        <div className="space-y-3">
+          <div className="grid gap-3 lg:grid-cols-2">
+            <SectionCard title={tx("caseSummary", "Case summary")} icon={<ClipboardList className="h-4 w-4" />}>
+              <dl className="space-y-2.5 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-line/60 pb-2.5">
+                  <dt className="text-ink-muted">{tx("customer", "Customer")}</dt>
+                  <dd className="min-w-0 truncate font-medium text-ink">{data.customer?.legal_name ?? "—"}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-b border-line/60 pb-2.5">
+                  <dt className="text-ink-muted">{tx("tradeName", "Trade name")}</dt>
+                  <dd className="min-w-0 truncate font-medium text-ink">{data.customer?.trade_name || "—"}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-b border-line/60 pb-2.5">
+                  <dt className="text-ink-muted">{tx("country", "Country")}</dt>
+                  <dd className="font-medium text-ink"><Ltr>{data.customer?.country_code || "—"}</Ltr></dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-ink-muted">{tx("documentRoute", "Document route")}</dt>
+                  <dd className="font-medium text-ink">{tx(`status.${String(data.case.document_route)}`, String(data.case.document_route))}</dd>
+                </div>
+              </dl>
+            </SectionCard>
+            <SectionCard
+              title={tx("openReminders", "Open reminders")}
+              icon={<Bell className="h-4 w-4" />}
+              action={
+                <Button size="sm" variant="outline" onClick={() => setTab("reminders")}>
+                  {tx("viewAll", "View all")}
+                </Button>
+              }
+            >
+              {data.reminders.length === 0 ? (
+                <EmptyState>{tx("noOpenRemindersCase", "No open reminders.")}</EmptyState>
+              ) : (
+                <ul className="space-y-2">
+                  {data.reminders.slice(0, 4).map((r) => (
+                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line/70 bg-paper/40 px-3 py-2 text-sm">
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-ink">{stored(r.reason)}</span>
+                        <span className="mt-0.5 block text-xs text-ink-muted">
+                          {tx("due", "due")} <Ltr>{formatWhen(r.due_at)}</Ltr>
+                        </span>
+                      </span>
+                      <StatusBadge value={r.status} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
           </div>
-          <div className="rounded-xl border border-line bg-card p-4 text-sm">
-            {tx("openRemindersCount", "Open reminders")}: {data.reminders.length}
-          </div>
-          <div className="md:col-span-2">
-            <CustomFieldsPanel endpoint={`/api/v1/export-cases/${id}/custom-fields`} draft={data.case.status === "DRAFT" || data.case.status === "CANCELLED"} />
-          </div>
+          <CustomFieldsPanel endpoint={`/api/v1/export-cases/${id}/custom-fields`} draft={data.case.status === "DRAFT" || data.case.status === "CANCELLED"} />
         </div>
       ) : null}
       {tab === "invoices" ? <InvoicePanel invoices={data.invoices} caseStatus={String(data.case.status)} /> : null}
@@ -401,10 +496,25 @@ export function CaseDetailPage() {
       {tab === "courier" ? <CourierPanel caseId={String(id)} /> : null}
       {tab === "bookings" ? <BookingPanel caseId={String(id)} bookings={data.bookings} /> : null}
       {tab === "reminders" ? (
-        <ul className="space-y-2 rounded-xl border border-line bg-card p-4 text-sm">
-          {data.reminders.map((r) => <li key={r.id}>{stored(r.reason)} · {tx("due", "due")} <Ltr>{formatWhen(r.due_at)}</Ltr> · <StatusBadge value={r.status} /></li>)}
-          {!data.reminders.length ? <li>{tx("noOpenRemindersCase", "No open reminders.")}</li> : null}
-        </ul>
+        <SectionCard title={tx("reminders", "Reminders")} icon={<Bell className="h-4 w-4" />}>
+          {data.reminders.length === 0 ? (
+            <EmptyState>{tx("noOpenRemindersCase", "No open reminders.")}</EmptyState>
+          ) : (
+            <ul className="space-y-2">
+              {data.reminders.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line/70 bg-paper/40 px-3 py-2 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-ink">{stored(r.reason)}</span>
+                    <span className="mt-0.5 block text-xs text-ink-muted">
+                      {tx("due", "due")} <Ltr>{formatWhen(r.due_at)}</Ltr>
+                    </span>
+                  </span>
+                  <StatusBadge value={r.status} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
       ) : null}
       {tab === "share" ? <SharePanel caseId={String(id)} /> : null}
     </div>

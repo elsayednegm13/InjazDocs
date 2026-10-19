@@ -30,18 +30,41 @@ export function SectionCard({
   title,
   children,
   className,
+  icon,
+  action,
 }: {
   title?: ReactNode;
   children: ReactNode;
   className?: string;
+  icon?: ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <section className={cn("rounded-2xl border border-line bg-card p-4 shadow-[var(--shadow-card)]", className)}>
-      {title ? <h2 className="mb-3 text-sm font-semibold tracking-wide text-ink">{title}</h2> : null}
+      {title ? (
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="flex min-w-0 items-center gap-2 text-[15px] font-semibold tracking-tight text-ink">
+            {icon ? <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">{icon}</span> : null}
+            <span className="truncate">{title}</span>
+          </h2>
+          {action ? <div className="shrink-0 text-xs font-semibold">{action}</div> : null}
+        </div>
+      ) : null}
       {children}
     </section>
   );
 }
+
+const STAT_TONES = {
+  blue: { card: "border-[#dbe7f8] bg-[#f4f8ff]", chip: "bg-[#dceafe] text-[#2563eb]" },
+  teal: { card: "border-[#cfeee8] bg-[#f2fbf9]", chip: "bg-[#d3f3ee] text-accent" },
+  amber: { card: "border-[#f7e5c3] bg-[#fffaf1]", chip: "bg-[#fbeccd] text-[#a16207]" },
+  green: { card: "border-[#d8eedd] bg-[#f3fbf5]", chip: "bg-[#daf3e0] text-ok" },
+  rose: { card: "border-[#f6d9d5] bg-[#fff6f5]", chip: "bg-[#fbe1de] text-danger" },
+  plain: { card: "border-line bg-card", chip: "bg-paper text-accent" },
+} as const;
+
+export type StatTone = keyof typeof STAT_TONES;
 
 export function StatCard({
   label,
@@ -49,31 +72,34 @@ export function StatCard({
   href,
   hint,
   icon,
+  tone = "plain",
 }: {
   label: string;
   value: number;
   href?: string;
   hint?: ReactNode;
   icon?: ReactNode;
+  tone?: StatTone;
 }) {
+  const palette = STAT_TONES[tone];
   const body = (
     <>
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs font-medium text-ink-muted">{label}</div>
-          <div className="mt-2 text-[28px] font-semibold leading-none tabular-nums tracking-tight text-ink">
+        <div className="min-w-0">
+          <div className="truncate text-xs font-semibold text-ink-muted">{label}</div>
+          <div className="mt-2.5 text-[30px] font-semibold leading-none tabular-nums tracking-tight text-ink">
             <Ltr>{value}</Ltr>
           </div>
         </div>
-        {icon ? <span className="grid h-9 w-9 place-items-center rounded-full bg-paper text-accent">{icon}</span> : null}
+        {icon ? <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", palette.chip)}>{icon}</span> : null}
       </div>
-      {hint ? <p className="mt-2 text-xs text-ink-muted">{hint}</p> : null}
+      {hint ? <p className="mt-2.5 line-clamp-2 text-[11px] leading-snug text-ink-muted">{hint}</p> : null}
     </>
   );
-  const className = "block rounded-[14px] border border-line bg-card px-4 py-4 shadow-[var(--shadow-card)]";
+  const className = cn("block rounded-2xl border px-4 py-4 shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-tower)]", palette.card);
   if (!href) return <div className={className}>{body}</div>;
   return (
-    <Link className={`${className} transition hover:border-accent/40`} to={href}>
+    <Link className={className} to={href}>
       {body}
     </Link>
   );
