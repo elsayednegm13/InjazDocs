@@ -3,6 +3,7 @@ import { AppShell } from "@/app/shell";
 import { useSession } from "@/app/access";
 import { ActivityPage, SettingsPage, UsersPage } from "@/features/admin/AdminPages";
 import { ChangePasswordPage, LoginPage } from "@/features/auth/LoginPage";
+import { ProfilePage } from "@/features/auth/ProfilePage";
 import { CaseDetailPage, CasesListPage, NewCasePage } from "@/features/cases/CasesPages";
 import { CustomerDetailPage, CustomerFormPage, CustomersListPage } from "@/features/customers/CustomersPages";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
@@ -16,6 +17,7 @@ import {
   SchedulePage,
 } from "@/features/ops/OpsPages";
 import { TrackPage } from "@/features/track/TrackPage";
+import { NewQuotationPage, QuotationDetailPage, QuotationEditPage, QuotationsListPage } from "@/features/quotations/QuotationsPages";
 
 function RequireSession() {
   const session = useSession();
@@ -48,6 +50,10 @@ export function AppRouter() {
           <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/bookings" element={<BookingsListPage />} />
           <Route path="/bookings/:id" element={<BookingDetailPage />} />
+          <Route path="/quotations" element={<QuotationsListPage />} />
+          <Route path="/quotations/new" element={<NewQuotationPage />} />
+          <Route path="/quotations/:id" element={<QuotationDetailPage />} />
+          <Route path="/quotations/:id/edit" element={<QuotationEditPage />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/containers" element={<ContainersPage />} />
           <Route path="/reminders" element={<RemindersPage />} />
@@ -55,6 +61,7 @@ export function AppRouter() {
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/users" element={<UsersPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/activity" element={<ActivityPage />} />
         </Route>
         </Route>

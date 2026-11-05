@@ -11,7 +11,13 @@ import "./app/i18n";
 import "./index.css";
 
 const client = new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 90_000,
+      refetchOnWindowFocus: true,
+    },
+  },
   queryCache: new QueryCache({
     onError: (error) => {
       if (error instanceof ApiRequestError && error.status === 401) return;

@@ -1,21 +1,107 @@
 @import "./assets/fonts/fonts.css";
 @import "tailwindcss";
 
-@theme {
+/* Light values are the shipped workspace. Dark values stay in the same navy
+   family: the rail is darker than the page, cards lift one step, and text
+   teal is quieter than the small rail highlight so the two do not compete. */
+:root {
+  color-scheme: light;
+  --ef-ink: #182839;
+  --ef-ink-muted: #4a5d70;
+  --ef-paper: #f7f9fc;
+  --ef-card: #ffffff;
+  --ef-line: #d7dee6;
+  --ef-accent: #0d9488;
+  --ef-accent-fill: #0d9488;
+  --ef-accent-2: #10243a;
+  --ef-danger: #9e3228;
+  --ef-danger-fill: #9e3228;
+  --ef-ok: #1d6b45;
+  --ef-warn: #8a5a12;
+  --ef-on-navy: #d5e2ec;
+  --ef-radius-control: 0.75rem;
+  --ef-radius-card: 1rem;
+  --ef-motion: 180ms;
+  --ef-scroll-thumb: rgb(16 36 58 / 0.28);
+  --ef-scroll-thumb-hover: var(--ef-accent-fill);
+  --ef-shadow-card: 0 1px 0 rgb(16 36 58 / 0.04), 0 10px 28px rgb(16 36 58 / 0.06);
+  --ef-shadow-tower: 0 12px 40px rgb(16 36 58 / 0.22);
+  --ef-stat-blue-bg: color-mix(in srgb, var(--ef-accent-2) 5%, var(--ef-card));
+  --ef-stat-blue-border: color-mix(in srgb, var(--ef-accent-2) 16%, var(--ef-line));
+  --ef-stat-blue-chip: color-mix(in srgb, var(--ef-accent-2) 10%, var(--ef-paper));
+  --ef-stat-blue-ink: var(--ef-accent-2);
+  --ef-stat-teal-bg: #f2fbf9;
+  --ef-stat-teal-border: #cfeee8;
+  --ef-stat-teal-chip: #d3f3ee;
+  --ef-stat-amber-bg: #fffaf1;
+  --ef-stat-amber-border: #f7e5c3;
+  --ef-stat-amber-chip: #fbeccd;
+  --ef-stat-amber-ink: #a16207;
+  --ef-stat-green-bg: #f3fbf5;
+  --ef-stat-green-border: #d8eedd;
+  --ef-stat-green-chip: #daf3e0;
+  --ef-stat-rose-bg: #fff6f5;
+  --ef-stat-rose-border: #f6d9d5;
+  --ef-stat-rose-chip: #fbe1de;
+}
+
+.dark {
+  color-scheme: dark;
+  --ef-ink: #e6eef6;
+  --ef-ink-muted: #9aafc3;
+  --ef-paper: #121c2b;
+  --ef-card: #1b2838;
+  --ef-line: #314558;
+  --ef-accent: #7ec8c0;
+  --ef-accent-fill: #0f766e;
+  --ef-accent-2: #081018;
+  --ef-danger: #e3a59e;
+  --ef-danger-fill: #9e3228;
+  --ef-ok: #7dba8a;
+  --ef-warn: #e0b86a;
+  --ef-on-navy: #d5e2ec;
+  --ef-scroll-thumb: rgb(230 238 246 / 0.32);
+  --ef-scroll-thumb-hover: var(--ef-accent);
+  --ef-shadow-card: 0 1px 0 rgb(0 0 0 / 0.35), 0 12px 28px rgb(0 0 0 / 0.28);
+  --ef-shadow-tower: 0 16px 40px rgb(0 0 0 / 0.45);
+  --ef-stat-blue-bg: color-mix(in srgb, var(--ef-accent-2) 42%, var(--ef-card));
+  --ef-stat-blue-border: color-mix(in srgb, var(--ef-on-navy) 22%, var(--ef-line));
+  --ef-stat-blue-chip: color-mix(in srgb, var(--ef-on-navy) 14%, var(--ef-card));
+  --ef-stat-blue-ink: var(--ef-on-navy);
+  --ef-stat-teal-bg: #132e2c;
+  --ef-stat-teal-border: #1e4540;
+  --ef-stat-teal-chip: #1a3f3a;
+  --ef-stat-amber-bg: #2c2416;
+  --ef-stat-amber-border: #4a3b22;
+  --ef-stat-amber-chip: #3d311c;
+  --ef-stat-amber-ink: #e4c27a;
+  --ef-stat-green-bg: #14281c;
+  --ef-stat-green-border: #234833;
+  --ef-stat-green-chip: #1c3a28;
+  --ef-stat-rose-bg: #2c1a18;
+  --ef-stat-rose-border: #4a2c28;
+  --ef-stat-rose-chip: #3d2220;
+}
+
+@theme inline {
   --font-sans: "IBM Plex Sans Arabic", "Segoe UI", "Noto Sans Arabic", Tahoma, sans-serif;
-  --color-ink: #182839;
-  --color-ink-muted: #4a5d70;
-  --color-paper: #f7f9fc;
-  --color-card: #ffffff;
-  --color-line: #d7dee6;
-  --color-accent: #0d9488;
-  --color-accent-2: #10243a;
-  --color-danger: #9e3228;
-  --color-ok: #1d6b45;
-  --color-warn: #8a5a12;
-  --shadow-card: 0 1px 0 rgb(16 36 58 / 0.04), 0 10px 28px rgb(16 36 58 / 0.06);
-  --shadow-tower: 0 12px 40px rgb(16 36 58 / 0.22);
-  --radius-card: 14px;
+  --color-ink: var(--ef-ink);
+  --color-ink-muted: var(--ef-ink-muted);
+  --color-paper: var(--ef-paper);
+  --color-card: var(--ef-card);
+  --color-line: var(--ef-line);
+  --color-accent: var(--ef-accent);
+  --color-accent-fill: var(--ef-accent-fill);
+  --color-accent-2: var(--ef-accent-2);
+  --color-danger: var(--ef-danger);
+  --color-danger-fill: var(--ef-danger-fill);
+  --color-ok: var(--ef-ok);
+  --color-warn: var(--ef-warn);
+  --shadow-card: var(--ef-shadow-card);
+  --shadow-tower: var(--ef-shadow-tower);
+  --color-on-navy: var(--ef-on-navy);
+  --radius-control: var(--ef-radius-control);
+  --radius-card: var(--ef-radius-card);
 }
 
 html,
@@ -35,8 +121,42 @@ body {
 }
 
 ::selection {
-  background: #0c5c56;
-  color: #f7f8f6;
+  background: var(--ef-accent-fill);
+  color: white;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ef-scroll-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--ef-scroll-thumb);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ef-scroll-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.scroll-navy {
+  --ef-scroll-thumb: rgb(255 255 255 / 0.32);
+  --ef-scroll-thumb-hover: var(--ef-on-navy);
 }
 
 [dir="rtl"] body {
@@ -47,6 +167,28 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+button,
+summary,
+select,
+[role="button"],
+label:has(input[type="checkbox"]),
+label:has(input[type="radio"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.login-stage {
+  background-color: var(--color-paper);
+  background-image:
+    radial-gradient(circle at 50% -10%, color-mix(in srgb, var(--ef-accent-fill) 22%, transparent), transparent 42%),
+    radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--ef-accent-2) 10%, transparent), transparent 46%);
 }
 
 @media (prefers-reduced-motion: reduce) {

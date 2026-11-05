@@ -9,10 +9,22 @@ export function describeError(error: unknown): string {
   return translated === key ? fallbackFor(code) : translated;
 }
 
+function toastId(kind: string, message: string, description?: string) {
+  return `${kind}:${message}:${description ?? ""}`;
+}
+
 export function notifyError(error: unknown) {
-  toast.error(describeError(error));
+  const message = describeError(error);
+  toast.error(message, { id: toastId("error", message) });
+}
+
+export function notifyFailure(message: string) {
+  toast.error(message, { id: toastId("error", message) });
 }
 
 export function notifySuccess(message: string, description?: string) {
-  toast.success(message, description ? { description } : undefined);
+  toast.success(message, {
+    id: toastId("success", message, description),
+    ...(description ? { description } : {}),
+  });
 }

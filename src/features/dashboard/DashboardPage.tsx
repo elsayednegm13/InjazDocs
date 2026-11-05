@@ -2,7 +2,9 @@ import { Bell, Boxes, CalendarRange, CheckCircle2, ChevronDown, ClipboardList, F
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { useSession } from "@/app/access";
+import { Button } from "@/components/ui/button";
 import { EmptyState, Ltr, SectionCard, StatCard } from "@/components/ui/chrome";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status";
 import { api } from "@/lib/api";
 import { formatWhen, useCopy } from "@/lib/copy";
@@ -116,14 +118,14 @@ export function DashboardPage() {
     queryKey: ["dashboard"],
     queryFn: async () => (await api<Overview>("/api/v1/dashboard")).data,
   });
-  if (query.isLoading) return <p className="text-ink-muted">{tx("loadingDashboard", "Loading dashboard…")}</p>;
+  if (query.isLoading) return <DashboardSkeleton />;
   if (query.isError) {
     return (
-      <div role="alert" className="rounded-[14px] border border-danger/30 bg-card p-4 text-danger">
+      <div role="alert" className="rounded-card border border-danger/30 bg-card p-4 text-danger">
         {tx("dashboardLoadError", "Could not load dashboard counts from the API.")}
-        <button type="button" className="ms-3 text-sm font-semibold text-accent" onClick={() => void query.refetch()}>
+        <Button type="button" variant="ghost" size="sm" className="ms-3 text-accent" onClick={() => void query.refetch()}>
           {tx("retrySafeGet", "Retry")}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -137,7 +139,7 @@ export function DashboardPage() {
   const nextUrgent = queues.urgent[0];
   return (
     <div className="space-y-5" data-dashboard="ready">
-      <section className="relative overflow-hidden rounded-2xl bg-accent-2 px-5 py-6 text-white shadow-[var(--shadow-tower)] md:px-7 md:py-7">
+      <section className="relative overflow-hidden rounded-card bg-accent-2 px-5 py-6 text-white shadow-tower md:px-7 md:py-7">
         <div className="pointer-events-none absolute inset-0" aria-hidden>
           <div className="absolute inset-y-0 end-0 w-3/5 bg-[radial-gradient(circle_at_78%_38%,rgb(13_148_136/0.45),transparent_62%)]" />
           <div className="absolute -end-20 -top-28 h-80 w-80 rounded-full border border-white/10" />
@@ -147,7 +149,7 @@ export function DashboardPage() {
         </div>
         <div className="relative max-w-2xl">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/85">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#5eead4]" aria-hidden />
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
             {tx("opsKicker", "Operations workspace")}
           </span>
           <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-[28px]">{tx("heroTitle", "Export operations")}</h1>
@@ -254,7 +256,7 @@ export function DashboardPage() {
                     </summary>
                     <div className="border-t border-line px-3 py-2">
                       {rows.length === 0 ? (
-                        <p className="py-1 text-xs text-ink-muted">{tx("noOpenReminders", "No open reminders.")}</p>
+                        <EmptyState compact>{tx("noOpenReminders", "No open reminders.")}</EmptyState>
                       ) : (
                         <ul>
                           {rows.slice(0, 5).map((item) => (
@@ -339,7 +341,7 @@ export function DashboardPage() {
                 <Ltr>{data.counts.docs_pending}</Ltr>
               </p>
             </div>
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#fbeccd] text-[#a16207]">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--ef-stat-amber-chip)] text-[var(--ef-stat-amber-ink)]">
               <FileStack className="h-5 w-5" />
             </span>
           </div>
@@ -379,7 +381,7 @@ export function DashboardPage() {
                 <Ltr>{data.counts.courier_open}</Ltr>
               </p>
             </div>
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#d3f3ee] text-accent">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--ef-stat-teal-chip)] text-accent">
               <Package className="h-5 w-5" />
             </span>
           </div>

@@ -60,10 +60,11 @@ export function CustomFieldInputs({ target }: { target: string }) {
   const query = useQuery({
     queryKey: ["custom-field-catalog", target],
     queryFn: async () => (await api<CustomFieldCatalogItem[]>(`/api/v1/custom-fields?targetEntity=${target}`)).data,
+    refetchInterval: false,
   });
   if (!query.data?.length) return null;
   return (
-    <div className="grid gap-3 rounded-xl border border-line bg-card p-4 md:grid-cols-2" data-testid={`custom-fields-${target}`}>
+    <div className="grid gap-3 rounded-card border border-line bg-card p-4 shadow-card md:grid-cols-2" data-testid={`custom-fields-${target}`}>
       <h2 className="md:col-span-2 font-medium">{tx("customFields", "Custom fields")}</h2>
       {query.data.map((field) => {
         const label = labelOf(field, ar);
@@ -93,7 +94,7 @@ export function CustomFieldsPanel({ endpoint, draft = false, locked = false }: {
   if (query.isLoading || query.isError || !query.data?.length) return null;
   return (
     <form
-      className="grid gap-3 rounded-xl border border-line bg-card p-4 md:grid-cols-2"
+      className="grid gap-3 rounded-card border border-line bg-card p-4 shadow-card md:grid-cols-2"
       data-testid="custom-fields-panel"
       onSubmit={async (event) => {
         event.preventDefault();

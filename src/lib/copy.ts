@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { ApiRequestError } from "@/lib/api";
 import { errorCode, fallbackFor } from "@/lib/fail";
 
 const STORED_PREFIXES = [
@@ -13,6 +14,14 @@ const STORED_PREFIXES = [
   ["Container milestone follow-up", "reminder.container"],
   ["Update the actual container event", "reminder.containerAction"],
   ["Review booking dates and container progress", "reminder.bookingAction"],
+  ["booking loading approaching", "reminder.bookingLoading"],
+  ["booking cutoff approaching", "reminder.bookingCutoff"],
+  ["booking etd followup", "reminder.bookingEtd"],
+  ["vessel eta approaching", "reminder.vesselEta"],
+  ["arrival overdue", "reminder.arrivalOverdue"],
+  ["goods delivery pending", "reminder.goodsDelivery"],
+  ["document missing after invoice posted", "reminder.docMissingInvoice"],
+  ["document missing after booking confirmed", "reminder.docMissingBooking"],
   ["No open reminder", "reminder.none"],
   ["Complete commercial details and document checklist", "reminder.checklist"],
   ["Review checklist", "nextActionReview"],
@@ -47,7 +56,11 @@ const ACTIVITY: Record<string, string> = {
   "user.disable": "activity.userDisable",
   "user.enable": "activity.userEnable",
   "bootstrap.admin": "activity.bootstrap",
+  "profile.name": "activity.profileName",
+  "profile.email": "activity.profileEmail",
   "invoice.update": "activity.invoiceUpdate",
+  "invoice.open": "activity.invoiceOpen",
+  "invoice.lock": "activity.invoiceLock",
   "invoice.correct": "activity.invoiceCorrect",
   "booking.create": "activity.bookingCreate",
   "booking.update": "activity.bookingUpdate",
@@ -87,7 +100,8 @@ export function useCopy() {
   }
   function fail(error: unknown) {
     const code = errorCode(error);
-    return tx(`errors.${code}`, fallbackFor(code));
+    const serverMessage = error instanceof ApiRequestError ? error.message : undefined;
+    return tx(`errors.${code}`, fallbackFor(code, serverMessage));
   }
   function activity(action: string, fallback?: string) {
     const key = ACTIVITY[action];
@@ -113,6 +127,20 @@ export function useCopy() {
   return { ar, tx, t, i18n, stored, fail, activity, ruleName };
 }
 
+const BIDI_MARKS = /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+
+export function formatDay(value: string | number | null | undefined, language: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  const formatted = new Intl.DateTimeFormat(language.startsWith("ar") ? "ar-EG-u-nu-latn" : "en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+  return formatted.replace(BIDI_MARKS, "");
+}
+
 export function formatWhen(value: string | number | null | undefined, language: string) {
   if (!value) return "—";
   const date = new Date(value);
@@ -120,5 +148,5 @@ export function formatWhen(value: string | number | null | undefined, language: 
   return new Intl.DateTimeFormat(language.startsWith("ar") ? "ar-EG-u-nu-latn" : "en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(date);
+  }).format(date).replace(BIDI_MARKS, "");
 }

@@ -3,6 +3,14 @@ import { cn } from "@/lib/utils";
 
 const tones: Record<string, string> = {
   DRAFT: "bg-paper text-ink",
+  PLANNED: "bg-paper text-ink-muted",
+  NUMBER_ASSIGNED: "bg-accent/15 text-accent",
+  GATED_IN: "bg-accent/10 text-accent",
+  LOADED: "bg-accent/15 text-accent",
+  DEPARTED: "bg-accent/15 text-accent",
+  ARRIVED_PORT: "bg-warn/15 text-warn",
+  CUSTOMS_RELEASED: "bg-ok/10 text-ok",
+  EXCEPTION: "bg-danger/15 text-danger",
   ACTIVE: "bg-accent/15 text-accent",
   PENDING: "bg-warn/15 text-warn",
   SNOOZED: "bg-warn/15 text-warn",
@@ -31,7 +39,7 @@ export function StatusBadge({ value }: { value?: string | null }) {
     <span
       data-status={value}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide",
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide",
         tones[value] ?? "bg-paper text-ink",
       )}
     >

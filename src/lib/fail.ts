@@ -29,6 +29,15 @@ const FALLBACK: Record<string, string> = {
   REMINDER_RECOMPUTE_TOO_LARGE: "This reminder rule touches too many rows to update in one safe step. No change was saved.",
   LAST_ADMIN: "The last active administrator cannot be removed or disabled.",
   INVOICE_LOCKED: "This invoice is locked because the export operation is completed. An exceptional correction is required.",
+  INVOICE_NUMBER_TAKEN: "This invoice number is already used. Enter a different number.",
+  CASE_HAS_INVOICE: "This export operation already has its invoice.",
+  CASE_HAS_BOOKING: "This export operation already has its sea booking.",
+  CUSTOMER_CODE_TAKEN: "This customer code is already used.",
+  CUSTOMER_CODE_INVALID: "Use a short customer code of letters, numbers, and dashes.",
+  CONTAINER_SLOT_IN_USE: "Only an empty planned container can be removed.",
+  INVOICE_AMOUNT_INVALID: "Enter the amount with digits only, for example 140000.00 or 140,000.00.",
+  INVOICE_WEIGHT_INVALID: "Enter the weight as a positive number. Gross weight cannot be less than net weight.",
+  FOB_HAS_INVOICED_FREIGHT: "An FOB invoice cannot include freight on the invoice. Put that cost in actual freight, or change the incoterm to CFR.",
   INVOICE_VERSION: "The invoice changed since you opened it. Refresh and review the correction again.",
   INVOICE_CORRECTION_REASON: "Write the correction reason before saving.",
   CUSTOM_FIELD_REQUIRED: "Fill in the required extra fields.",
@@ -50,6 +59,9 @@ export function fieldErrorsOf(error: unknown): Record<string, string> {
   return error instanceof ApiRequestError ? error.fieldErrors : {};
 }
 
-export function fallbackFor(code: string): string {
-  return FALLBACK[code] ?? FALLBACK.SERVER_TEMPORARILY_UNAVAILABLE;
+export function fallbackFor(code: string, serverMessage?: string): string {
+  if (FALLBACK[code]) return FALLBACK[code];
+  const message = serverMessage?.trim() ?? "";
+  if (message && !/sqlite|d1_|constraint failed|wrangler|cloudflare/i.test(message)) return message;
+  return FALLBACK.SERVER_TEMPORARILY_UNAVAILABLE;
 }
