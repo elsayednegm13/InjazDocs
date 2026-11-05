@@ -62,3 +62,32 @@ export const PUBLIC_TRACKING_FIELDS = [
   "containers",
   "lastUpdatedAt",
 ] as const;
+
+/* ---------------------------------------------------------------------------
+ * W2 independent quotations (owner-approved, D-10). The quotation is a separate
+ * commercial document with its own manual number and lifecycle. Status is the
+ * stored lifecycle value; expiry is effective (no cron).
+ * ------------------------------------------------------------------------- */
+
+export const QUOTATION_STATUSES = ["DRAFT", "ISSUED", "ACCEPTED", "REJECTED", "EXPIRED"] as const;
+
+export type QuotationStatus = (typeof QUOTATION_STATUSES)[number];
+
+/** Client paths. The CSV/PDF hrefs also live here for download links. */
+export const QUOTATION_PATHS = {
+  list: "/api/v1/quotations",
+  csvHref: "/api/v1/quotations.csv",
+  detail: (id: string) => `/api/v1/quotations/${id}`,
+  revisions: (id: string) => `/api/v1/quotations/${id}/revisions`,
+  pdf: (id: string, revision?: number) =>
+    `/api/v1/quotations/${id}/pdf${revision ? `?revision=${revision}` : ""}`,
+  items: (id: string) => `/api/v1/quotations/${id}/items`,
+  item: (id: string, itemId: string) => `/api/v1/quotations/${id}/items/${itemId}`,
+  issue: (id: string) => `/api/v1/quotations/${id}/issue`,
+  revise: (id: string) => `/api/v1/quotations/${id}/revise`,
+  response: (id: string) => `/api/v1/quotations/${id}/response`,
+  link: (id: string) => `/api/v1/quotations/${id}/link`,
+  unlink: (id: string) => `/api/v1/quotations/${id}/unlink`,
+  copyItems: (id: string) => `/api/v1/quotations/${id}/copy-items`,
+  archive: (id: string) => `/api/v1/quotations/${id}/archive`,
+} as const;

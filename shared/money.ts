@@ -19,9 +19,18 @@ export function currencyDecimals(code: string): number {
   return CURRENCY_DECIMALS[code.toUpperCase()] ?? 2;
 }
 
+export function normalizeDecimalInput(value: string): string {
+  const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
+  return value
+    .trim()
+    .replace(/[٠-٩]/g, (digit) => String(arabicDigits.indexOf(digit)))
+    .replace(/[٬،,\s\u00A0\u202F]/g, "")
+    .replace(/٫/g, ".");
+}
+
 export function parseDecimalToMinor(value: string, currency: string): MoneyMinor {
   const decimals = currencyDecimals(currency);
-  const trimmed = value.trim();
+  const trimmed = normalizeDecimalInput(value);
   if (!/^-?\d+(\.\d+)?$/.test(trimmed)) {
     throw new Error("INVALID_DECIMAL");
   }
@@ -49,6 +58,26 @@ export function minorToDecimalString(minorUnits: bigint | number | string, decim
   const fracStr = frac.toString().padStart(decimals, "0");
   const body = decimals === 0 ? whole.toString() : `${whole.toString()}.${fracStr}`;
   return negative ? `-${body}` : body;
+}
+
+/** Commercial invoice total: goods plus the freight written on the invoice. */
+export function commercialInvoiceTotal(goods: string, invoicedFreight: string, currency: string): string {
+  const code = currency.trim() || "USD";
+  const decimals = currencyDecimals(code);
+  const goodsMinor = optionalMinor(goods, code);
+  const freightMinor = optionalMinor(invoicedFreight, code);
+  if (goodsMinor == null || freightMinor == null) return "";
+  return minorToDecimalString(goodsMinor + freightMinor, decimals);
+}
+
+function optionalMinor(value: string, currency: string): bigint | null {
+  const trimmed = value.trim();
+  if (!trimmed) return 0n;
+  try {
+    return parseDecimalToMinor(trimmed, currency).minorUnits;
+  } catch {
+    return null;
+  }
 }
 
 export function assertNonNegativeMinor(minorUnits: bigint | number, field: string): void {
