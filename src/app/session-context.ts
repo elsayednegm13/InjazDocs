@@ -10,3 +10,6 @@ export type SessionUser = {
 };
 
 export const SessionContext = createContext<SessionUser | null>(null);
+
+/** True only while the first session read has not settled. Default is ready, so a missing provider does not lock the tree. */
+export const SessionPendingContext = createContext(false);

@@ -855,6 +855,9 @@ export async function listReminders(db: D1Database, actor: Actor, filter: string
 
 export async function listNotifications(db: D1Database, actor: Actor) {
   requirePermission(actor, "reminders.view");
+  // The shell polls this on every page. An empty inbox has nothing to join.
+  const stored = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM notification_deliveries");
+  if (!stored?.n) return [];
   const vis = caseVisibilitySql(actor, "c");
   return all(
     db,

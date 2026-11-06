@@ -4,21 +4,33 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { brandAsset, useCompanyBrand } from "@/app/brand";
 import { applyDir } from "@/app/i18n";
-import { useSession } from "@/app/access";
+import { useSession, useSessionPending } from "@/app/access";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { api, ApiRequestError } from "@/lib/api";
 import { useCopy } from "@/lib/copy";
+import { loginRequestGate, refetchWhenReadable } from "@/lib/query-retry";
 
 export function LoginPage() {
   const { tx, i18n } = useCopy();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const session = useSession();
+  const sessionPending = useSessionPending();
+  const bootstrapGate = loginRequestGate({ sessionPending, hasSession: session != null, bootstrapSettled: false });
   const bootstrap = useQuery({
     queryKey: ["bootstrap"],
     queryFn: async () => (await api<{ required: boolean }>("/api/v1/auth/bootstrap-status")).data,
+    enabled: bootstrapGate.bootstrap,
+    retry: false,
+    refetchOnWindowFocus: (query) => refetchWhenReadable(query.state.status),
   });
+  const brandGate = loginRequestGate({
+    sessionPending,
+    hasSession: session != null,
+    bootstrapSettled: bootstrap.isSuccess || bootstrap.isError,
+  });
+  const brand = useCompanyBrand(brandGate.brand);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const ar = i18n.language.startsWith("ar");
@@ -62,7 +74,6 @@ export function LoginPage() {
     onError: (err) => setError(err instanceof ApiRequestError ? tx(`errors.${err.code}`, tx("setupFailed", "Setup failed")) : tx("setupFailed", "Setup failed")),
   });
 
-  const brand = useCompanyBrand();
   const logoSrc = brand?.hasLogo ? brandAsset("logo", brand.updatedAt) : "";
 
   if (session) {

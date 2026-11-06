@@ -122,4 +122,18 @@ describe("dashboard scope", () => {
     expect(result.counts?.docs_pending).toBe(2);
     expect(result.recent).toHaveLength(2);
   });
+
+  it("returns zeros when the actor cannot see a case", async () => {
+    const result = await overview(createDb(), actor("nobody", false));
+    expect(result.counts).toMatchObject({
+      total_cases: 0,
+      completed: 0,
+      docs_pending: 0,
+      bank_pending: 0,
+      courier_open: 0,
+      overdue: 0,
+    });
+    expect(result.recent).toEqual([]);
+    expect(result.due).toEqual([]);
+  });
 });

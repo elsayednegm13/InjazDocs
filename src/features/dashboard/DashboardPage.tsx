@@ -111,6 +111,36 @@ function dateTile(value: string, language: string) {
   };
 }
 
+function DashboardHero({ name }: { name: string }) {
+  const { tx } = useCopy();
+  return (
+    <section className="relative overflow-hidden rounded-card bg-accent-2 px-5 py-6 text-white shadow-tower md:px-7 md:py-7">
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        <div className="absolute inset-y-0 end-0 w-3/5 bg-[radial-gradient(circle_at_78%_38%,rgb(13_148_136/0.45),transparent_62%)]" />
+        <div className="absolute -end-20 -top-28 h-80 w-80 rounded-full border border-white/10" />
+        <div className="absolute -end-4 -top-12 h-56 w-56 rounded-full border border-white/10" />
+        <div className="absolute end-36 -bottom-24 h-48 w-48 rounded-full border border-white/10" />
+        <Ship className="absolute end-8 top-1/2 h-28 w-28 -translate-y-1/2 text-white/15 md:end-16 md:h-32 md:w-32" strokeWidth={1.1} />
+      </div>
+      <div className="relative max-w-2xl">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/85">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
+          {tx("opsKicker", "Operations workspace")}
+        </span>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-[28px]">{tx("heroTitle", "Export operations")}</h1>
+        <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/75">
+          {tx("heroSubtitle", "Track every export file from booking through delivery.")}
+        </p>
+        <p className="mt-4 text-xs text-white/60">
+          <span className="text-white/85">{tx("welcomeNamed", "Welcome, {{name}}").replace("{{name}}", name)}</span>
+          {" · "}
+          {tx("opsHint", "Counts come from live operations. Overdue uses reminder due times, not invented percentages.")}
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export function DashboardPage() {
   const user = useSession();
   const { tx, i18n, stored, activity } = useCopy();
@@ -118,18 +148,24 @@ export function DashboardPage() {
     queryKey: ["dashboard"],
     queryFn: async () => (await api<Overview>("/api/v1/dashboard")).data,
   });
-  if (query.isLoading) return <DashboardSkeleton />;
-  if (query.isError) {
+  if (!query.data) {
     return (
-      <div role="alert" className="rounded-card border border-danger/30 bg-card p-4 text-danger">
-        {tx("dashboardLoadError", "Could not load dashboard counts from the API.")}
-        <Button type="button" variant="ghost" size="sm" className="ms-3 text-accent" onClick={() => void query.refetch()}>
-          {tx("retrySafeGet", "Retry")}
-        </Button>
+      <div className="space-y-5" data-dashboard={query.isError ? "error" : "loading"}>
+        <DashboardHero name={user?.name ?? ""} />
+        {query.isError ? (
+          <div role="alert" className="rounded-card border border-danger/30 bg-card p-4 text-danger">
+            {tx("dashboardLoadError", "Could not load dashboard counts from the API.")}
+            <Button type="button" variant="ghost" size="sm" className="ms-3 text-accent" onClick={() => void query.refetch()}>
+              {tx("retrySafeGet", "Retry")}
+            </Button>
+          </div>
+        ) : (
+          <DashboardSkeleton showHero={false} />
+        )}
       </div>
     );
   }
-  const data = query.data!;
+  const data = query.data;
   const queues: Record<Band, DueItem[]> = {
     urgent: data.due.filter((item) => bandOf(item) === "urgent"),
     today: data.due.filter((item) => bandOf(item) === "today"),
@@ -139,30 +175,7 @@ export function DashboardPage() {
   const nextUrgent = queues.urgent[0];
   return (
     <div className="space-y-5" data-dashboard="ready">
-      <section className="relative overflow-hidden rounded-card bg-accent-2 px-5 py-6 text-white shadow-tower md:px-7 md:py-7">
-        <div className="pointer-events-none absolute inset-0" aria-hidden>
-          <div className="absolute inset-y-0 end-0 w-3/5 bg-[radial-gradient(circle_at_78%_38%,rgb(13_148_136/0.45),transparent_62%)]" />
-          <div className="absolute -end-20 -top-28 h-80 w-80 rounded-full border border-white/10" />
-          <div className="absolute -end-4 -top-12 h-56 w-56 rounded-full border border-white/10" />
-          <div className="absolute end-36 -bottom-24 h-48 w-48 rounded-full border border-white/10" />
-          <Ship className="absolute end-8 top-1/2 h-28 w-28 -translate-y-1/2 text-white/15 md:end-16 md:h-32 md:w-32" strokeWidth={1.1} />
-        </div>
-        <div className="relative max-w-2xl">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/85">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
-            {tx("opsKicker", "Operations workspace")}
-          </span>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-[28px]">{tx("heroTitle", "Export operations")}</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/75">
-            {tx("heroSubtitle", "Track every export file from booking through delivery.")}
-          </p>
-          <p className="mt-4 text-xs text-white/60">
-            <span className="text-white/85">{tx("welcomeNamed", "Welcome, {{name}}").replace("{{name}}", user?.name ?? "")}</span>
-            {" · "}
-            {tx("opsHint", "Counts come from live operations. Overdue uses reminder due times, not invented percentages.")}
-          </p>
-        </div>
-      </section>
+      <DashboardHero name={user?.name ?? ""} />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

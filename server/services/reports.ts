@@ -13,16 +13,20 @@ export async function overview(db: D1Database, actor: Actor, mode: "operational"
   requirePermission(actor, mode === "reports" ? "reports.view" : "dashboard.view");
   const vis = mode === "reports" ? reportVisibilitySql(actor, "c") : caseVisibilitySql(actor, "c");
   const scope = vis.binds;
+  // One pass over the visible cases. The joined counts stay separate because
+  // they count child rows, not cases. A case-less scope still returns zeros.
   const [countResult, recentResult, dueResult] = await db.batch([
     db.prepare(
       `SELECT
-      (SELECT COUNT(*) FROM export_cases c WHERE status NOT IN ('CANCELLED','ARCHIVED') AND ${vis.sql}) AS total_cases,
-      (SELECT COUNT(*) FROM export_cases c WHERE status = 'COMPLETED' AND ${vis.sql}) AS completed,
+      COALESCE(SUM(CASE WHEN c.status NOT IN ('CANCELLED','ARCHIVED') THEN 1 ELSE 0 END), 0) AS total_cases,
+      COALESCE(SUM(CASE WHEN c.status = 'COMPLETED' THEN 1 ELSE 0 END), 0) AS completed,
+      COALESCE(SUM(CASE WHEN c.bank_path_status IN ('HANDED_TO_BANK','BANK_REVIEW') THEN 1 ELSE 0 END), 0) AS bank_pending,
       (SELECT COUNT(*) FROM operation_document_requirements d JOIN export_cases c ON c.id = d.case_id WHERE d.status IN ('MISSING','UPLOADED','UNDER_REVIEW','NEEDS_CORRECTION') AND d.required = 1 AND ${vis.sql}) AS docs_pending,
-      (SELECT COUNT(*) FROM export_cases c WHERE c.bank_path_status IN ('HANDED_TO_BANK','BANK_REVIEW') AND ${vis.sql}) AS bank_pending,
       (SELECT COUNT(*) FROM courier_shipments s JOIN export_cases c ON c.id = s.case_id WHERE s.status IN ('DISPATCHED','IN_TRANSIT') AND ${vis.sql}) AS courier_open,
-      (SELECT COUNT(*) FROM reminder_instances r JOIN export_cases c ON c.id = r.case_id WHERE r.status = 'ACTIVE' AND r.due_at < datetime('now') AND ${vis.sql}) AS overdue`,
-    ).bind(...scope, ...scope, ...scope, ...scope, ...scope, ...scope),
+      (SELECT COUNT(*) FROM reminder_instances r JOIN export_cases c ON c.id = r.case_id WHERE r.status = 'ACTIVE' AND r.due_at < datetime('now') AND ${vis.sql}) AS overdue
+      FROM (SELECT 1) AS anchor
+      LEFT JOIN export_cases c ON ${vis.sql}`,
+    ).bind(...scope, ...scope, ...scope, ...scope),
     db.prepare(
       `SELECT e.id, e.event_type, e.summary, e.created_at, e.case_id, c.case_reference
        FROM case_events e JOIN export_cases c ON c.id = e.case_id

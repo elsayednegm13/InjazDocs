@@ -251,15 +251,17 @@ export function CaseDetailSkeleton() {
 }
 
 /** The dashboard placeholder keeps the real section order to avoid a jump. */
-export function DashboardSkeleton() {
+export function DashboardSkeleton({ showHero = true }: { showHero?: boolean }) {
   return (
     <SkeletonRegion label="Loading dashboard" className="space-y-5">
-      <div className="rounded-2xl bg-accent-2 px-5 py-6">
-        <Skeleton className="h-5 w-36 bg-white/15" />
-        <Skeleton className="mt-3 h-7 w-56 bg-white/20" />
-        <Skeleton className="mt-3 h-3 w-full max-w-md bg-white/10" />
-        <Skeleton className="mt-2 h-3 w-2/3 max-w-sm bg-white/10" />
-      </div>
+      {showHero ? (
+        <div className="rounded-2xl bg-accent-2 px-5 py-6">
+          <Skeleton className="h-5 w-36 bg-white/15" />
+          <Skeleton className="mt-3 h-7 w-56 bg-white/20" />
+          <Skeleton className="mt-3 h-3 w-full max-w-md bg-white/10" />
+          <Skeleton className="mt-2 h-3 w-2/3 max-w-sm bg-white/10" />
+        </div>
+      ) : null}
       <SkeletonStats />
       <div className="grid gap-4 xl:grid-cols-[1.55fr_1fr]">
         <SkeletonCard lines={5} />
@@ -276,9 +278,9 @@ export function DashboardSkeleton() {
 }
 
 /** A generic page placeholder: a heading, a filter row and a list. */
-export function PageSkeleton({ cards = 1, rows = 5 }: { cards?: number; rows?: number }) {
+export function PageSkeleton({ cards = 1, rows = 5, label = "Loading content" }: { cards?: number; rows?: number; label?: string }) {
   return (
-    <SkeletonRegion label="Loading content" className="space-y-4">
+    <SkeletonRegion label={label} className="space-y-4">
       <div className="space-y-2">
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-3 w-full max-w-xl" />

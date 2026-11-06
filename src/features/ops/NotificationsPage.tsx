@@ -15,7 +15,8 @@ export function NotificationsPage() {
     queryKey: ["notifications"],
     queryFn: async () => (await api<Array<Record<string, string | number>>>("/api/v1/notifications")).data,
     refetchInterval: 15_000,
-    refetchIntervalInBackground: true,
+    refetchIntervalInBackground: false,
+    staleTime: 15_000,
   });
   const read = useMutation({
     mutationFn: (id: string | number) => api(`/api/v1/notifications/${id}/read`, { method: "POST" }),
