@@ -7,7 +7,7 @@ import { assertGrossGteNet, toGrams } from "../shared/weights";
 import { canCompleteCase, bookingAggregateFromContainers } from "../server/domain/case-completion";
 import { customFieldsRequiredNow, serializeCustomFieldValue, validateRequiredCustomFields } from "../server/domain/custom-fields";
 import { csvToRecords } from "../shared/csv";
-import { addBusinessDays, addCalendarDays, addOffset, dateOnlyInZone } from "../server/domain/dates";
+import { addBusinessDays, addCalendarDays, addOffset, dateOnlyInZone, zonedStartOfDayUtc } from "../server/domain/dates";
 import { invoiceTotalComparison, validateInvoiceCommercials } from "../server/domain/invoice";
 import {
   buildDedupKey,
@@ -79,6 +79,8 @@ describe("T03 weights and money", () => {
     expect(toGrams(2, "T")).toBe(2_000_000);
     const money = parseDecimalToMinor("12.50", "USD");
     expect(minorToDecimalString(money.minorUnits, 2)).toBe("12.50");
+    expect(minorToDecimalString(parseDecimalToMinor("140,000.00", "USD").minorUnits, 2)).toBe("140000.00");
+    expect(minorToDecimalString(parseDecimalToMinor("١٬٥٠٠٫٥٠", "USD").minorUnits, 2)).toBe("1500.50");
   });
 });
 
@@ -293,7 +295,12 @@ describe("Africa/Cairo calendar date", () => {
     expect(dateOnlyInZone("2026-10-16T21:01:00.000Z", "Africa/Cairo")).toBe("2026-10-17");
   });
 
-  it("applies hour offsets from UTC midnight of the date-only", () => {
+  it("anchors offsets to Africa/Cairo midnight rather than UTC midnight", () => {
+    const start = zonedStartOfDayUtc("2026-10-17", "Africa/Cairo");
+    expect(dateOnlyInZone(start, "Africa/Cairo")).toBe("2026-10-17");
+    expect(dateOnlyInZone(new Date(start.getTime() - 1), "Africa/Cairo")).toBe("2026-10-16");
+    expect(zonedStartOfDayUtc("2026-10-17", "").toISOString()).toBe(start.toISOString());
+
     const due = addOffset({
       dateOnly: "2026-10-17",
       direction: "BEFORE",
@@ -302,7 +309,19 @@ describe("Africa/Cairo calendar date", () => {
       policy: "CALENDAR",
       timeZone: "Africa/Cairo",
     });
-    expect(due.toISOString()).toBe("2026-10-16T23:00:00.000Z");
+    expect(due.toISOString()).toBe(new Date(start.getTime() - 60 * 60 * 1000).toISOString());
+    expect(dateOnlyInZone(due, "Africa/Cairo")).toBe("2026-10-16");
+
+    const morning = addOffset({
+      dateOnly: "2026-10-17",
+      direction: "AFTER",
+      amount: 0,
+      unit: "DAYS",
+      policy: "CALENDAR",
+      timeZone: "Africa/Cairo",
+    });
+    expect(morning.toISOString()).toBe(new Date(start.getTime() + 8 * 60 * 60 * 1000).toISOString());
+    expect(dateOnlyInZone(morning, "Africa/Cairo")).toBe("2026-10-17");
   });
 });
 

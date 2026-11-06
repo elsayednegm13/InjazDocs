@@ -1,9 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { wranglerSql } from "./helpers";
+import { e2eRunRoot, signInWithTemporaryPassword, wranglerSql } from "./helpers";
 
 const phase = process.env.DOSSIER_PHASE === "before" ? "before" : "after";
 const root = process.env.DOSSIER_ROOT ? `${process.env.DOSSIER_ROOT}/${phase}` : `docs/qa-screenshots/checkpoint-06-6-1/${phase}`;
+const runRoot = e2eRunRoot();
+const persist = path.join(runRoot, "state");
 const headers = { origin: "http://127.0.0.1:43174" };
 const viewports = [
   { name: "390", width: 390, height: 844 },
@@ -54,7 +57,7 @@ test("06.6.1 dossier visual grid", async ({ page, browser }) => {
   const bankId = await makeCase("BANK_ROUTE", `INV-BANK-${stamp}`);
   const directId = await makeCase("DIRECT_ROUTE", `INV-DIR-${stamp}`);
   const lockedId = await makeCase("DIRECT_ROUTE", `INV-LOCK-${stamp}`);
-  wranglerSql(".wrangler-e2e/state", `UPDATE export_cases SET status = 'COMPLETED' WHERE id = '${lockedId}'`);
+  wranglerSql(persist, `UPDATE export_cases SET status = 'COMPLETED' WHERE id = '${lockedId}'`);
   const booking = await page.request.post("/api/v1/bookings", {
     data: { caseId: bankId, bookingNumber: `BK-${stamp}`, expectedContainers: 5, plannedEta: "2026-12-15", plannedEtd: "2026-12-01" },
     headers,
@@ -79,8 +82,8 @@ test("06.6.1 dossier visual grid", async ({ page, browser }) => {
   });
   expect(officer.ok(), await officer.text()).toBeTruthy();
   const officerId = (await officer.json()).data.id as string;
-  wranglerSql(".wrangler-e2e/state", `UPDATE user SET must_change_password = 0 WHERE id = '${officerId}'`);
-  wranglerSql(".wrangler-e2e/state", `UPDATE export_cases SET assigned_to = '${officerId}' WHERE id = '${directId}'`);
+  wranglerSql(persist, `UPDATE user SET must_change_password = 0 WHERE id = '${officerId}'`);
+  wranglerSql(persist, `UPDATE export_cases SET assigned_to = '${officerId}' WHERE id = '${directId}'`);
 
   const manifest: Array<Record<string, string>> = [];
 
@@ -126,14 +129,11 @@ test("06.6.1 dossier visual grid", async ({ page, browser }) => {
   await page.screenshot({ path: `${root}/completed-invoices-locked-1366.png`, fullPage: true });
 
   const officerContext = await browser.newContext({ viewport: { width: 1366, height: 900 } });
-  const signed = await officerContext.request.post("/api/auth/sign-in/email", {
-    data: { email: officerEmail, password: officerPassword },
-    headers,
-  });
+  const signed = await signInWithTemporaryPassword(officerContext.request, officerEmail, officerPassword);
   expect(signed.ok(), await signed.text()).toBeTruthy();
   const officerPage = await officerContext.newPage();
   await officerPage.goto("/dashboard");
-  await expect(officerPage.getByRole("heading", { name: /Operations desk|برج/ })).toBeVisible();
+  await expect(officerPage.getByRole("heading", { name: /Export operations|عمليات التصدير/ })).toBeVisible();
   await shoot(officerPage, "limited", directId);
   const denied = await officerPage.goto(`/export-cases/${bankId}`);
   manifest.push({ phase, scenario: "limited-denied-bank", status: String(denied?.status() ?? 0), caseId: bankId, file: "" });

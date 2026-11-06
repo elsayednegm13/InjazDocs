@@ -11,7 +11,7 @@ test("capture after screenshots for Arabic and English", async ({ page, browser 
   mkdirSync(dossier, { recursive: true });
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: "Operations desk" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Export operations" })).toBeVisible();
   await page.screenshot({ path: `${dir}/en-dashboard-1366.png`, fullPage: true });
   await page.screenshot({ path: `${next}/en-dashboard-1366.png`, fullPage: true });
   await page.getByRole("button", { name: "ع" }).click();

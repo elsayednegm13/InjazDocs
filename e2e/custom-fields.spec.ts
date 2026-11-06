@@ -4,6 +4,7 @@ import { api, createCase, createCustomer, login } from "./helpers";
 const stamp = `cf${Date.now().toString().slice(-6)}`;
 
 test("custom fields persist across customer, case, invoice, booking and container with access checks", async ({ page, browser }) => {
+  test.setTimeout(180_000);
   const created: string[] = [];
   async function defineField(input: Record<string, unknown>) {
     const response = await api(page.request, "/api/v1/custom-fields", { method: "POST", data: input });
@@ -131,12 +132,22 @@ test("custom fields persist across customer, case, invoice, booking and containe
     await page.getByLabel(`Agent ${stamp}`).fill(`Agent ${stamp}`);
     await page.getByRole("button", { name: "Save custom fields" }).first().click();
     await expect(page.getByText("Custom fields saved.").first()).toBeVisible();
-    const seal = page.getByLabel(`Seal ${stamp}`).first();
-    await seal.fill(`SEAL-${stamp}`);
-    await page.getByRole("button", { name: "Save custom fields" }).nth(1).click();
+    // Container fields live inside a collapsed "Custom fields" disclosure.
+    // Open that panel and use its own save button, otherwise the booking panel
+    // would swallow the container value.
+    const sealPanel = page.locator("details").filter({ has: page.getByLabel(`Seal ${stamp}`) }).first();
+    await sealPanel.evaluate((element) => {
+      (element as HTMLDetailsElement).open = true;
+    });
+    await sealPanel.getByLabel(`Seal ${stamp}`).fill(`SEAL-${stamp}`);
+    await sealPanel.getByRole("button", { name: "Save custom fields" }).click();
     await page.reload();
     await expect(page.getByLabel(`Agent ${stamp}`)).toHaveValue(`Agent ${stamp}`);
-    await expect(page.getByLabel(`Seal ${stamp}`).first()).toHaveValue(`SEAL-${stamp}`);
+    const savedSealPanel = page.locator("details").filter({ has: page.getByLabel(`Seal ${stamp}`) }).first();
+    await savedSealPanel.evaluate((element) => {
+      (element as HTMLDetailsElement).open = true;
+    });
+    await expect(savedSealPanel.getByLabel(`Seal ${stamp}`)).toHaveValue(`SEAL-${stamp}`);
 
     const forged = await api(page.request, `/api/v1/customers/${caseId}/custom-fields`, {
       method: "PUT",
@@ -200,7 +211,12 @@ test("custom fields persist across customer, case, invoice, booking and containe
     void sensitive;
   } finally {
     for (const id of created) {
-      await api(page.request, `/api/v1/custom-fields/${id}`, { method: "PATCH", data: { active: false, required: false } });
+      // Cleanup must not consume the remaining test budget or mask the real failure.
+      await api(page.request, `/api/v1/custom-fields/${id}`, {
+        method: "PATCH",
+        data: { active: false, required: false },
+        timeout: 5_000,
+      }).catch(() => undefined);
     }
   }
 });

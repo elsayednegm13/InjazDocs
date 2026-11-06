@@ -1,9 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { wranglerSql } from "./helpers";
+import { e2eRunRoot, signInWithTemporaryPassword, wranglerSql } from "./helpers";
 
 const phase = process.env.SHELL_PHASE === "before" || process.env.SHELL_PHASE === "after" ? process.env.SHELL_PHASE : null;
 const root = `docs/qa-screenshots/checkpoint-06-7-1/${phase ?? "scratch"}`;
+const runRoot = e2eRunRoot();
+const persist = path.join(runRoot, "state");
 const headers = { origin: "http://127.0.0.1:43174" };
 const viewports = [
   { name: "390", width: 390, height: 844 },
@@ -53,8 +56,8 @@ test("06.7.1 premium workspace visual grid", async ({ page, browser }) => {
   });
   expect(officer.ok(), await officer.text()).toBeTruthy();
   const officerId = (await officer.json()).data.id as string;
-  wranglerSql(".wrangler-e2e/state", `UPDATE user SET must_change_password = 0 WHERE id = '${officerId}'`);
-  wranglerSql(".wrangler-e2e/state", `UPDATE export_cases SET assigned_to = '${officerId}' WHERE id = '${caseId}'`);
+  wranglerSql(persist, `UPDATE user SET must_change_password = 0 WHERE id = '${officerId}'`);
+  wranglerSql(persist, `UPDATE export_cases SET assigned_to = '${officerId}' WHERE id = '${caseId}'`);
 
   const manifest: Array<Record<string, string>> = [];
   const timings: number[] = [];
@@ -75,7 +78,7 @@ test("06.7.1 premium workspace visual grid", async ({ page, browser }) => {
         const file = `${pageName}-${role}-${locale}-${viewport.name}.png`;
         if (phase) await target.screenshot({ path: `${root}/${file}`, fullPage: true });
         manifest.push({
-          phase,
+          phase: phase ?? "",
           role,
           page: pageName,
           locale,
@@ -98,16 +101,13 @@ test("06.7.1 premium workspace visual grid", async ({ page, browser }) => {
   }
   await shoot(page, "admin", "/export-cases", "[data-cases='ready']");
   const context = await browser.newContext();
-  const signed = await context.request.post("/api/auth/sign-in/email", {
-    data: { email: officerEmail, password: officerPassword },
-    headers,
-  });
+  const signed = await signInWithTemporaryPassword(context.request, officerEmail, officerPassword);
   expect(signed.ok(), await signed.text()).toBeTruthy();
   const officerPage = await context.newPage();
   await shoot(officerPage, "limited", "/dashboard", "[data-dashboard='ready']");
   await shoot(officerPage, "limited", "/export-cases", "[data-cases='ready']");
   const denied = await officerPage.request.get("/api/v1/users", { headers });
-  manifest.push({ phase, role: "limited", page: "users-api", status: String(denied.status()), file: "" });
+  manifest.push({ phase: phase ?? "", role: "limited", page: "users-api", status: String(denied.status()), file: "" });
   await context.close();
   if (phase) writeFileSync(`${root}/visual-manifest.json`, JSON.stringify({ manifest, adminDashboardWarmMs: timings }, null, 2));
   expect(manifest.filter((row) => row.file)).toHaveLength(phase ? 24 : 24);
