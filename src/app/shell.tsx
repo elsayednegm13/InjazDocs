@@ -9,6 +9,25 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useCompanyBrand } from "@/app/brand";
 import { useCopy } from "@/lib/copy";
+import { DASHBOARD_BELL_DELAY_MS, DASHBOARD_BRAND_DELAY_MS, dashboardFollowUp } from "@/lib/dashboard-follow-up";
+
+/** Milliseconds since `active` became true. Stays at 0 while inactive. */
+function useElapsedSince(active: boolean) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const started = performance.now();
+    const mark = (delay: number) => window.setTimeout(() => setElapsed(performance.now() - started), delay);
+    const brandTimer = mark(DASHBOARD_BRAND_DELAY_MS);
+    const bellTimer = mark(DASHBOARD_BELL_DELAY_MS);
+    return () => {
+      window.clearTimeout(brandTimer);
+      window.clearTimeout(bellTimer);
+      setElapsed(0);
+    };
+  }, [active]);
+  return active ? elapsed : 0;
+}
 
 const items = [
   { to: "/dashboard", key: "dashboard", english: "Dashboard", icon: LayoutDashboard, perm: "dashboard.view" },
@@ -62,17 +81,20 @@ export function AppShell() {
   const [params] = useSearchParams();
   const headerQuery = params.get("q") ?? "";
   const [open, setOpen] = useState(false);
-  const brand = useCompanyBrand();
-  const productName = brand?.name || "ExportFlow";
   const menuButton = useRef<HTMLButtonElement>(null);
   const ar = i18n.language.startsWith("ar");
   const initials = (user?.name ?? "").trim().charAt(0).toUpperCase();
+  const elapsed = useElapsedSince(true);
+  const followUp = dashboardFollowUp(true, elapsed);
+  const brand = useCompanyBrand(followUp.brand);
+  const productName = brand?.name || "ExportFlow";
   const notifications = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => (await api<Array<Record<string, string | number>>>("/api/v1/notifications")).data,
-    enabled: can(user, "reminders.view"),
-    refetchInterval: 15_000,
-    refetchIntervalInBackground: true,
+    enabled: can(user, "reminders.view") && followUp.notifications,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 60_000,
   });
   const unread = (notifications.data ?? []).filter((row) => Number(row.is_read) === 0).length;
 

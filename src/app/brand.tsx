@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { applyTheme } from "@/app/theme";
 import { api } from "@/lib/api";
+import { iconHrefNeedsUpdate, refetchWhenReadable } from "@/lib/query-retry";
 
 export type CompanyBrand = {
   name: string;
@@ -11,12 +12,14 @@ export type CompanyBrand = {
   updatedAt: string | null;
 };
 
-export function useCompanyBrand() {
+export function useCompanyBrand(enabled = true) {
   const query = useQuery({
     queryKey: ["brand"],
     queryFn: async () => (await api<CompanyBrand>("/api/v1/public/brand")).data,
+    enabled,
     staleTime: 30_000,
     retry: false,
+    refetchOnWindowFocus: (active) => refetchWhenReadable(active.state.status),
   });
   useEffect(() => {
     const brand = query.data;
@@ -32,7 +35,7 @@ export function useCompanyBrand() {
       icon.rel = "icon";
       document.head.appendChild(icon);
     }
-    icon.href = href;
+    if (iconHrefNeedsUpdate(icon.href, href, window.location.href)) icon.href = href;
   }, [query.data]);
   return query.data;
 }
