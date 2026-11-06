@@ -51,3 +51,9 @@ dist
 # Local D1 dumps
 *.sqlite
 *.sqlite-journal
+
+# Local audit and agent temp
+.tmp-*
+.w1-run-id*
+.w1final-evidence-dir.txt
+.mimosa/
