@@ -3,10 +3,16 @@ import { betterAuth } from "better-auth";
 import { drizzle } from "drizzle-orm/d1";
 import { authSchema } from "./db/auth-schema";
 
+const MIN_AUTH_SECRET_LENGTH = 32;
+
 export function createAuth(env: Env) {
+  const secret = env.BETTER_AUTH_SECRET;
+  if (!secret || secret.length < MIN_AUTH_SECRET_LENGTH) {
+    throw new Error("BETTER_AUTH_SECRET must be set and at least 32 characters.");
+  }
   const db = drizzle(env.DB);
   return betterAuth({
-    secret: env.BETTER_AUTH_SECRET,
+    secret,
     baseURL: env.BETTER_AUTH_URL || "http://127.0.0.1:43173",
     database: drizzleAdapter(db, {
       provider: "sqlite",

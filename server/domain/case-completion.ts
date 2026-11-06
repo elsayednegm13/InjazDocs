@@ -10,6 +10,10 @@ export function canCompleteCase(input: {
   requirements?: { required: number; status: string }[];
   exceptionReason?: string | null;
   hasClosePermission: boolean;
+  /** Latest formally approved planned container count for the case (0 = unset/not applicable). */
+  expectedContainerCount: number;
+  /** Containers whose actual status is DELIVERED_TO_CUSTOMER (never port arrival alone). */
+  deliveredContainerCount: number;
 }): { ok: true } | { ok: false; code: string; message: string } {
   if (input.status !== "ACTIVE" && input.status !== "ON_HOLD") {
     return { ok: false, code: "CASE_NOT_COMPLETABLE", message: "Only active or held cases can be completed" };
@@ -23,8 +27,20 @@ export function canCompleteCase(input: {
     directStatus: input.directStatus,
   });
   const goodsDone = goodsTrackComplete(input.containers);
-  if (docsDone && goodsDone) return { ok: true };
+  // An authorized exceptional closure is the owner's separate, still-open
+  // decision (OD-09). It is evaluated first and is not widened here.
   if (input.exceptionReason && input.hasClosePermission) return { ok: true };
+  // The caller passes the live non-cancelled slot count. Every one of those
+  // slots must be delivered. This check runs before any early success so a
+  // remaining undelivered slot cannot be ignored.
+  if (input.expectedContainerCount > 0 && input.deliveredContainerCount < input.expectedContainerCount) {
+    return {
+      ok: false,
+      code: "CONTAINERS_NOT_ALL_DELIVERED",
+      message: "All expected containers must be delivered to the customer before normal completion.",
+    };
+  }
+  if (docsDone && goodsDone) return { ok: true };
   if (!docsDone) {
     return {
       ok: false,

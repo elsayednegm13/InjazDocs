@@ -23,6 +23,9 @@ export async function transitionBank(
     throw errors.conflict("Bank path is not used for the direct document route");
   }
   assertBankTransition(current.bank_path_status as BankPathStatus, to);
+  // A repeated click on the stage that is already current must not write a
+  // second submission event or audit entry. The stage is already saved.
+  if ((current.bank_path_status as BankPathStatus) === to) return;
   await db
     .prepare("UPDATE export_cases SET bank_path_status = ?, version = version + 1, updated_at = ? WHERE id = ?")
     .bind(to, nowIso(), caseId)
@@ -81,6 +84,9 @@ export async function transitionDirect(
     throw errors.conflict("Direct path is not used for the bank document route");
   }
   assertDirectTransition((current.direct_path_status ?? "PREPARING") as DirectPathStatus, to);
+  // The stage is already saved: a repeated request must not duplicate the case
+  // event or the reminder recomputation.
+  if ((current.direct_path_status ?? "PREPARING") === to) return;
   await db
     .prepare("UPDATE export_cases SET direct_path_status = ?, version = version + 1, updated_at = ? WHERE id = ?")
     .bind(to, nowIso(), caseId)

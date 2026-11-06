@@ -1,5 +1,4 @@
 import { carrierTrackingUrl } from "../../shared/carrier";
-import { minorToDecimalString } from "../../shared/money";
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
@@ -39,7 +38,15 @@ export async function createTrackingLink(
       `INSERT INTO customer_tracking_links (id, case_id, token_hash, created_by, expires_at, display_scope_json, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(id, caseId, tokenHash, actor.id, input.expiresAt ?? null, JSON.stringify({ ...DEFAULT_SCOPE, ...input.scope }), nowIso())
+    .bind(
+      id,
+      caseId,
+      tokenHash,
+      actor.id,
+      input.expiresAt ?? null,
+      JSON.stringify({ ...DEFAULT_SCOPE, ...input.scope, _shareToken: token }),
+      nowIso(),
+    )
     .run();
   await writeAudit(db, { actorId: actor.id, entityType: "tracking_link", entityId: id, action: "tracking.create", requestId });
   return { id, token };
@@ -47,10 +54,19 @@ export async function createTrackingLink(
 
 export async function revokeTrackingLink(db: D1Database, actor: Actor, id: string, requestId: string) {
   requirePermission(actor, "tracking_links.manage");
-  const link = await one<{ case_id: string }>(db, "SELECT case_id FROM customer_tracking_links WHERE id = ?", id);
+  const link = await one<{ case_id: string; display_scope_json: string }>(
+    db,
+    "SELECT case_id, display_scope_json FROM customer_tracking_links WHERE id = ?",
+    id,
+  );
   if (!link) throw errors.notFound("Link not found");
   await assertCaseAccess(db, actor, link.case_id);
-  await db.prepare("UPDATE customer_tracking_links SET revoked_at = ? WHERE id = ?").bind(nowIso(), id).run();
+  const scope = JSON.parse(link.display_scope_json) as Record<string, unknown>;
+  delete scope._shareToken;
+  await db
+    .prepare("UPDATE customer_tracking_links SET revoked_at = ?, display_scope_json = ? WHERE id = ?")
+    .bind(nowIso(), JSON.stringify(scope), id)
+    .run();
   await writeAudit(db, { actorId: actor.id, entityType: "tracking_link", entityId: id, action: "tracking.revoke", requestId });
 }
 
@@ -66,24 +82,39 @@ export async function rotateTrackingLink(
     id,
   );
   if (!current) throw errors.notFound("Link not found");
+  const scope = JSON.parse(current.display_scope_json) as Record<string, unknown>;
+  delete scope._shareToken;
   await revokeTrackingLink(db, actor, id, requestId);
   return createTrackingLink(db, actor, current.case_id, {
     expiresAt: current.expires_at ?? undefined,
-    scope: JSON.parse(current.display_scope_json),
+    scope: scope as Partial<typeof DEFAULT_SCOPE>,
   }, requestId);
 }
 
 export async function listTrackingLinks(db: D1Database, actor: Actor, caseId: string) {
   requirePermission(actor, "tracking_links.manage");
   await assertCaseAccess(db, actor, caseId);
-  return all(
+  const rows = await all<{
+    id: string;
+    expires_at: string | null;
+    revoked_at: string | null;
+    last_accessed_at: string | null;
+    created_at: string;
+    display_scope_json: string;
+  }>(
     db,
     "SELECT id, expires_at, revoked_at, last_accessed_at, created_at, display_scope_json FROM customer_tracking_links WHERE case_id = ? ORDER BY created_at DESC",
     caseId,
   );
+  return rows.map((row) => {
+    const scope = JSON.parse(row.display_scope_json) as Record<string, unknown>;
+    const shareToken = row.revoked_at ? null : typeof scope._shareToken === "string" ? scope._shareToken : null;
+    delete scope._shareToken;
+    return { ...row, display_scope_json: JSON.stringify(scope), share_token: shareToken };
+  });
 }
 
-async function consumeRateLimit(db: D1Database, key: string, limit: number, windowMs: number) {
+export async function consumeRateLimit(db: D1Database, key: string, limit: number, windowMs: number) {
   const now = Date.now();
   const windowStart = now - (now % windowMs);
   const row = await db
@@ -99,7 +130,7 @@ async function consumeRateLimit(db: D1Database, key: string, limit: number, wind
   if ((row?.hits ?? 0) > limit) throw errors.rateLimited();
 }
 
-export async function publicTracking(db: D1Database, env: Env, token: string, ip: string) {
+export async function publicTracking(db: D1Database, _env: Env, token: string, ip: string) {
   await consumeRateLimit(db, `public-track:${await hashToken(ip || "unknown")}`, 30, 60_000);
 
   const tokenHash = await hashToken(token);
@@ -114,7 +145,9 @@ export async function publicTracking(db: D1Database, env: Env, token: string, ip
   if (link.revoked_at) throw errors.gone("This tracking link is unavailable");
   if (link.expires_at && link.expires_at < nowIso()) throw errors.gone("This tracking link is unavailable");
 
-  const scope = { ...DEFAULT_SCOPE, ...JSON.parse(link.display_scope_json) } as typeof DEFAULT_SCOPE;
+  const storedScope = JSON.parse(link.display_scope_json) as Record<string, unknown>;
+  delete storedScope._shareToken;
+  const scope = { ...DEFAULT_SCOPE, ...storedScope } as typeof DEFAULT_SCOPE;
   const exportCase = await one<{
     case_reference: string;
     document_route: string;
@@ -131,14 +164,44 @@ export async function publicTracking(db: D1Database, env: Env, token: string, ip
   );
   const booking = await one<{
     booking_number: string;
+    planned_loading_date: string | null;
+    actual_loading_date: string | null;
     planned_etd: string | null;
     actual_etd: string | null;
     planned_eta: string | null;
     actual_eta: string | null;
-  }>(db, "SELECT booking_number, planned_etd, actual_etd, planned_eta, actual_eta FROM bookings WHERE case_id = ? AND status != 'CANCELLED' ORDER BY created_at DESC LIMIT 1", link.case_id);
+  }>(
+    db,
+    `SELECT booking_number, planned_loading_date, actual_loading_date, planned_etd, actual_etd, planned_eta, actual_eta
+     FROM bookings WHERE case_id = ? AND status != 'CANCELLED'
+     ORDER BY COALESCE(planned_loading_date, planned_etd, created_at) DESC LIMIT 1`,
+    link.case_id,
+  );
   const containers = await all<{ official_number: string | null; status: string; slot_index: number }>(
     db,
     "SELECT official_number, status, slot_index FROM containers WHERE case_id = ? AND status != 'CANCELLED' ORDER BY slot_index",
+    link.case_id,
+  );
+  const documents = await all<{ name_en: string; name_ar: string; status: string }>(
+    db,
+    `SELECT d.name_en, d.name_ar, r.status
+     FROM operation_document_requirements r
+     JOIN document_type_definitions d ON d.id = r.document_type_id
+     WHERE r.case_id = ?
+     ORDER BY d.name_en`,
+    link.case_id,
+  );
+  const freshness = await one<{ ts: string | null }>(
+    db,
+    `SELECT MAX(ts) AS ts FROM (
+       SELECT updated_at AS ts FROM export_cases WHERE id = ?
+       UNION ALL SELECT updated_at FROM bookings WHERE case_id = ?
+       UNION ALL SELECT updated_at FROM containers WHERE case_id = ?
+       UNION ALL SELECT updated_at FROM operation_document_requirements WHERE case_id = ?
+     )`,
+    link.case_id,
+    link.case_id,
+    link.case_id,
     link.case_id,
   );
   const courier = await one<{ carrier: string; tracking_number: string | null; status: string }>(
@@ -153,9 +216,6 @@ export async function publicTracking(db: D1Database, env: Env, token: string, ip
     .prepare("INSERT INTO tracking_link_access_events (id, link_id, accessed_at, ip_hash, user_agent) VALUES (?, ?, ?, ?, ?)")
     .bind(newId(), link.id, nowIso(), await hashToken(ip), "redacted")
     .run();
-
-  void minorToDecimalString;
-  void env;
 
   return {
     caseReference: exportCase.case_reference,
@@ -175,6 +235,8 @@ export async function publicTracking(db: D1Database, env: Env, token: string, ip
         ? carrierTrackingUrl(courier.carrier, courier.tracking_number)
         : null,
     bookingNumber: booking?.booking_number ?? null,
+    plannedLoadingDate: booking?.planned_loading_date ?? null,
+    actualLoadingDate: booking?.actual_loading_date ?? null,
     plannedEtd: booking?.planned_etd ?? null,
     actualEtd: booking?.actual_etd ?? null,
     plannedEta: scope.showEta ? booking?.planned_eta ?? null : null,
@@ -184,7 +246,12 @@ export async function publicTracking(db: D1Database, env: Env, token: string, ip
       officialNumber: scope.showContainerNumbers ? c.official_number : null,
       status: c.status,
     })),
-    lastUpdatedAt: exportCase.updated_at,
+    documents: documents.map((document) => ({
+      nameEn: document.name_en,
+      nameAr: document.name_ar,
+      status: document.status,
+    })),
+    lastUpdatedAt: freshness?.ts ?? exportCase.updated_at,
     attribution: "Data provided by the exporter. Courier and milestone dates are manually updated.",
   };
 }

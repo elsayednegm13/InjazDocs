@@ -1,10 +1,17 @@
 import { all, one } from "../db/sql";
 import type { Actor } from "./actor";
-import { caseVisibilitySql, requirePermission } from "./actor";
+import { caseVisibilitySql, reportVisibilitySql, requirePermission } from "./actor";
+import { fingerprintCustomerImportRows } from "./import-fingerprint";
 
-export async function overview(db: D1Database, actor: Actor) {
-  requirePermission(actor, "dashboard.view");
-  const vis = caseVisibilitySql(actor, "c");
+/**
+ * `dashboard` keeps the operational case-visibility entitlement; the report
+ * ports use the independent `reports.view_all` entitlement. Same shape, two
+ * different scopes, so a report grant cannot widen the dashboard and an
+ * operational view-all cannot silently widen reports.
+ */
+export async function overview(db: D1Database, actor: Actor, mode: "operational" | "reports" = "operational") {
+  requirePermission(actor, mode === "reports" ? "reports.view" : "dashboard.view");
+  const vis = mode === "reports" ? reportVisibilitySql(actor, "c") : caseVisibilitySql(actor, "c");
   const scope = vis.binds;
   const [countResult, recentResult, dueResult] = await db.batch([
     db.prepare(
@@ -46,12 +53,16 @@ export async function overview(db: D1Database, actor: Actor) {
 
 export async function delayReport(db: D1Database, actor: Actor) {
   requirePermission(actor, "reports.view");
+  const vis = reportVisibilitySql(actor, "c");
   const bank = await all<{ case_id: string; handed: string; decided: string | null }>(
     db,
     `SELECT s.case_id, e1.created_at AS handed, e2.created_at AS decided
      FROM bank_submissions s
+     JOIN export_cases c ON c.id = s.case_id
      JOIN bank_events e1 ON e1.submission_id = s.id AND e1.event_type = 'HANDED_TO_BANK'
-     LEFT JOIN bank_events e2 ON e2.submission_id = s.id AND e2.event_type IN ('BANK_APPROVED','CORRECTION_REQUESTED')`,
+     LEFT JOIN bank_events e2 ON e2.submission_id = s.id AND e2.event_type IN ('BANK_APPROVED','CORRECTION_REQUESTED')
+     WHERE ${vis.sql}`,
+    ...vis.binds,
   );
   const delays = bank
     .filter((row) => row.decided)
@@ -61,15 +72,21 @@ export async function delayReport(db: D1Database, actor: Actor) {
     : null;
   const incompleteDocs = await one<{ n: number }>(
     db,
-    "SELECT COUNT(*) AS n FROM operation_document_requirements WHERE required = 1 AND status NOT IN ('APPROVED','WAIVED')",
+    "SELECT COUNT(*) AS n FROM operation_document_requirements d JOIN export_cases c ON c.id = d.case_id WHERE d.required = 1 AND d.status NOT IN ('APPROVED','WAIVED') AND " + vis.sql,
+    ...vis.binds,
   );
-  const bookings = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM bookings WHERE status != 'CANCELLED'");
+  const bookings = await one<{ n: number }>(
+    db,
+    "SELECT COUNT(*) AS n FROM bookings b JOIN export_cases c ON c.id = b.case_id WHERE b.status != 'CANCELLED' AND " + vis.sql,
+    ...vis.binds,
+  );
   const containers = await one<{ delivered: number; open: number }>(
     db,
     `SELECT
-      SUM(CASE WHEN status = 'DELIVERED_TO_CUSTOMER' THEN 1 ELSE 0 END) AS delivered,
-      SUM(CASE WHEN status NOT IN ('DELIVERED_TO_CUSTOMER','CANCELLED') THEN 1 ELSE 0 END) AS open
-     FROM containers`,
+      SUM(CASE WHEN b.status = 'DELIVERED_TO_CUSTOMER' THEN 1 ELSE 0 END) AS delivered,
+      SUM(CASE WHEN b.status NOT IN ('DELIVERED_TO_CUSTOMER','CANCELLED') THEN 1 ELSE 0 END) AS open
+     FROM containers b JOIN export_cases c ON c.id = b.case_id WHERE ${vis.sql}`,
+    ...vis.binds,
   );
   return {
     averageBankReviewDays,
@@ -77,12 +94,15 @@ export async function delayReport(db: D1Database, actor: Actor) {
     bookingVolume: bookings?.n ?? 0,
     containersDelivered: containers?.delivered ?? 0,
     containersInTransit: containers?.open ?? 0,
-    note: "Bank review average is computed only when both handover and decision timestamps exist.",
+    note: "Bank review average is computed only when both handover and decision timestamps exist. Aggregates cover every case only for an actor holding the explicit reports.view_all entitlement; otherwise they are scoped to the actor's assigned/created cases.",
   };
 }
 
 export async function casesCsv(db: D1Database, actor: Actor): Promise<string> {
   requirePermission(actor, "reports.export");
+  // Only an explicit reports.view_all grant widens the export; otherwise the
+  // actor exports their own assigned/created cases.
+  const vis = reportVisibilitySql(actor, "c");
   const rows = await all<Record<string, string>>(
     db,
     `SELECT c.case_reference, cu.legal_name, c.status, c.document_route, c.destination_country,
@@ -90,8 +110,10 @@ export async function casesCsv(db: D1Database, actor: Actor): Promise<string> {
      FROM export_cases c
      JOIN customers cu ON cu.id = c.customer_id
      LEFT JOIN export_invoices i ON i.case_id = c.id
+     WHERE ${vis.sql}
      GROUP BY c.id
      ORDER BY c.created_at DESC`,
+    ...vis.binds,
   );
   const header = [
     "case_reference",
@@ -125,17 +147,28 @@ export async function casesCsv(db: D1Database, actor: Actor): Promise<string> {
 
 export async function previewCustomerImport(rows: Record<string, string>[]) {
   const errors: { row: number; code: string; message: string }[] = [];
-  const valid: { legalName: string; countryCode?: string; phone?: string }[] = [];
+  const valid: { row: number; legalName: string; countryCode?: string; phone?: string }[] = [];
   rows.forEach((row, index) => {
+    const rowNumber = index + 2;
     const legalName = row.legal_name || row.legalName || row.name;
-    if (!legalName) errors.push({ row: index + 2, code: "LEGAL_NAME_REQUIRED", message: "A legal name is required on this row." });
-    else valid.push({ legalName, countryCode: row.country_code || row.country, phone: row.phone });
+    if (!legalName) errors.push({ row: rowNumber, code: "LEGAL_NAME_REQUIRED", message: "A legal name is required on this row." });
+    else valid.push({ row: rowNumber, legalName, countryCode: row.country_code || row.country, phone: row.phone });
   });
-  return { valid, errors, canCommit: errors.length === 0 };
+  const identity = await fingerprintCustomerImportRows(rows);
+  return {
+    valid,
+    errors,
+    canCommit: errors.length === 0,
+    fingerprint: identity.fingerprint,
+    parserVersion: identity.parserVersion,
+  };
 }
 
-function csvCell(value: unknown): string {
-  const text = value == null ? "" : String(value);
+export function csvCell(value: unknown): string {
+  let text = value == null ? "" : String(value);
+  // Neutralise spreadsheet formula injection: a customer name such as
+  // =HYPERLINK("…") must stay text when the export is opened in Excel.
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   if (/[",\n]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
   return text;
 }

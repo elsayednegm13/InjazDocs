@@ -42,13 +42,29 @@ export async function recomputeRemindersForCase(
   const timeZone = env.COMPANY_TIMEZONE || "Africa/Cairo";
   const exportCase = await one<{
     id: string;
+    status: string;
     created_at: string;
     assigned_to: string | null;
     document_route: string;
     bank_path_status: string;
     direct_path_status: string | null;
-  }>(db, "SELECT id, created_at, assigned_to, document_route, bank_path_status, direct_path_status FROM export_cases WHERE id = ?", caseId);
+  }>(db, "SELECT id, status, created_at, assigned_to, document_route, bank_path_status, direct_path_status FROM export_cases WHERE id = ?", caseId);
   if (!exportCase) return;
+  if (exportCase.status === "COMPLETED" || exportCase.status === "CANCELLED" || exportCase.status === "ARCHIVED") {
+    const now = nowIso();
+    const closed = exportCase.status === "COMPLETED" ? "RESOLVED" : "CANCELLED";
+    await db
+      .prepare(
+        `UPDATE reminder_instances
+         SET status = ?, resolved_at = CASE WHEN ? = 'RESOLVED' THEN ? ELSE resolved_at END,
+             snoozed_until = NULL, last_evaluated_at = ?, updated_at = ?
+         WHERE case_id = ? AND status NOT IN ('RESOLVED','CANCELLED')`,
+      )
+      .bind(closed, closed, now, now, now, caseId)
+      .run();
+    await db.prepare("UPDATE export_cases SET next_action = ? WHERE id = ?").bind("No open reminder", caseId).run();
+    return;
+  }
 
   const rules = (await all<RuleRow>(db, "SELECT * FROM reminder_rule_definitions WHERE enabled = 1"))
     .map(toRule)
@@ -609,7 +625,10 @@ async function loadBookingFamily(db: D1Database, family: ReminderRule["family"],
      FROM bookings b JOIN export_cases c ON c.id = b.case_id
      WHERE b.status != 'CANCELLED'`,
   );
-  const containers = await all<{ case_id: string; status: string }>(db, "SELECT case_id, status FROM containers WHERE status != 'CANCELLED'");
+  const containers = await all<{ case_id: string; status: string }>(
+    db,
+    "SELECT case_id, status FROM containers WHERE status != 'CANCELLED' AND case_id IS NOT NULL",
+  );
   const couriers = await all<{ case_id: string; status: string }>(db, "SELECT case_id, status FROM courier_shipments");
   const goods = new Map<string, { n: number; delivered: number }>();
   for (const row of containers) {

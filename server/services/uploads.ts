@@ -29,7 +29,9 @@ export async function createUploadSession(
   const objectKey = `docs/${input.parentType}/${input.parentId}/${newId()}/${sanitizeName(input.filename)}`;
   const id = newId();
   const expires = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
-  const multipart = await bucket.createMultipartUpload(objectKey);
+  const multipart = await bucket.createMultipartUpload(objectKey, {
+    httpMetadata: { contentType: input.mime },
+  });
   await db
     .prepare(
       `INSERT INTO upload_sessions (id, object_key, parent_type, parent_id, owner_user_id, filename, expected_bytes, mime, upload_id, state, expires_at, created_at)
@@ -67,6 +69,9 @@ export async function signPart(
     const url = new URL(`${endpoint}/${env.R2_BUCKET_NAME}/${session.object_key}`);
     url.searchParams.set("partNumber", String(partNumber));
     url.searchParams.set("uploadId", session.upload_id!);
+    // The signed part URL is valid for one hour, well inside the six hour
+    // upload session window, so a leaked URL cannot be replayed later.
+    url.searchParams.set("X-Amz-Expires", String(env.R2_SIGNED_URL_TTL_SECONDS || 3600));
     const signed = await client.sign(url.toString(), { method: "PUT" });
     return { url: signed.url, method: "PUT", mode: "R2_PRESIGNED" as const };
   }
@@ -153,7 +158,7 @@ export async function authorizeObjectKey(db: D1Database, actor: Actor, key: stri
   );
   const booking = version
     ? null
-    : await one<{ case_id: string }>(
+    : await one<{ case_id: string | null }>(
         db,
         `SELECT b.case_id AS case_id FROM booking_attachments a JOIN bookings b ON b.id = a.booking_id WHERE a.r2_key = ?`,
         key,
@@ -171,7 +176,8 @@ export async function authorizeObjectKey(db: D1Database, actor: Actor, key: stri
       return;
     }
     if (booking) {
-      await assertCaseAccess(db, actor, booking.case_id);
+      if (booking.case_id) await assertCaseAccess(db, actor, booking.case_id);
+      else requirePermission(actor, "bookings.view");
       return;
     }
     if (session) {
@@ -220,9 +226,10 @@ async function assertUploadParent(db: D1Database, actor: Actor, parentType: stri
     return;
   }
   if (parentType === "booking") {
-    const row = await one<{ case_id: string }>(db, "SELECT case_id FROM bookings WHERE id = ?", parentId);
+    const row = await one<{ case_id: string | null }>(db, "SELECT case_id FROM bookings WHERE id = ?", parentId);
     if (!row) throw errors.notFound("Booking not found");
-    await assertCaseAccess(db, actor, row.case_id);
+    if (row.case_id) await assertCaseAccess(db, actor, row.case_id);
+    else requirePermission(actor, "bookings.manage");
     return;
   }
   throw errors.validation("Unsupported upload parent");

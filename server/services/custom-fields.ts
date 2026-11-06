@@ -158,18 +158,23 @@ export async function readCustomFields(db: D1Database, actor: Actor, targetEntit
     });
 }
 
-export async function saveCustomFields(
+/**
+ * Validates a custom field payload and returns the write statements without
+ * executing them. Callers that create a record can add these statements to
+ * their own D1 batch so the record and its field values are written together.
+ */
+export async function planCustomFieldWrites(
   db: D1Database,
   actor: Actor,
   targetEntity: string,
   entityId: string,
   input: Record<string, unknown> | undefined,
-  options: { enforceRequired?: boolean; requestId?: string } = {},
+  options: { enforceRequired?: boolean } = {},
 ) {
   if (!targetIsSupported(targetEntity)) throw errors.validation("Choose a supported entity.", { targetEntity: "CUSTOM_FIELD_TARGET" }, "CUSTOM_FIELD_TARGET_INVALID");
   if (input === undefined) {
     if (options.enforceRequired) await assertRequiredCustomFields(db, targetEntity, entityId);
-    return;
+    return { statements: [] as D1PreparedStatement[], writes: [] as Array<{ definition: { id: string; field_key: string }; serialized: string | null }> };
   }
   const definitions = await definitionsFor(db, targetEntity);
   const values = input;
@@ -179,15 +184,28 @@ export async function saveCustomFields(
   if (unknown) throw errors.validation("Custom field is not defined or is inactive.", { [unknown]: "CUSTOM_FIELD_UNAVAILABLE" }, "CUSTOM_FIELD_UNAVAILABLE");
   if (options.enforceRequired) validateRequiredCustomFields(definitions, values);
   const writes = collectCustomFieldWrites(actor, definitions, values);
-  const statements = customFieldWriteStatements(db, targetEntity, entityId, writes);
-  if (statements.length) await db.batch(statements);
-  if (writes.length && options.requestId) {
+  return { statements: customFieldWriteStatements(db, targetEntity, entityId, writes), writes };
+}
+
+export async function saveCustomFields(
+  db: D1Database,
+  actor: Actor,
+  targetEntity: string,
+  entityId: string,
+  input: Record<string, unknown> | undefined,
+  options: { enforceRequired?: boolean; requestId?: string } = {},
+) {
+  const plan = await planCustomFieldWrites(db, actor, targetEntity, entityId, input, {
+    enforceRequired: options.enforceRequired,
+  });
+  if (plan.statements.length) await db.batch(plan.statements);
+  if (plan.writes.length && options.requestId) {
     await writeAudit(db, {
       actorId: actor.id,
       entityType: "custom_field",
       entityId,
       action: "custom_field.save",
-      after: { targetEntity, keys: writes.map((write) => write.definition.field_key) },
+      after: { targetEntity, keys: plan.writes.map((write) => write.definition.field_key) },
       requestId: options.requestId,
     });
   }
@@ -288,11 +306,13 @@ export async function assertCustomFieldEntityAccess(db: D1Database, actor: Actor
   if (targetEntity === "EXPORT_CASE") {
     if (mode === "edit") requirePermission(actor, "export_cases.edit");
     else requireAny(actor, ["export_cases.view_all", "export_cases.view_assigned"]);
+  } else if (targetEntity === "INVOICE" && mode === "edit") {
+    requireAny(actor, ["invoices.edit", "invoices.correct_completed"]);
   } else {
     requirePermission(actor, permissionFor(targetEntity, mode));
   }
   const caseId = await caseIdFor(db, targetEntity, entityId);
-  await assertCaseAccess(db, actor, caseId);
+  if (caseId) await assertCaseAccess(db, actor, caseId);
 }
 
 function permissionFor(target: Exclude<CustomFieldTarget, "CUSTOMER" | "EXPORT_CASE">, mode: "view" | "edit"): PermissionKey {
@@ -301,7 +321,7 @@ function permissionFor(target: Exclude<CustomFieldTarget, "CUSTOMER" | "EXPORT_C
   return mode === "edit" ? "containers.manage" : "containers.view";
 }
 
-async function caseIdFor(db: D1Database, target: CustomFieldTarget, entityId: string) {
+async function caseIdFor(db: D1Database, target: CustomFieldTarget, entityId: string): Promise<string | null> {
   if (target === "EXPORT_CASE") return entityId;
   if (target === "INVOICE") {
     const row = await one<{ case_id: string }>(db, "SELECT case_id FROM export_invoices WHERE id = ?", entityId);
@@ -309,11 +329,11 @@ async function caseIdFor(db: D1Database, target: CustomFieldTarget, entityId: st
     return row.case_id;
   }
   if (target === "BOOKING") {
-    const row = await one<{ case_id: string }>(db, "SELECT case_id FROM bookings WHERE id = ?", entityId);
+    const row = await one<{ case_id: string | null }>(db, "SELECT case_id FROM bookings WHERE id = ?", entityId);
     if (!row) throw errors.notFound("Booking not found");
     return row.case_id;
   }
-  const row = await one<{ case_id: string }>(db, "SELECT case_id FROM containers WHERE id = ?", entityId);
+  const row = await one<{ case_id: string | null }>(db, "SELECT case_id FROM containers WHERE id = ?", entityId);
   if (!row) throw errors.notFound("Container not found");
   return row.case_id;
 }

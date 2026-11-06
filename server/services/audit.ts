@@ -61,6 +61,20 @@ export async function writeAudit(
   await auditInsert(db, input).run();
 }
 
+export function caseEventInsert(
+  db: D1Database,
+  caseId: string,
+  eventType: string,
+  summary: string,
+  actorId?: string | null,
+) {
+  return db
+    .prepare(
+      `INSERT INTO case_events (id, case_id, event_type, summary, actor_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(newId(), caseId, eventType, summary, actorId ?? null, nowIso());
+}
+
 export async function writeCaseEvent(
   db: D1Database,
   caseId: string,
@@ -68,12 +82,7 @@ export async function writeCaseEvent(
   summary: string,
   actorId?: string | null,
 ): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO case_events (id, case_id, event_type, summary, actor_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-    )
-    .bind(newId(), caseId, eventType, summary, actorId ?? null, nowIso())
-    .run();
+  await caseEventInsert(db, caseId, eventType, summary, actorId).run();
 }
 
 function redact(value: unknown): unknown {

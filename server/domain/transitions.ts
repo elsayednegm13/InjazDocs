@@ -1,3 +1,4 @@
+import { CONTAINER_FLOW } from "../../shared/container-flow";
 import type {
   BankPathStatus,
   BookingStatus,
@@ -39,10 +40,12 @@ function allow<T extends string>(
 const DOCUMENT_MAP: Record<DocumentRequirementStatus, readonly DocumentRequirementStatus[]> = {
   MISSING: ["UPLOADED", "WAIVED"],
   UPLOADED: ["UNDER_REVIEW", "NEEDS_CORRECTION", "MISSING"],
-  UNDER_REVIEW: ["APPROVED", "NEEDS_CORRECTION"],
-  APPROVED: ["NEEDS_CORRECTION"],
+  UNDER_REVIEW: ["APPROVED", "NEEDS_CORRECTION", "UPLOADED"],
+  // A replacement version supersedes the previous review decision; the
+  // requirement returns to UPLOADED and must be reviewed again.
+  APPROVED: ["NEEDS_CORRECTION", "UPLOADED"],
   NEEDS_CORRECTION: ["UPLOADED", "WAIVED"],
-  WAIVED: ["MISSING"],
+  WAIVED: ["MISSING", "UPLOADED"],
 };
 
 const BANK_MAP: Record<BankPathStatus, readonly BankPathStatus[]> = {
@@ -89,18 +92,7 @@ const BOOKING_MAP: Record<BookingStatus, readonly BookingStatus[]> = {
   CANCELLED: [],
 };
 
-const CONTAINER_MAP: Record<ContainerStatus, readonly ContainerStatus[]> = {
-  PLANNED: ["NUMBER_ASSIGNED", "CANCELLED"],
-  NUMBER_ASSIGNED: ["GATED_IN", "PLANNED", "CANCELLED", "EXCEPTION"],
-  GATED_IN: ["LOADED", "EXCEPTION", "CANCELLED"],
-  LOADED: ["DEPARTED", "EXCEPTION"],
-  DEPARTED: ["ARRIVED_PORT", "EXCEPTION"],
-  ARRIVED_PORT: ["CUSTOMS_RELEASED", "EXCEPTION"],
-  CUSTOMS_RELEASED: ["DELIVERED_TO_CUSTOMER", "EXCEPTION"],
-  DELIVERED_TO_CUSTOMER: [],
-  CANCELLED: [],
-  EXCEPTION: ["NUMBER_ASSIGNED", "GATED_IN", "LOADED", "DEPARTED", "ARRIVED_PORT", "CANCELLED"],
-};
+const CONTAINER_MAP: Record<ContainerStatus, readonly ContainerStatus[]> = CONTAINER_FLOW;
 
 const CASE_MAP: Record<CaseStatus, readonly CaseStatus[]> = {
   DRAFT: ["ACTIVE", "CANCELLED"],

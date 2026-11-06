@@ -111,7 +111,24 @@ export async function assertCaseAccess(
   throw errors.coded(403, "OPERATION_NOT_ACCESSIBLE", "You cannot view this operation, or it is not available.");
 }
 
+function ownCasesSql(actor: Actor, alias: string): { sql: string; binds: string[] } {
+  return { sql: `(${alias}.assigned_to = ? OR ${alias}.created_by = ?)`, binds: [actor.id, actor.id] };
+}
+
 export function caseVisibilitySql(actor: Actor, alias = "c"): { sql: string; binds: string[] } {
   if (canViewAllCases(actor.permissions)) return { sql: "1=1", binds: [] };
-  return { sql: `(${alias}.assigned_to = ? OR ${alias}.created_by = ?)`, binds: [actor.id, actor.id] };
+  return ownCasesSql(actor, alias);
+}
+
+/**
+ * Aggregate reports are a separate entitlement from operational case
+ * visibility. `reports.view_all` is granted explicitly (administrator by
+ * default, other roles only by an owner decision) and is never inferred from
+ * `export_cases.view_all`, so a future role change cannot silently widen what
+ * the reports endpoints disclose. Without it the report scope is the actor's
+ * own assigned/created cases — not the operational view-all scope.
+ */
+export function reportVisibilitySql(actor: Actor, alias = "c"): { sql: string; binds: string[] } {
+  if (hasPermission(actor.permissions, "reports.view_all")) return { sql: "1=1", binds: [] };
+  return ownCasesSql(actor, alias);
 }
