@@ -51,13 +51,13 @@ The first admin must change password after sign-in. Do not commit secrets.
 | --- | --- |
 | `pnpm dev` | Vite + workerd on port 43173 |
 | `pnpm test` | Domain / unit tests |
-| `pnpm test:e2e` | Playwright against an isolated workerd DB in `.wrangler-e2e` |
+| `pnpm test:e2e` | Playwright against a disposable run-owned database. It refuses `.wrangler/state` and `.wrangler-e2e` |
 | `pnpm typecheck` | TypeScript project build |
 | `pnpm lint` | Oxlint |
 | `pnpm build` | Production Worker + SPA build |
 | `pnpm db:migrate:local` | Apply D1 migrations to the local DB only |
 
-Remote migrate/deploy scripts refuse to run. See `docs/CLOUDFLARE_SETUP.md`.
+Remote migrate/deploy scripts refuse to run. The production placeholder and the launch procedure are in `DEPLOYMENT.md`. They are not an approval to migrate or deploy.
 
 ## Layout
 
