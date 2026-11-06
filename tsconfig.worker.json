@@ -17,7 +17,8 @@
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["shared/*"],
-      "@server/*": ["server/*"]
+      "@server/*": ["server/*"],
+      "@workspace/boosthis-edge": ["worker/shims/boosthis-edge.d.ts"]
     }
   },
   "include": ["worker", "server", "shared", "worker-configuration.d.ts"]

@@ -4,6 +4,8 @@
 BETTER_AUTH_SECRET=
 BETTER_AUTH_URL=http://127.0.0.1:43173
 BOOTSTRAP_SECRET=
+# Worker kit. The real value belongs in .dev.vars locally and in the Worker secret store for production.
+BOOSTHIS_PROJECT_KEY=
 
 # Optional: required only for REAL Cloudflare R2 presigned multipart (staging/prod).
 # Local development uses the R2 binding + Worker part endpoints when these are empty.

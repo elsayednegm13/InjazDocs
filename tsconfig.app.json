@@ -19,7 +19,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@shared/*": ["shared/*"]
+      "@shared/*": ["shared/*"],
+      "@workspace/boosthis-runtime-web": ["src/shims/boosthis-web.d.ts"]
     }
   },
   "include": ["src", "shared"]

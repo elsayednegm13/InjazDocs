@@ -2,18 +2,30 @@ import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-qu
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
+import { enableTelemetry, startWebVitals } from "@workspace/boosthis-runtime-web";
+import { BOOSTHIS_APP_NAME, BOOSTHIS_INSTALL_ID } from "@/app/boosthis";
 import { SessionProvider } from "@/app/session";
 import { AppRouter } from "@/app/router";
 import { Toasts } from "@/components/ui/toaster";
 import { ApiRequestError } from "@/lib/api";
+import { retryReadQuery } from "@/lib/query-retry";
 import { notifyError } from "@/lib/notify";
 import "./app/i18n";
 import "./index.css";
 
+const boosthisKey = import.meta.env.VITE_BOOSTHIS_PROJECT_KEY;
+enableTelemetry({
+  installId: BOOSTHIS_INSTALL_ID,
+  inviteKey: boosthisKey,
+  appName: BOOSTHIS_APP_NAME,
+  endpoint: "https://www.boosthis.com/api",
+});
+startWebVitals({ bubble: true, projectKey: boosthisKey });
+
 const client = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: retryReadQuery,
       staleTime: 90_000,
       refetchOnWindowFocus: true,
     },
