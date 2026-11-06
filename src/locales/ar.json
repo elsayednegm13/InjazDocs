@@ -221,6 +221,8 @@
   "passwordMismatch": "كلمتا المرور غير متطابقتين.",
   "darkMode": "الوضع الداكن",
   "lightMode": "الوضع الفاتح",
+  "switchToDark": "التبديل إلى الوضع الداكن",
+  "switchToLight": "التبديل إلى الوضع الفاتح",
   "documentTrack": "مسار المستندات",
   "docAtBank": "لدى البنك",
   "goodsTrack": "مسار البضاعة",

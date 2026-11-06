@@ -221,6 +221,8 @@
   "passwordMismatch": "The two passwords do not match.",
   "darkMode": "Dark mode",
   "lightMode": "Light mode",
+  "switchToDark": "Switch to dark mode",
+  "switchToLight": "Switch to light mode",
   "documentTrack": "Document track",
   "docAtBank": "At the bank",
   "goodsTrack": "Goods track",

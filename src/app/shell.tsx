@@ -1,5 +1,5 @@
-import { Bell, Boxes, Building2, CalendarRange, ClipboardList, FileStack, Globe2, LayoutDashboard, LogOut, Menu, ReceiptText, Search, Settings2, Ship, Users, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Bell, Boxes, Building2, CalendarRange, ClipboardList, FileStack, Globe2, LayoutDashboard, LogOut, Menu, Moon, ReceiptText, Search, Settings2, Ship, Sun, Users, X } from "lucide-react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from "react-router";
 import { can, useSession } from "@/app/access";
@@ -10,6 +10,9 @@ import { api } from "@/lib/api";
 import { useCompanyBrand } from "@/app/brand";
 import { useCopy } from "@/lib/copy";
 import { DASHBOARD_BELL_DELAY_MS, DASHBOARD_BRAND_DELAY_MS, dashboardFollowUp } from "@/lib/dashboard-follow-up";
+import { revealTheme } from "@/app/theme-transition";
+import { themeRevealOrigin } from "@/app/theme";
+import { useThemeName } from "@/app/use-theme";
 
 /** Milliseconds since `active` became true. Stays at 0 while inactive. */
 function useElapsedSince(active: boolean) {
@@ -97,6 +100,9 @@ export function AppShell() {
     staleTime: 60_000,
   });
   const unread = (notifications.data ?? []).filter((row) => Number(row.is_read) === 0).length;
+  const theme = useThemeName();
+  const dark = theme === "dark";
+  const themeLabel = dark ? tx("switchToLight", "Switch to light mode") : tx("switchToDark", "Switch to dark mode");
 
   useEffect(() => {
     if (!open) return;
@@ -114,6 +120,11 @@ export function AppShell() {
       window.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  function onTheme(event: MouseEvent<HTMLButtonElement>) {
+    const origin = themeRevealOrigin(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
+    revealTheme(origin.x, origin.y);
+  }
 
   function toggleLanguage() {
     const next = ar ? "en" : "ar";
@@ -209,6 +220,17 @@ export function AppShell() {
             <Button
               type="button"
               variant="outline"
+              size="icon"
+              className="rounded-full"
+              onClick={onTheme}
+              aria-label={themeLabel}
+              title={themeLabel}
+            >
+              {dark ? <Moon key="dark" className="ef-theme-icon h-4 w-4" /> : <Sun key="light" className="ef-theme-icon h-4 w-4" />}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
               size="sm"
               className="rounded-full"
               onClick={toggleLanguage}
@@ -224,7 +246,7 @@ export function AppShell() {
               <span className="max-w-32 truncate text-sm font-medium" dir="auto">{user?.name}</span>
             </Link>
             {/* Below 640px the search takes its own full-width row, so the
-                first row keeps the menu, brand, alerts and language switch.
+                first row keeps the menu, brand, alerts, theme and language switch.
                 Signing out moves into the menu instead of being clipped. */}
             <Button
               variant="outline"

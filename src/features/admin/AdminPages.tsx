@@ -10,6 +10,8 @@ import { api } from "@/lib/api";
 import { formatWhen, useCopy } from "@/lib/copy";
 import { isDefinitiveFailure, useIdempotencyKey, useSubmitLock } from "@/lib/idempotency";
 import { notifyError, notifySuccess } from "@/lib/notify";
+import { applyTheme } from "@/app/theme";
+import { useThemeName } from "@/app/use-theme";
 
 export function UsersPage() {
   const { tx, ar, i18n } = useCopy();
@@ -521,9 +523,11 @@ function BrandLogoCard() {
   const [clearLogo, setClearLogo] = useState(false);
   const [clearFavicon, setClearFavicon] = useState(false);
   const [busy, setBusy] = useState(false);
+  const applied = useThemeName();
   const ready = brand.data;
   const shownName = name ?? ready?.name ?? "";
-  const shownTheme = theme ?? (ready?.theme === "dark" ? "dark" : "light");
+  const storedTheme = ready?.theme === "dark" ? "dark" : "light";
+  const shownTheme = theme ?? (ready ? applied : "light");
   const logoSrc = clearLogo ? "" : logoData || (ready?.hasLogo ? `/api/v1/public/brand/logo?v=${encodeURIComponent(ready.updatedAt ?? "")}` : "");
   const iconSrc = clearFavicon ? "" : faviconData || (ready?.hasFavicon ? `/api/v1/public/brand/favicon?v=${encodeURIComponent(ready.updatedAt ?? "")}` : "");
 
@@ -536,7 +540,7 @@ function BrandLogoCard() {
         method: "POST",
         body: JSON.stringify({
           productName: shownName,
-          theme: shownTheme,
+          theme: theme ?? storedTheme,
           ...(clearLogo ? { clearLogo: true } : {}),
           ...(logoData ? { logoData } : {}),
           ...(clearFavicon ? { clearFavicon: true } : {}),
@@ -564,7 +568,11 @@ function BrandLogoCard() {
           <Input value={shownName} maxLength={40} onChange={(event) => setName(event.target.value)} />
         </Field>
         <Field label={tx("systemTheme", "System theme")}>
-          <Select value={ready ? shownTheme : "light"} onChange={(event) => setTheme(event.target.value === "dark" ? "dark" : "light")}>
+          <Select value={ready ? shownTheme : "light"} onChange={(event) => {
+            const next = event.target.value === "dark" ? "dark" : "light";
+            setTheme(next);
+            applyTheme(next);
+          }}>
             <option value="light">{tx("lightMode", "Light mode")}</option>
             <option value="dark">{tx("darkMode", "Dark mode")}</option>
           </Select>

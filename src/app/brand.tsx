@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { applyTheme } from "@/app/theme";
+import { applyBrandTheme } from "@/app/theme";
 import { api } from "@/lib/api";
 import { iconHrefNeedsUpdate, refetchWhenReadable } from "@/lib/query-retry";
 
@@ -24,7 +24,7 @@ export function useCompanyBrand(enabled = true) {
   useEffect(() => {
     const brand = query.data;
     if (!brand) return;
-    applyTheme(brand.theme === "dark" ? "dark" : "light");
+    applyBrandTheme(brand.theme === "dark" ? "dark" : "light");
     document.title = brand.name || "ExportFlow";
     const href = brand.hasFavicon
       ? `/api/v1/public/brand/favicon?v=${encodeURIComponent(brand.updatedAt ?? "")}`
