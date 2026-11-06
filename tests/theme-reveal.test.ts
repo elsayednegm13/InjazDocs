@@ -69,7 +69,7 @@ describe("revealTheme", () => {
         clipPath: ["circle(0px at 12px 34px)", `circle(${Math.hypot(788, 566)}px at 12px 34px)`],
       },
       {
-        duration: 550,
+        duration: 650,
         easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         pseudoElement: "::view-transition-new(root)",
       },

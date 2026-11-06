@@ -1,7 +1,7 @@
 import { flushSync } from "react-dom";
 import { applyTheme, currentTheme, themeRevealRadius, type ThemeName } from "./theme";
 
-const REVEAL_MS = 550;
+const REVEAL_MS = 650;
 const REVEAL_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 function paintTheme(next: ThemeName) {
