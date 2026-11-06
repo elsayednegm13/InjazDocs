@@ -204,10 +204,17 @@ select:disabled,
   animation: ef-theme-icon 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: none !important;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
+  display: block;
 }
 
 ::view-transition-old(root) {
@@ -215,7 +222,7 @@ select:disabled,
 }
 
 ::view-transition-new(root) {
-  z-index: 2;
+  z-index: 9999;
 }
 
 @media (prefers-reduced-motion: reduce) {
