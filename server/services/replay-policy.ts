@@ -196,6 +196,7 @@ const RULES: ReplayRule[] = [
   { method: "POST", path: /^\/api\/v1\/files\/uploads\/[^/]+\/abort$/, permission: "documents.upload", extra: assertUploadSessionOwner },
 
   { method: "POST", path: /^\/api\/v1\/imports\/customers\/commit$/, permission: "customers.create" },
+  { method: "POST", path: /^\/api\/v1\/settings\/whatsapp-template$/, permission: "settings.manage" },
   { method: "POST", path: /^\/api\/v1\/custom-fields$/, permission: "settings.manage" },
   { method: "PATCH", path: /^\/api\/v1\/custom-fields\/[^/]+$/, permission: "settings.manage" },
 ];

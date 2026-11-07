@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { isDefinitiveFailure, useIdempotencyKey, useSubmitLock } from "@/lib/idempotency";
 import { notifyError, notifyFailure, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { DEFAULT_WHATSAPP_TEMPLATE, renderWhatsAppTemplate } from "@shared/whatsapp-template";
 
 export function SharePanel({
   caseId,
@@ -31,6 +32,13 @@ export function SharePanel({
     queryFn: async () => (await api<Array<Record<string, string | null>>>(`/api/v1/export-cases/${caseId}/tracking-links`)).data,
   });
   const activeLinks = (query.data ?? []).filter((link) => !link.revoked_at);
+  const template = useQuery({
+    queryKey: ["whatsapp-template"],
+    queryFn: async () => (await api<{ template: string }>("/api/v1/settings/whatsapp-template")).data,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const messageTemplate = template.data?.template || DEFAULT_WHATSAPP_TEMPLATE;
   return (
     <section className="space-y-4 rounded-card border border-line bg-card p-4 shadow-card">
       <h2 className="text-[15px] font-semibold tracking-tight text-ink">{tx("tabs.share", "Share")}</h2>
@@ -62,7 +70,7 @@ export function SharePanel({
                   {tx("copyLink", "Copy link")}
                 </Button>
                 <Button asChild size="sm" variant="outline">
-                  <a href={whatsAppShareHref(shareUrl, { customerName, customerCode, phone, invoiceNumber, country })} target="_blank" rel="noreferrer">
+                  <a href={whatsAppShareHref(shareUrl, { customerName, customerCode, phone, invoiceNumber, country }, messageTemplate)} target="_blank" rel="noreferrer">
                     {tx("shareWhatsApp", "WhatsApp")}
                   </a>
                 </Button>
@@ -91,16 +99,19 @@ export function SharePanel({
   );
 }
 
-function whatsAppShareHref(url: string, fields: { customerName: string; customerCode: string; phone: string; invoiceNumber: string; country: string }) {
-  const line = (label: string, value: string) => `*${label}*\n${value.trim() || "—"}`;
-  const text = [
-    "*متابعة الشحنة*",
-    line("الكود", fields.customerCode),
-    line("العميل", fields.customerName),
-    line("الفاتورة", fields.invoiceNumber),
-    line("الدولة", fields.country),
-    line("رابط المتابعة", url),
-  ].join("\n\n");
+function whatsAppShareHref(
+  url: string,
+  fields: { customerName: string; customerCode: string; phone: string; invoiceNumber: string; country: string },
+  template: string,
+) {
+  const text = renderWhatsAppTemplate(template, {
+    customerName: fields.customerName,
+    customerCode: fields.customerCode,
+    phone: fields.phone,
+    invoiceNumber: fields.invoiceNumber,
+    country: fields.country,
+    trackingUrl: url,
+  });
   const digits = whatsAppDigits(fields.phone, fields.country);
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }

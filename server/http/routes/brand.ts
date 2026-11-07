@@ -1,5 +1,6 @@
 import type { Hono } from "hono";
 import { readBrandFavicon, readBrandLogo, readBrandStatus, saveBrand } from "../../services/brand";
+import { readWhatsAppTemplate, saveWhatsAppTemplate } from "../../services/whatsapp-template";
 import { errors, jsonSuccess, securityHeaders } from "../errors";
 import type { AppEnv } from "../types";
 
@@ -33,5 +34,10 @@ export function mountBrandRoutes(api: Hono<AppEnv>) {
       clearFavicon?: boolean;
     }>();
     return jsonSuccess(await saveBrand(c.env.DB, c.get("actor"), body, c.get("requestId")), c.get("requestId"));
+  });
+  api.get("/settings/whatsapp-template", async (c) => jsonSuccess(await readWhatsAppTemplate(c.env.DB), c.get("requestId")));
+  api.post("/settings/whatsapp-template", async (c) => {
+    const body = await c.req.json<{ template?: unknown }>();
+    return jsonSuccess(await saveWhatsAppTemplate(c.env.DB, c.get("actor"), body, c.get("requestId")), c.get("requestId"));
   });
 }

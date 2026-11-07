@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import { formatWhen, useCopy } from "@/lib/copy";
 import { isDefinitiveFailure, useIdempotencyKey, useSubmitLock } from "@/lib/idempotency";
 import { notifyError, notifySuccess } from "@/lib/notify";
+import { WhatsAppTemplateCard } from "@/features/admin/WhatsAppTemplateCard";
 import { applyTheme } from "@/app/theme";
 import { useThemeName } from "@/app/use-theme";
 
@@ -243,6 +244,7 @@ export function SettingsPage() {
     ["fields", "customFields", "Custom fields"],
     ["rules", "reminderRules", "Reminder rules"],
     ["templates", "documentTemplates", "Document templates"],
+    ["whatsapp", "whatsappMessages", "WhatsApp messages"],
   ] as const;
   return (
     <div className="space-y-6" data-settings="ready" data-rules={rules.isLoading ? "loading" : "ready"}>
@@ -459,6 +461,7 @@ export function SettingsPage() {
           <EmptyState>{tx("noTemplates", "No document templates yet.")}</EmptyState>
         )}
       </SectionCard> : null}
+      {tab === "whatsapp" ? <WhatsAppTemplateCard /> : null}
     </div>
   );
 }

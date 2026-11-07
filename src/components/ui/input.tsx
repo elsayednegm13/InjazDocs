@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode, Ref, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
@@ -13,9 +13,10 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   );
 }
 
-export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function Textarea({ className, ref, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { ref?: Ref<HTMLTextAreaElement> }) {
   return (
     <textarea
+      ref={ref}
       className={cn(
         "min-h-24 w-full rounded-control border border-line bg-card px-3 py-2 text-sm shadow-sm transition duration-[180ms] ease-out hover:border-accent/40 focus-visible:border-accent",
         className,

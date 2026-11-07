@@ -57,6 +57,7 @@ const ACTIVITY: Record<string, string> = {
   "user.enable": "activity.userEnable",
   "bootstrap.admin": "activity.bootstrap",
   "profile.name": "activity.profileName",
+  "whatsapp_template.update": "activity.whatsappTemplate",
   "profile.email": "activity.profileEmail",
   "invoice.update": "activity.invoiceUpdate",
   "invoice.open": "activity.invoiceOpen",
