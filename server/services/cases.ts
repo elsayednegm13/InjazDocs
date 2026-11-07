@@ -109,7 +109,8 @@ export async function getCaseOverview(db: D1Database, actor: Actor, id: string) 
       `SELECT r.*, t.name_en, t.name_ar, t.key AS type_key
        FROM operation_document_requirements r
        JOIN document_type_definitions t ON t.id = r.document_type_id
-       WHERE r.case_id = ?`,
+       WHERE r.case_id = ?
+       ORDER BY r.created_at ASC, r.id ASC`,
     ).bind(id),
     db.prepare("SELECT * FROM bookings WHERE case_id = ?").bind(id),
     db.prepare("SELECT * FROM containers WHERE case_id = ?").bind(id),

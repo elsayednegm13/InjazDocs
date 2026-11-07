@@ -64,7 +64,7 @@ export function DocumentsPanel({
       {types.isError ? <AlertText>{tx("documentsError", "Could not load document types.")}</AlertText> : null}
       {requirements.length === 0 ? <EmptyState>{tx("noDocuments", "No document requirements on this case yet.")}</EmptyState> : null}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {requirements.map((req) => {
+      {[...requirements].sort(byAddedOrder).map((req) => {
         const reqId = String(req.id);
         const uploading = progress[reqId] != null;
         const rows = versions.filter((v) => String(v.requirement_id) === reqId);
@@ -318,6 +318,12 @@ export function DocumentsPanel({
       </FormDisclosure>
     </div>
   );
+}
+
+function byAddedOrder(a: Record<string, string | number>, b: Record<string, string | number>) {
+  const created = String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""));
+  if (created !== 0) return created;
+  return String(a.id).localeCompare(String(b.id));
 }
 
 function CustomerShareStatus({ version, tx }: { version: Record<string, string | number | null>; tx: (key: string, fallback: string) => string }) {
