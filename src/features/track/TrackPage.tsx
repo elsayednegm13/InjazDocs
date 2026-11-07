@@ -9,7 +9,9 @@ import { DualLane, Ltr } from "@/components/ui/chrome";
 import { StatusBadge } from "@/components/ui/status";
 import { api } from "@/lib/api";
 import { formatWhen, useCopy } from "@/lib/copy";
+import { CustomerFiles } from "@/features/track/CustomerFiles";
 import { CONTAINER_JOURNEY, containerJourneyIndex } from "@shared/container-flow";
+import type { CustomerFileCard } from "@shared/customer-file-share";
 
 function SlotRail({ status }: { status: string }) {
   const index = containerJourneyIndex(status);
@@ -169,6 +171,8 @@ export function TrackPage() {
             </ul>
           </section>
         ) : null}
+
+        <CustomerFiles token={String(token ?? "")} files={(data.customerFiles as CustomerFileCard[] | undefined) ?? []} />
 
         {containers.length ? (
           <section className="rounded-2xl border border-line bg-card p-4 shadow-[var(--shadow-card)]">

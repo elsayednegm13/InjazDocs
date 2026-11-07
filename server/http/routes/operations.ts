@@ -31,8 +31,10 @@ import {
   updateRule,
 } from "../../services/reminders";
 import { createTrackingLink, listTrackingLinks, publicTracking, revokeTrackingLink, rotateTrackingLink } from "../../services/tracking";
+import { decideCustomerFile, openPublishedCustomerFile, publishedCustomerFilesForToken, setCustomerFileShare } from "../../services/customer-files";
+import { downloadContentType, downloadFilename } from "./files";
 import { rateLimitSubject } from "../client-ip";
-import { jsonError, jsonSuccess } from "../errors";
+import { errors, jsonError, jsonSuccess } from "../errors";
 import type { AppEnv } from "../types";
 import { mountCustomFields } from "./mount-custom-fields";
 
@@ -41,7 +43,50 @@ export function mountPublicTracking(app: Hono<AppEnv>) {
   app.get("/api/v1/public/track/:token", async (c) => {
     try {
       const data = await publicTracking(c.env.DB, c.env, c.req.param("token"), rateLimitSubject(c.req.raw, c.env));
-      return jsonSuccess(data, c.get("requestId"));
+      const customerFiles = await publishedCustomerFilesForToken(c.env.DB, c.req.param("token"));
+      return jsonSuccess({ ...data, customerFiles }, c.get("requestId"));
+    } catch (error) {
+      return jsonError(error instanceof Error ? error : new Error("unavailable"), c.get("requestId"));
+    }
+  });
+  app.get("/api/v1/public/track/:token/files/:versionId", async (c) => {
+    try {
+      const file = await openPublishedCustomerFile(
+        c.env.DB,
+        c.env.DOCUMENTS,
+        c.req.param("token"),
+        c.req.param("versionId"),
+        rateLimitSubject(c.req.raw, c.env),
+      );
+      const filename = downloadFilename(file.filename, file.contentType);
+      const contentType = downloadContentType(file.objectType, file.contentType, filename);
+      const inline = c.req.query("inline") === "1" && (contentType === "application/pdf" || contentType.startsWith("image/"));
+      const asciiName = filename.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
+      return new Response(file.body, {
+        headers: {
+          "Content-Type": contentType,
+          "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    } catch (error) {
+      return jsonError(error instanceof Error ? error : new Error("unavailable"), c.get("requestId"));
+    }
+  });
+  app.post("/api/v1/public/track/:token/files/:versionId/decision", async (c) => {
+    try {
+      const origin = c.req.header("origin");
+      if (!origin || origin !== c.env.BETTER_AUTH_URL) throw errors.forbidden("Origin mismatch");
+      const body = await c.req.json<{ decision?: unknown; comment?: unknown }>();
+      const result = await decideCustomerFile(
+        c.env.DB,
+        c.req.param("token"),
+        c.req.param("versionId"),
+        body,
+        rateLimitSubject(c.req.raw, c.env),
+      );
+      return jsonSuccess(result, c.get("requestId"));
     } catch (error) {
       return jsonError(error instanceof Error ? error : new Error("unavailable"), c.get("requestId"));
     }
@@ -63,6 +108,13 @@ export function mountOperationRoutes(api: Hono<AppEnv>) {
   api.post("/document-requirements/:id/review", async (c) => {
     await reviewDocument(c.env.DB, c.get("actor"), c.env, c.req.param("id"), await c.req.json(), c.get("requestId"));
     return jsonSuccess({ ok: true }, c.get("requestId"));
+  });
+  api.post("/document-versions/:id/customer-share", async (c) => {
+    const body = await c.req.json<{ publish?: boolean }>();
+    return jsonSuccess(
+      await setCustomerFileShare(c.env.DB, c.get("actor"), c.req.param("id"), body.publish === true, c.get("requestId")),
+      c.get("requestId"),
+    );
   });
 
   api.post("/export-cases/:id/bank/status", async (c) => {

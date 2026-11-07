@@ -27,7 +27,8 @@ type CaseOverview = {
   bookings: Array<Record<string, string | number>>;
   containers: Array<Record<string, string | number>>;
   reminders: Array<Record<string, string>>;
-  documentVersions?: Array<Record<string, string | number>>;
+  documentVersions?: Array<Record<string, string | number | null>>;
+  customerFileShareReady?: boolean;
 };
 
 export function CaseDetailPage() {
@@ -245,7 +246,7 @@ export function CaseDetailPage() {
         </div>
       ) : null}
       {tab === "invoices" ? <InvoicePanel invoices={data.invoices} caseId={String(id)} caseStatus={String(data.case.status)} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
-      {tab === "documents" ? <DocumentsPanel caseId={String(id)} requirements={data.requirements} versions={(data.documentVersions ?? []) as Array<Record<string, string | number>>} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
+      {tab === "documents" ? <DocumentsPanel caseId={String(id)} requirements={data.requirements} versions={(data.documentVersions ?? []) as Array<Record<string, string | number | null>>} customerShareReady={data.customerFileShareReady === true} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
       {tab === "bank" ? <BankPanel caseId={String(id)} route={String(data.case.document_route)} status={String(data.case.bank_path_status)} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
       {tab === "courier" ? <CourierPanel caseId={String(id)} /> : null}
       {tab === "bookings" ? <BookingPanel caseId={String(id)} bookings={data.bookings} /> : null}

@@ -130,9 +130,7 @@ export async function consumeRateLimit(db: D1Database, key: string, limit: numbe
   if ((row?.hits ?? 0) > limit) throw errors.rateLimited();
 }
 
-export async function publicTracking(db: D1Database, _env: Env, token: string, ip: string) {
-  await consumeRateLimit(db, `public-track:${await hashToken(ip || "unknown")}`, 30, 60_000);
-
+export async function openTrackingLink(db: D1Database, token: string) {
   const tokenHash = await hashToken(token);
   const link = await one<{
     id: string;
@@ -141,9 +139,15 @@ export async function publicTracking(db: D1Database, _env: Env, token: string, i
     revoked_at: string | null;
     display_scope_json: string;
   }>(db, "SELECT id, case_id, expires_at, revoked_at, display_scope_json FROM customer_tracking_links WHERE token_hash = ?", tokenHash);
-  if (!link) throw errors.gone("This tracking link is unavailable");
-  if (link.revoked_at) throw errors.gone("This tracking link is unavailable");
-  if (link.expires_at && link.expires_at < nowIso()) throw errors.gone("This tracking link is unavailable");
+  if (!link || link.revoked_at || (link.expires_at && link.expires_at < nowIso())) {
+    throw errors.gone("This tracking link is unavailable");
+  }
+  return link;
+}
+
+export async function publicTracking(db: D1Database, _env: Env, token: string, ip: string) {
+  await consumeRateLimit(db, `public-track:${await hashToken(ip || "unknown")}`, 30, 60_000);
+  const link = await openTrackingLink(db, token);
 
   const storedScope = JSON.parse(link.display_scope_json) as Record<string, unknown>;
   delete storedScope._shareToken;

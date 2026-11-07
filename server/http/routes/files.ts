@@ -17,7 +17,7 @@ function extensionOf(name: string) {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-function downloadContentType(objectType: string | undefined, storedType: string | null | undefined, filename: string) {
+export function downloadContentType(objectType: string | undefined, storedType: string | null | undefined, filename: string) {
   const generic = !objectType || objectType === "application/octet-stream" || objectType === "binary/octet-stream";
   if (storedType && KNOWN_TYPES.has(storedType)) return storedType;
   const fromName = TYPE_BY_EXTENSION[extensionOf(filename)];
@@ -26,7 +26,7 @@ function downloadContentType(objectType: string | undefined, storedType: string 
   return "application/octet-stream";
 }
 
-function downloadFilename(name: string, storedType: string | null | undefined) {
+export function downloadFilename(name: string, storedType: string | null | undefined) {
   const type = storedType && KNOWN_TYPES.has(storedType) ? storedType : TYPE_BY_EXTENSION[extensionOf(name)];
   const extension = type === "application/pdf" ? "pdf" : type === "image/jpeg" ? "jpg" : type === "image/png" ? "png" : "";
   if (!extension) return name || "document";

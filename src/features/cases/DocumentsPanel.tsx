@@ -10,11 +10,12 @@ import { api, createIdempotencyKey, uploadFile } from "@/lib/api";
 import { fieldErrorsOf } from "@/lib/fail";
 import { isDefinitiveFailure, useIdempotencyKey, useSubmitLock } from "@/lib/idempotency";
 import { notifyError, notifySuccess } from "@/lib/notify";
+import { can, useSession } from "@/app/access";
 import { useCopy } from "@/lib/copy";
 
 import { formatWhen } from "./case-format";
 
-function formatBytes(value: number | string, language: string) {
+function formatBytes(value: number | string | null, language: string) {
   const bytes = Number(value);
   if (!Number.isFinite(bytes) || bytes <= 0) return "—";
   const units = language.startsWith("ar")
@@ -29,14 +30,18 @@ export function DocumentsPanel({
   caseId,
   requirements,
   versions,
+  customerShareReady = false,
   onDone,
 }: {
   caseId: string;
   requirements: Array<Record<string, string | number>>;
-  versions: Array<Record<string, string | number>>;
+  versions: Array<Record<string, string | number | null>>;
+  customerShareReady?: boolean;
   onDone: () => void;
 }) {
   const { tx, fail, ar, i18n } = useCopy();
+  const user = useSession();
+  const canPublish = customerShareReady && can(user, "tracking_links.manage");
   const [adding, setAdding] = useState(false);
   const [typeError, setTypeError] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
@@ -59,6 +64,9 @@ export function DocumentsPanel({
         const reqId = String(req.id);
         const uploading = progress[reqId] != null;
         const rows = versions.filter((v) => String(v.requirement_id) === reqId);
+        const latestVersion = rows.reduce((max, row) => Math.max(max, Number(row.version) || 0), 0);
+        const latestRow = rows.find((row) => Number(row.version) === latestVersion);
+        const customerAccepted = latestRow?.customer_decision === "ACCEPTED";
         return (
         <div key={reqId} className="rounded-card border border-line bg-card p-4 shadow-card">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -124,6 +132,9 @@ export function DocumentsPanel({
               />
             </label>
           </div>
+          {customerShareReady && customerAccepted && String(req.status) !== "APPROVED" ? (
+            <p className="mt-2 text-sm text-ok">{tx("customerFileAcceptedStaff", "Customer accepted this version")} {tx("customerFileStaffStill", "Your own approval is still required.")}</p>
+          ) : null}
           {uploading ? (
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={progress[reqId]} aria-valuemin={0} aria-valuemax={100}>
               <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress[reqId]}%` }} />
@@ -165,16 +176,41 @@ export function DocumentsPanel({
                       {" · "}<Ltr>{formatWhen(String(version.created_at))}</Ltr>
                       {" · "}<StatusBadge value={String(version.review_state)} />
                     </p>
+                    {customerShareReady ? <CustomerShareStatus version={version} tx={tx} /> : null}
                   </div>
-                  <Button asChild size="sm" variant="outline">
-                    <a
-                      href={`/api/v1/files/download?key=${encodeURIComponent(String(version.r2_key))}&inline=1`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {tx("openFile", "Open file")}
-                    </a>
-                  </Button>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    {canPublish && Number(version.version) === latestVersion ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            await api(`/api/v1/document-versions/${version.id}/customer-share`, {
+                              method: "POST",
+                              idempotencyKey: createIdempotencyKey(),
+                              body: JSON.stringify({ publish: Number(version.customer_published) !== 1 }),
+                            });
+                            notifySuccess(tx(Number(version.customer_published) === 1 ? "withdrawFromCustomer" : "publishToCustomer", Number(version.customer_published) === 1 ? "Withdraw from customer" : "Publish to customer"));
+                            onDone();
+                          } catch (error) {
+                            notifyError(error);
+                          }
+                        }}
+                      >
+                        {Number(version.customer_published) === 1 ? tx("withdrawFromCustomer", "Withdraw from customer") : tx("publishToCustomer", "Publish to customer")}
+                      </Button>
+                    ) : null}
+                    <Button asChild size="sm" variant="outline">
+                      <a
+                        href={`/api/v1/files/download?key=${encodeURIComponent(String(version.r2_key))}&inline=1`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {tx("openFile", "Open file")}
+                      </a>
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -254,6 +290,22 @@ export function DocumentsPanel({
         {addError ? <div className="md:col-span-3"><AlertText>{addError}</AlertText></div> : null}
       </form>
       </FormDisclosure>
+    </div>
+  );
+}
+
+function CustomerShareStatus({ version, tx }: { version: Record<string, string | number | null>; tx: (key: string, fallback: string) => string }) {
+  const published = Number(version.customer_published) === 1;
+  const decision = String(version.customer_decision ?? "");
+  if (!published && !decision && !version.customer_first_viewed_at) return null;
+  return (
+    <div className="mt-1 text-xs">
+      {decision === "CHANGES_REQUESTED" ? (
+        <p className="whitespace-pre-wrap text-warn">{tx("customerFileNeedsChange", "Customer asked for a change")}{version.customer_comment ? `: ${version.customer_comment}` : ""}</p>
+      ) : null}
+      {decision === "ACCEPTED" ? <p className="text-ok">{tx("customerFileAcceptedStaff", "Customer accepted this version")}</p> : null}
+      {published && !decision && version.customer_first_viewed_at ? <p className="text-ink-muted">{tx("customerFileViewed", "Customer opened the file")}</p> : null}
+      {published && !decision && !version.customer_first_viewed_at ? <p className="text-ink-muted">{tx("customerFileWaiting", "Waiting for the customer")}</p> : null}
     </div>
   );
 }

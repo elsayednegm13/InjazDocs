@@ -48,7 +48,7 @@ export function createApp(deps: AppDependencies = {}) {
       "api", "v1", "health", "me", "dashboard", "export-cases", "bookings", "reminders", "reminder-rules", "schedule",
       "containers", "customers", "auth", "sign-in", "email", "password", "bootstrap", "bootstrap-status",
       "public", "track", "brand", "logo", "favicon", "settings", "whatsapp-template", "notifications", "reports", "users", "roles", "custom-fields", "document-types",
-      "document-templates", "activity", "lookups", "files", "uploads", "invoices", "corrections", "revisions",
+      "document-templates", "document-versions", "customer-share", "decision", "activity", "lookups", "files", "uploads", "invoices", "corrections", "revisions",
       // W2 independent quotations (D-10): literal path verbs of the quotations
       // routes. Any other segment (an id) keeps mapping to ":id".
       "quotations", "items", "issue", "response", "revise", "link", "unlink", "copy-items", "archive", "pdf",
