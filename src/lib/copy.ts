@@ -60,6 +60,8 @@ const ACTIVITY: Record<string, string> = {
   "whatsapp_template.update": "activity.whatsappTemplate",
   "customer_file.publish": "activity.customerFilePublish",
   "customer_file.unpublish": "activity.customerFileUnpublish",
+  "customer_file.hide": "activity.customerFileHide",
+  "customer_file.delete": "activity.customerFileDelete",
   "customer_file.decision": "activity.customerFileDecision",
   "profile.email": "activity.profileEmail",
   "invoice.update": "activity.invoiceUpdate",

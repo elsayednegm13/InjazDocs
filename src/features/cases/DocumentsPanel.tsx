@@ -11,6 +11,7 @@ import { fieldErrorsOf } from "@/lib/fail";
 import { isDefinitiveFailure, useIdempotencyKey, useSubmitLock } from "@/lib/idempotency";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { can, useSession } from "@/app/access";
+import { bothPartiesApproved } from "@shared/customer-file-share";
 import { useCopy } from "@/lib/copy";
 
 import { formatWhen } from "./case-format";
@@ -41,7 +42,8 @@ export function DocumentsPanel({
 }) {
   const { tx, fail, ar, i18n } = useCopy();
   const user = useSession();
-  const canPublish = customerShareReady && can(user, "tracking_links.manage");
+  const canReview = can(user, "documents.review");
+  const canUpload = can(user, "documents.upload");
   const [adding, setAdding] = useState(false);
   const [typeError, setTypeError] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
@@ -60,6 +62,7 @@ export function DocumentsPanel({
       {uploadError ? <AlertText>{uploadError}</AlertText> : null}
       {types.isError ? <AlertText>{tx("documentsError", "Could not load document types.")}</AlertText> : null}
       {requirements.length === 0 ? <EmptyState>{tx("noDocuments", "No document requirements on this case yet.")}</EmptyState> : null}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {requirements.map((req) => {
         const reqId = String(req.id);
         const uploading = progress[reqId] != null;
@@ -132,6 +135,9 @@ export function DocumentsPanel({
               />
             </label>
           </div>
+          {customerShareReady && bothPartiesApproved(String(req.status), String(latestRow?.customer_decision ?? "")) ? (
+            <p className="mt-2 text-sm font-medium text-ok">{tx("bothApproved", "Approved by the customer and the company")}</p>
+          ) : null}
           {customerShareReady && customerAccepted && String(req.status) !== "APPROVED" ? (
             <p className="mt-2 text-sm text-ok">{tx("customerFileAcceptedStaff", "Customer accepted this version")} {tx("customerFileStaffStill", "Your own approval is still required.")}</p>
           ) : null}
@@ -179,26 +185,47 @@ export function DocumentsPanel({
                     {customerShareReady ? <CustomerShareStatus version={version} tx={tx} /> : null}
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
-                    {canPublish && Number(version.version) === latestVersion ? (
+                    {canReview && String(req.status) === "APPROVED" && Number(version.version) === latestVersion ? (
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         onClick={async () => {
                           try {
-                            await api(`/api/v1/document-versions/${version.id}/customer-share`, {
+                            await api(`/api/v1/document-requirements/${reqId}/hide-from-customer`, {
                               method: "POST",
                               idempotencyKey: createIdempotencyKey(),
-                              body: JSON.stringify({ publish: Number(version.customer_published) !== 1 }),
+                              body: JSON.stringify({}),
                             });
-                            notifySuccess(tx(Number(version.customer_published) === 1 ? "withdrawFromCustomer" : "publishToCustomer", Number(version.customer_published) === 1 ? "Withdraw from customer" : "Publish to customer"));
+                            notifySuccess(tx("fileHidden", "File hidden from the customer"));
                             onDone();
                           } catch (error) {
                             notifyError(error);
                           }
                         }}
                       >
-                        {Number(version.customer_published) === 1 ? tx("withdrawFromCustomer", "Withdraw from customer") : tx("publishToCustomer", "Publish to customer")}
+                        {tx("hideFromCustomer", "Hide from customer")}
+                      </Button>
+                    ) : null}
+                    {canUpload && Number(version.version) === latestVersion && String(version.review_state) === "UPLOADED" && !version.customer_decision ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            await api(`/api/v1/document-versions/${version.id}`, {
+                              method: "DELETE",
+                              idempotencyKey: createIdempotencyKey(),
+                            });
+                            notifySuccess(tx("fileDeleted", "Unreviewed file deleted"));
+                            onDone();
+                          } catch (error) {
+                            notifyError(error);
+                          }
+                        }}
+                      >
+                        {tx("deleteFile", "Delete file")}
                       </Button>
                     ) : null}
                     <Button asChild size="sm" variant="outline">
@@ -220,6 +247,7 @@ export function DocumentsPanel({
         </div>
         );
       })}
+      </div>
       <FormDisclosure
         open={adding}
         onToggle={() => setAdding((open) => !open)}

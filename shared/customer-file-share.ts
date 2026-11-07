@@ -3,6 +3,7 @@ export const CUSTOMER_FILE_COMMENT_MAX = 1000;
 export type CustomerFileDecision = "ACCEPTED" | "CHANGES_REQUESTED";
 
 export type CustomerFileCard = {
+  requirementId: string;
   versionId: string;
   nameEn: string;
   nameAr: string;
@@ -13,6 +14,16 @@ export type CustomerFileCard = {
   comment: string | null;
   viewed: boolean;
 };
+
+/** The customer sees the latest file only after the employee approves that requirement. */
+export function visibleToCustomer(staffStatus: string) {
+  return staffStatus === "APPROVED";
+}
+
+/** Both approvals count only when they refer to the file the employee has approved. */
+export function bothPartiesApproved(staffStatus: string, decision: string | null) {
+  return visibleToCustomer(staffStatus) && decision === "ACCEPTED";
+}
 
 export function normalizeCustomerFileDecision(
   decision: unknown,

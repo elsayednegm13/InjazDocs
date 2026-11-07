@@ -1,9 +1,12 @@
+import type { DocumentRequirementStatus } from "../../shared/enums";
 import { normalizeCustomerFileDecision, type CustomerFileCard } from "../../shared/customer-file-share";
+import { assertDocumentTransition } from "../domain/transitions";
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requirePermission } from "./actor";
-import { writeAudit } from "./audit";
+import { writeAudit, writeCaseEvent } from "./audit";
+import { recomputeRemindersForCase } from "./reminders";
 import { downloadObject } from "./uploads";
 import { consumeRateLimit, hashToken, openTrackingLink } from "./tracking";
 
@@ -44,63 +47,92 @@ export function withCustomerShare<T extends { id: string }>(version: T, share: S
 }
 
 export async function publishedCustomerFiles(db: D1Database, caseId: string): Promise<CustomerFileCard[]> {
-  try {
-    const rows = await all<{
-      version_id: string;
-      original_name: string;
-      byte_size: number;
-      version: number;
-      name_en: string;
-      name_ar: string;
-      decision: string | null;
-      comment: string | null;
-      first_viewed_at: string | null;
-    }>(
-      db,
-      `SELECT v.id AS version_id, v.original_name, v.byte_size, v.version,
-              d.name_en, d.name_ar, s.decision, s.comment, s.first_viewed_at
-       FROM customer_file_shares s
-       JOIN document_versions v ON v.id = s.version_id
-       JOIN operation_document_requirements r ON r.id = v.requirement_id
-       JOIN document_type_definitions d ON d.id = r.document_type_id
-       WHERE s.case_id = ? AND s.unpublished_at IS NULL
-         AND v.version = (
-           SELECT MAX(v2.version)
-           FROM document_versions v2
-           JOIN customer_file_shares s2 ON s2.version_id = v2.id
-           WHERE v2.requirement_id = r.id AND s2.unpublished_at IS NULL
-         )
-       ORDER BY d.name_en`,
-      caseId,
-    );
-    return rows.map((row) => ({
+  const rows = await all<{
+    requirement_id: string;
+    version_id: string;
+    original_name: string;
+    byte_size: number;
+    version: number;
+    name_en: string;
+    name_ar: string;
+  }>(
+    db,
+    `SELECT r.id AS requirement_id, v.id AS version_id, v.original_name, v.byte_size, v.version,
+            d.name_en, d.name_ar
+     FROM operation_document_requirements r
+     JOIN document_type_definitions d ON d.id = r.document_type_id
+     JOIN document_versions v ON v.requirement_id = r.id
+      AND v.version = (SELECT MAX(version) FROM document_versions WHERE requirement_id = r.id)
+     WHERE r.case_id = ? AND r.status = 'APPROVED'
+     ORDER BY d.name_en`,
+    caseId,
+  );
+  const shares = await customerSharesForCase(db, caseId);
+  const byVersion = new Map(shares.rows.map((share) => [share.version_id, share]));
+  return rows.map((row) => {
+    const share = byVersion.get(row.version_id);
+    const decision = share?.decision === "ACCEPTED" || share?.decision === "CHANGES_REQUESTED" ? share.decision : null;
+    return {
+      requirementId: row.requirement_id,
       versionId: row.version_id,
       nameEn: row.name_en,
       nameAr: row.name_ar,
       fileName: row.original_name,
       byteSize: row.byte_size,
       version: row.version,
-      decision: row.decision === "ACCEPTED" || row.decision === "CHANGES_REQUESTED" ? row.decision : null,
-      comment: row.comment,
-      viewed: Boolean(row.first_viewed_at),
-    }));
-  } catch (error) {
-    if (isMissingShareTable(error)) return [];
-    throw error;
-  }
+      decision,
+      comment: share?.comment ?? null,
+      viewed: Boolean(share?.first_viewed_at),
+    };
+  });
 }
 
-export async function setCustomerFileShare(
-  db: D1Database,
-  actor: Actor,
-  versionId: string,
-  publish: boolean,
-  requestId: string,
-) {
-  requirePermission(actor, "tracking_links.manage");
-  const version = await one<{ id: string; requirement_id: string; case_id: string; version: number }>(
+export async function hideApprovedFileFromCustomer(db: D1Database, actor: Actor, env: Env, requirementId: string, requestId: string) {
+  requirePermission(actor, "documents.review");
+  const requirement = await one<{ id: string; case_id: string; status: DocumentRequirementStatus }>(
     db,
-    `SELECT v.id, v.requirement_id, v.version, r.case_id
+    "SELECT id, case_id, status FROM operation_document_requirements WHERE id = ?",
+    requirementId,
+  );
+  if (!requirement) throw errors.notFound("Requirement not found");
+  await assertCaseAccess(db, actor, requirement.case_id);
+  if (requirement.status !== "APPROVED") {
+    throw errors.validation("Only an approved file can be taken off the customer page.");
+  }
+  assertDocumentTransition(requirement.status, "UPLOADED");
+  const now = nowIso();
+  const saved = await db
+    .prepare("UPDATE operation_document_requirements SET status = 'UPLOADED', updated_at = ? WHERE id = ? AND status = 'APPROVED'")
+    .bind(now, requirementId)
+    .run();
+  if ((saved.meta?.changes ?? 0) !== 1) {
+    throw errors.conflict("The document changed. Reload it and try again.", "DOCUMENT_CHANGED");
+  }
+  await writeCaseEvent(db, requirement.case_id, "DOCUMENT_REVIEW", "File hidden from the customer until it is approved again", actor.id);
+  await writeAudit(db, {
+    actorId: actor.id,
+    entityType: "document_requirement",
+    entityId: requirementId,
+    action: "customer_file.hide",
+    requestId,
+  });
+  await recomputeRemindersForCase(db, env, requirement.case_id);
+  return { status: "UPLOADED" as const };
+}
+
+export async function deleteUnreviewedVersion(db: D1Database, bucket: R2Bucket, actor: Actor, env: Env, versionId: string, requestId: string) {
+  requirePermission(actor, "documents.upload");
+  const version = await one<{
+    id: string;
+    requirement_id: string;
+    case_id: string;
+    version: number;
+    review_state: string;
+    r2_key: string;
+    status: DocumentRequirementStatus;
+  }>(
+    db,
+    `SELECT v.id, v.requirement_id, v.version, v.review_state, v.r2_key, r.case_id, r.status
      FROM document_versions v
      JOIN operation_document_requirements r ON r.id = v.requirement_id
      WHERE v.id = ?`,
@@ -108,65 +140,63 @@ export async function setCustomerFileShare(
   );
   if (!version) throw errors.notFound("File not found");
   await assertCaseAccess(db, actor, version.case_id);
-  if (!(await customerSharesForCase(db, version.case_id)).ready) {
-    throw errors.coded(503, "SCHEMA_UPGRADE_REQUIRED", "This deployment is waiting for a database upgrade. No change was saved.");
-  }
-  const now = nowIso();
-  if (!publish) {
-    await db
-      .prepare("UPDATE customer_file_shares SET unpublished_at = COALESCE(unpublished_at, ?), updated_at = ? WHERE version_id = ?")
-      .bind(now, now, versionId)
-      .run();
-    await writeAudit(db, {
-      actorId: actor.id,
-      entityType: "document_version",
-      entityId: versionId,
-      action: "customer_file.unpublish",
-      requestId,
-    });
-    return { published: false };
-  }
   const latest = await one<{ version: number }>(
     db,
     "SELECT MAX(version) AS version FROM document_versions WHERE requirement_id = ?",
     version.requirement_id,
   );
   if ((latest?.version ?? 0) !== version.version) {
-    throw errors.validation("Publish the latest file. An older version stays in the record and is not sent to the customer.", {
-      versionId: "Choose the latest version.",
-    });
+    throw errors.validation("Only the latest unreviewed file can be deleted.");
   }
-  await db
+  if (version.review_state !== "UPLOADED" || version.status === "APPROVED") {
+    throw errors.conflict("A reviewed file stays in the record. Upload a replacement instead of deleting it.", "VERSION_HAS_REVIEW");
+  }
+  const review = await one<{ id: string }>(db, "SELECT id FROM document_reviews WHERE version_id = ?", versionId);
+  if (review) {
+    throw errors.conflict("A reviewed file stays in the record. Upload a replacement instead of deleting it.", "VERSION_HAS_REVIEW");
+  }
+  const shares = await customerSharesForCase(db, version.case_id);
+  const share = shares.rows.find((row) => row.version_id === versionId);
+  if (share?.decision) {
+    throw errors.conflict("The customer already answered this file. Upload a replacement instead of deleting it.", "VERSION_HAS_REVIEW");
+  }
+  const removed = await db
     .prepare(
-      `UPDATE customer_file_shares
-          SET unpublished_at = ?, updated_at = ?
-        WHERE case_id = ? AND unpublished_at IS NULL AND version_id IN (
-          SELECT id FROM document_versions WHERE requirement_id = ? AND id != ?
-        )`,
+      `DELETE FROM document_versions
+        WHERE id = ? AND review_state = 'UPLOADED'
+          AND NOT EXISTS (SELECT 1 FROM document_reviews WHERE version_id = ?)`,
     )
-    .bind(now, now, version.case_id, version.requirement_id, versionId)
+    .bind(versionId, versionId)
     .run();
-  await db
-    .prepare(
-      `INSERT INTO customer_file_shares (
-         id, version_id, case_id, published_at, published_by, unpublished_at, view_count, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, NULL, 0, ?, ?)
-       ON CONFLICT(version_id) DO UPDATE SET
-         unpublished_at = NULL,
-         published_at = excluded.published_at,
-         published_by = excluded.published_by,
-         updated_at = excluded.updated_at`,
-    )
-    .bind(newId(), versionId, version.case_id, now, actor.id, now, now)
-    .run();
+  if ((removed.meta?.changes ?? 0) !== 1) {
+    throw errors.conflict("The file changed while it was being deleted. Reload it and try again.", "DOCUMENT_CHANGED");
+  }
+  try {
+    await bucket.delete(version.r2_key);
+  } catch {
+    /* The row is already gone. A leftover object is not shown to the customer. */
+  }
+  const remaining = await one<{ n: number }>(
+    db,
+    "SELECT COUNT(*) AS n FROM document_versions WHERE requirement_id = ?",
+    version.requirement_id,
+  );
+  if ((remaining?.n ?? 0) === 0 && version.status === "UPLOADED") {
+    assertDocumentTransition(version.status, "MISSING");
+    await db
+      .prepare("UPDATE operation_document_requirements SET status = 'MISSING', updated_at = ? WHERE id = ? AND status = 'UPLOADED'")
+      .bind(nowIso(), version.requirement_id)
+      .run();
+  }
   await writeAudit(db, {
     actorId: actor.id,
     entityType: "document_version",
     entityId: versionId,
-    action: "customer_file.publish",
+    action: "customer_file.delete",
     requestId,
   });
-  return { published: true };
+  await recomputeRemindersForCase(db, env, version.case_id);
+  return { deleted: true };
 }
 
 export async function publishedCustomerFilesForToken(db: D1Database, token: string) {
@@ -181,18 +211,20 @@ export async function openPublishedCustomerFile(db: D1Database, bucket: R2Bucket
   if (!share) throw errors.notFound("This file is not available on this link.");
   const object = await downloadObject(bucket, share.r2_key);
   const now = nowIso();
-  await db
-    .prepare(
-      `UPDATE customer_file_shares
-          SET first_viewed_at = COALESCE(first_viewed_at, ?),
-              last_viewed_at = ?,
-              view_count = view_count + 1,
-              link_id = COALESCE(link_id, ?),
-              updated_at = ?
-        WHERE version_id = ? AND unpublished_at IS NULL`,
-    )
-    .bind(now, now, link.id, now, versionId)
-    .run();
+  if (await ensureCustomerShare(db, versionId, link.case_id, now)) {
+    await db
+      .prepare(
+        `UPDATE customer_file_shares
+            SET first_viewed_at = COALESCE(first_viewed_at, ?),
+                last_viewed_at = ?,
+                view_count = view_count + 1,
+                link_id = COALESCE(link_id, ?),
+                updated_at = ?
+          WHERE version_id = ?`,
+      )
+      .bind(now, now, link.id, now, versionId)
+      .run();
+  }
   await db
     .prepare("INSERT INTO tracking_link_access_events (id, link_id, accessed_at, ip_hash, user_agent) VALUES (?, ?, ?, ?, ?)")
     .bind(newId(), link.id, now, await hashToken(ip || "unknown"), "file")
@@ -226,11 +258,14 @@ export async function decideCustomerFile(
     throw errors.validation(message, { comment: message });
   }
   const now = nowIso();
+  if (!(await ensureCustomerShare(db, versionId, link.case_id, now))) {
+    throw errors.coded(503, "SCHEMA_UPGRADE_REQUIRED", "This deployment is waiting for a database upgrade. No change was saved.");
+  }
   const saved = await db
     .prepare(
       `UPDATE customer_file_shares
           SET decision = ?, comment = ?, decided_at = ?, link_id = ?, updated_at = ?
-        WHERE version_id = ? AND case_id = ? AND unpublished_at IS NULL`,
+        WHERE version_id = ? AND case_id = ?`,
     )
     .bind(normalized.decision, normalized.comment, now, link.id, now, versionId, link.case_id)
     .run();
@@ -251,25 +286,32 @@ export async function decideCustomerFile(
 }
 
 async function publishedLatest(db: D1Database, caseId: string, versionId: string) {
+  return one<{ r2_key: string; original_name: string; content_type: string }>(
+    db,
+    `SELECT v.r2_key, v.original_name, v.content_type
+     FROM document_versions v
+     JOIN operation_document_requirements r ON r.id = v.requirement_id
+     WHERE v.id = ? AND r.case_id = ? AND r.status = 'APPROVED'
+       AND v.version = (SELECT MAX(version) FROM document_versions WHERE requirement_id = r.id)`,
+    versionId,
+    caseId,
+  );
+}
+
+async function ensureCustomerShare(db: D1Database, versionId: string, caseId: string, now: string) {
   try {
-    return await one<{ r2_key: string; original_name: string; content_type: string }>(
-      db,
-      `SELECT v.r2_key, v.original_name, v.content_type
-       FROM customer_file_shares s
-       JOIN document_versions v ON v.id = s.version_id
-       JOIN operation_document_requirements r ON r.id = v.requirement_id
-       WHERE s.version_id = ? AND s.case_id = ? AND s.unpublished_at IS NULL
-         AND v.version = (
-           SELECT MAX(v2.version)
-           FROM document_versions v2
-           JOIN customer_file_shares s2 ON s2.version_id = v2.id
-           WHERE v2.requirement_id = r.id AND s2.unpublished_at IS NULL
-         )`,
-      versionId,
-      caseId,
-    );
+    await db
+      .prepare(
+        `INSERT INTO customer_file_shares (
+           id, version_id, case_id, published_at, published_by, unpublished_at, view_count, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, NULL, NULL, 0, ?, ?)
+         ON CONFLICT(version_id) DO UPDATE SET unpublished_at = NULL, updated_at = excluded.updated_at`,
+      )
+      .bind(newId(), versionId, caseId, now, now, now)
+      .run();
+    return true;
   } catch (error) {
-    if (isMissingShareTable(error)) return null;
+    if (isMissingShareTable(error)) return false;
     throw error;
   }
 }

@@ -31,7 +31,7 @@ import {
   updateRule,
 } from "../../services/reminders";
 import { createTrackingLink, listTrackingLinks, publicTracking, revokeTrackingLink, rotateTrackingLink } from "../../services/tracking";
-import { decideCustomerFile, openPublishedCustomerFile, publishedCustomerFilesForToken, setCustomerFileShare } from "../../services/customer-files";
+import { decideCustomerFile, deleteUnreviewedVersion, hideApprovedFileFromCustomer, openPublishedCustomerFile, publishedCustomerFilesForToken } from "../../services/customer-files";
 import { downloadContentType, downloadFilename } from "./files";
 import { rateLimitSubject } from "../client-ip";
 import { errors, jsonError, jsonSuccess } from "../errors";
@@ -109,13 +109,8 @@ export function mountOperationRoutes(api: Hono<AppEnv>) {
     await reviewDocument(c.env.DB, c.get("actor"), c.env, c.req.param("id"), await c.req.json(), c.get("requestId"));
     return jsonSuccess({ ok: true }, c.get("requestId"));
   });
-  api.post("/document-versions/:id/customer-share", async (c) => {
-    const body = await c.req.json<{ publish?: boolean }>();
-    return jsonSuccess(
-      await setCustomerFileShare(c.env.DB, c.get("actor"), c.req.param("id"), body.publish === true, c.get("requestId")),
-      c.get("requestId"),
-    );
-  });
+  api.post("/document-requirements/:id/hide-from-customer", async (c) => jsonSuccess(await hideApprovedFileFromCustomer(c.env.DB, c.get("actor"), c.env, c.req.param("id"), c.get("requestId")), c.get("requestId")));
+  api.delete("/document-versions/:id", async (c) => jsonSuccess(await deleteUnreviewedVersion(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.env, c.req.param("id"), c.get("requestId")), c.get("requestId")));
 
   api.post("/export-cases/:id/bank/status", async (c) => {
     const body = await c.req.json<{ to: never; bankName?: string; reason?: string }>();

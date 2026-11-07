@@ -186,9 +186,9 @@ export async function publicTracking(db: D1Database, _env: Env, token: string, i
     "SELECT official_number, status, slot_index FROM containers WHERE case_id = ? AND status != 'CANCELLED' ORDER BY slot_index",
     link.case_id,
   );
-  const documents = await all<{ name_en: string; name_ar: string; status: string }>(
+  const documents = await all<{ id: string; name_en: string; name_ar: string; status: string }>(
     db,
-    `SELECT d.name_en, d.name_ar, r.status
+    `SELECT r.id, d.name_en, d.name_ar, r.status
      FROM operation_document_requirements r
      JOIN document_type_definitions d ON d.id = r.document_type_id
      WHERE r.case_id = ?
@@ -251,6 +251,7 @@ export async function publicTracking(db: D1Database, _env: Env, token: string, i
       status: c.status,
     })),
     documents: documents.map((document) => ({
+      requirementId: document.id,
       nameEn: document.name_en,
       nameAr: document.name_ar,
       status: document.status,

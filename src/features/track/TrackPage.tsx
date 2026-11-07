@@ -9,7 +9,7 @@ import { DualLane, Ltr } from "@/components/ui/chrome";
 import { StatusBadge } from "@/components/ui/status";
 import { api } from "@/lib/api";
 import { formatWhen, useCopy } from "@/lib/copy";
-import { CustomerFiles } from "@/features/track/CustomerFiles";
+import { CustomerDocuments, type TrackDocument } from "@/features/track/CustomerFiles";
 import { CONTAINER_JOURNEY, containerJourneyIndex } from "@shared/container-flow";
 import type { CustomerFileCard } from "@shared/customer-file-share";
 
@@ -82,7 +82,8 @@ export function TrackPage() {
 
   const data = query.data!;
   const containers = (data.containers as Array<Record<string, unknown>> | undefined) ?? [];
-  const documents = (data.documents as Array<Record<string, string>> | undefined) ?? [];
+  const documents = (data.documents as TrackDocument[] | undefined) ?? [];
+  const customerFiles = (data.customerFiles as CustomerFileCard[] | undefined) ?? [];
   const etd = String(data.actualEtd || data.plannedEtd || tx("notConfirmed", "Not yet confirmed"));
   const eta = String(data.actualEta || data.plannedEta || tx("notConfirmed", "Not yet confirmed"));
   const loading = String(data.actualLoadingDate || data.plannedLoadingDate || tx("notConfirmed", "Not yet confirmed"));
@@ -158,21 +159,7 @@ export function TrackPage() {
           goodsCurrent={String(data.goodsTrackStatus)}
         />
 
-        {documents.length ? (
-          <section className="rounded-2xl border border-line bg-card p-4 shadow-[var(--shadow-card)]">
-            <h2 className="text-[15px] font-semibold text-ink">{tx("documentChecklist", "Documents")}</h2>
-            <ul className="mt-3 space-y-2">
-              {documents.map((document, index) => (
-                <li key={`${document.nameEn}-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-line/70 bg-paper/40 px-3 py-2">
-                  <span className="min-w-0 truncate text-sm font-medium text-ink">{ar ? document.nameAr || document.nameEn : document.nameEn}</span>
-                  <StatusBadge value={document.status} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <CustomerFiles token={String(token ?? "")} files={(data.customerFiles as CustomerFileCard[] | undefined) ?? []} />
+        <CustomerDocuments token={String(token ?? "")} documents={documents} files={customerFiles} />
 
         {containers.length ? (
           <section className="rounded-2xl border border-line bg-card p-4 shadow-[var(--shadow-card)]">
