@@ -44,6 +44,7 @@ export function DocumentsPanel({
   const user = useSession();
   const canReview = can(user, "documents.review");
   const canUpload = can(user, "documents.upload");
+  const canSend = customerShareReady && (canReview || can(user, "tracking_links.manage"));
   const [adding, setAdding] = useState(false);
   const [typeError, setTypeError] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
@@ -170,51 +171,50 @@ export function DocumentsPanel({
               </Button>
             ))}
           </div>
-          {rows.length ? (
-            <ul className="mt-3 divide-y divide-line rounded-lg border border-line bg-paper/40 text-sm">
-              {rows.map((version) => (
-                <li key={String(version.id)} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+          {latestRow ? (
+            <div className="mt-3 rounded-lg border border-line bg-paper/40 px-3 py-2 text-sm">
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{String(version.original_name)}</p>
+                    <p className="truncate font-medium">{String(latestRow.original_name)}</p>
                     <p className="text-xs text-ink-muted">
-                      {tx("version", "Version")} <Ltr>{String(version.version)}</Ltr>
-                      {" · "}<Ltr>{formatBytes(version.byte_size, i18n.language)}</Ltr>
-                      {" · "}<Ltr>{formatWhen(String(version.created_at))}</Ltr>
-                      {" · "}<StatusBadge value={String(version.review_state)} />
+                      {tx("version", "Version")} <Ltr>{String(latestRow.version)}</Ltr>
+                      {" · "}<Ltr>{formatBytes(latestRow.byte_size, i18n.language)}</Ltr>
+                      {" · "}<Ltr>{formatWhen(String(latestRow.created_at))}</Ltr>
+                      {" · "}<StatusBadge value={String(latestRow.review_state)} />
                     </p>
-                    {customerShareReady ? <CustomerShareStatus version={version} tx={tx} /> : null}
+                    {customerShareReady ? <CustomerShareStatus version={latestRow} tx={tx} /> : null}
                   </div>
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    {canReview && String(req.status) === "APPROVED" && Number(version.version) === latestVersion ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {canSend ? (
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         onClick={async () => {
+                          const published = Number(latestRow.customer_published) === 1;
                           try {
-                            await api(`/api/v1/document-requirements/${reqId}/hide-from-customer`, {
+                            await api(`/api/v1/document-versions/${latestRow.id}/customer-share`, {
                               method: "POST",
                               idempotencyKey: createIdempotencyKey(),
-                              body: JSON.stringify({}),
+                              body: JSON.stringify({ publish: !published }),
                             });
-                            notifySuccess(tx("fileHidden", "File hidden from the customer"));
+                            notifySuccess(tx(published ? "withdrawFromCustomer" : "sentForCustomerReview", published ? "Withdraw from customer" : "Waiting for the customer's review"));
                             onDone();
                           } catch (error) {
                             notifyError(error);
                           }
                         }}
                       >
-                        {tx("hideFromCustomer", "Hide from customer")}
+                        {Number(latestRow.customer_published) === 1 ? tx("withdrawFromCustomer", "Withdraw from customer") : tx("awaitingCustomerReview", "Waiting for customer review")}
                       </Button>
                     ) : null}
-                    {canUpload && Number(version.version) === latestVersion && String(version.review_state) === "UPLOADED" && !version.customer_decision ? (
+                    {canUpload && String(latestRow.review_state) === "UPLOADED" && !latestRow.customer_decision ? (
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         onClick={async () => {
                           try {
-                            await api(`/api/v1/document-versions/${version.id}`, {
+                            await api(`/api/v1/document-versions/${latestRow.id}`, {
                               method: "DELETE",
                               idempotencyKey: createIdempotencyKey(),
                             });
@@ -230,7 +230,7 @@ export function DocumentsPanel({
                     ) : null}
                     <Button asChild size="sm" variant="outline">
                       <a
-                        href={`/api/v1/files/download?key=${encodeURIComponent(String(version.r2_key))}&inline=1`}
+                        href={`/api/v1/files/download?key=${encodeURIComponent(String(latestRow.r2_key))}&inline=1`}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -238,9 +238,7 @@ export function DocumentsPanel({
                       </a>
                     </Button>
                   </div>
-                </li>
-              ))}
-            </ul>
+            </div>
           ) : (
             <div className="mt-3"><EmptyState compact>{tx("noFileYet", "No file uploaded for this requirement yet.")}</EmptyState></div>
           )}

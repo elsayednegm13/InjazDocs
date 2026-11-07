@@ -4,7 +4,7 @@ import { assertDocumentTransition } from "../domain/transitions";
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
-import { assertCaseAccess, requirePermission } from "./actor";
+import { assertCaseAccess, requireAny, requirePermission } from "./actor";
 import { writeAudit, writeCaseEvent } from "./audit";
 import { recomputeRemindersForCase } from "./reminders";
 import { downloadObject } from "./uploads";
@@ -46,27 +46,32 @@ export function withCustomerShare<T extends { id: string }>(version: T, share: S
   };
 }
 
-export async function publishedCustomerFiles(db: D1Database, caseId: string): Promise<CustomerFileCard[]> {
-  const rows = await all<{
-    requirement_id: string;
-    version_id: string;
-    original_name: string;
-    byte_size: number;
-    version: number;
-    name_en: string;
-    name_ar: string;
-  }>(
-    db,
-    `SELECT r.id AS requirement_id, v.id AS version_id, v.original_name, v.byte_size, v.version,
+const VISIBLE_FILE_SQL = `SELECT r.id AS requirement_id, v.id AS version_id, v.original_name, v.byte_size, v.version,
             d.name_en, d.name_ar
      FROM operation_document_requirements r
      JOIN document_type_definitions d ON d.id = r.document_type_id
      JOIN document_versions v ON v.requirement_id = r.id
-      AND v.version = (SELECT MAX(version) FROM document_versions WHERE requirement_id = r.id)
-     WHERE r.case_id = ? AND r.status = 'APPROVED'
-     ORDER BY d.name_en`,
-    caseId,
-  );
+     JOIN customer_file_shares s ON s.version_id = v.id AND s.unpublished_at IS NULL
+     WHERE r.case_id = ?
+       AND v.archived_at IS NULL
+       AND v.version = (
+         SELECT MAX(version) FROM document_versions
+         WHERE requirement_id = r.id AND archived_at IS NULL
+       )
+     ORDER BY d.name_en`;
+
+const VISIBLE_FILE_SQL_WITHOUT_ARCHIVE = `SELECT r.id AS requirement_id, v.id AS version_id, v.original_name, v.byte_size, v.version,
+            d.name_en, d.name_ar
+     FROM operation_document_requirements r
+     JOIN document_type_definitions d ON d.id = r.document_type_id
+     JOIN document_versions v ON v.requirement_id = r.id
+     JOIN customer_file_shares s ON s.version_id = v.id AND s.unpublished_at IS NULL
+     WHERE r.case_id = ?
+       AND v.version = (SELECT MAX(version) FROM document_versions WHERE requirement_id = r.id)
+     ORDER BY d.name_en`;
+
+export async function publishedCustomerFiles(db: D1Database, caseId: string): Promise<CustomerFileCard[]> {
+  const rows = await visibleFiles(db, caseId);
   const shares = await customerSharesForCase(db, caseId);
   const byVersion = new Map(shares.rows.map((share) => [share.version_id, share]));
   return rows.map((row) => {
@@ -85,6 +90,130 @@ export async function publishedCustomerFiles(db: D1Database, caseId: string): Pr
       viewed: Boolean(share?.first_viewed_at),
     };
   });
+}
+
+export async function setCustomerFileShare(db: D1Database, actor: Actor, versionId: string, publish: boolean, requestId: string) {
+  requireAny(actor, ["documents.review", "tracking_links.manage"]);
+  const version = await one<{ id: string; requirement_id: string; case_id: string; version: number }>(
+    db,
+    `SELECT v.id, v.requirement_id, v.version, r.case_id
+     FROM document_versions v
+     JOIN operation_document_requirements r ON r.id = v.requirement_id
+     WHERE v.id = ?`,
+    versionId,
+  );
+  if (!version) throw errors.notFound("File not found");
+  await assertCaseAccess(db, actor, version.case_id);
+  if (!(await customerSharesForCase(db, version.case_id)).ready) {
+    throw errors.coded(503, "SCHEMA_UPGRADE_REQUIRED", "This deployment is waiting for a database upgrade. No change was saved.");
+  }
+  const archived = await archivedVersionIds(db, version.case_id);
+  if (archived?.has(versionId)) throw errors.validation("This file is archived. Send the current file for review.");
+  const now = nowIso();
+  if (!publish) {
+    await db
+      .prepare("UPDATE customer_file_shares SET unpublished_at = COALESCE(unpublished_at, ?), updated_at = ? WHERE version_id = ?")
+      .bind(now, now, versionId)
+      .run();
+    await writeAudit(db, { actorId: actor.id, entityType: "document_version", entityId: versionId, action: "customer_file.unpublish", requestId });
+    return { published: false };
+  }
+  const latest = await one<{ id: string }>(
+    db,
+    archived === null
+      ? "SELECT id FROM document_versions WHERE requirement_id = ? ORDER BY version DESC LIMIT 1"
+      : "SELECT id FROM document_versions WHERE requirement_id = ? AND archived_at IS NULL ORDER BY version DESC LIMIT 1",
+    version.requirement_id,
+  );
+  if (latest?.id !== versionId) throw errors.validation("Send the current file for the customer's review.");
+  await db
+    .prepare(
+      `UPDATE customer_file_shares SET unpublished_at = ?, updated_at = ?
+       WHERE case_id = ? AND unpublished_at IS NULL AND version_id IN (
+         SELECT id FROM document_versions WHERE requirement_id = ? AND id != ?
+       )`,
+    )
+    .bind(now, now, version.case_id, version.requirement_id, versionId)
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO customer_file_shares (
+         id, version_id, case_id, published_at, published_by, unpublished_at, view_count, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, NULL, 0, ?, ?)
+       ON CONFLICT(version_id) DO UPDATE SET
+         unpublished_at = NULL,
+         published_at = excluded.published_at,
+         published_by = excluded.published_by,
+         updated_at = excluded.updated_at`,
+    )
+    .bind(newId(), versionId, version.case_id, now, actor.id, now, now)
+    .run();
+  await writeAudit(db, { actorId: actor.id, entityType: "document_version", entityId: versionId, action: "customer_file.publish", requestId });
+  return { published: true };
+}
+
+export async function archivedVersionIds(db: D1Database, caseId: string): Promise<Set<string> | null> {
+  try {
+    const rows = await all<{ id: string }>(
+      db,
+      `SELECT v.id FROM document_versions v
+       JOIN operation_document_requirements r ON r.id = v.requirement_id
+       WHERE r.case_id = ? AND v.archived_at IS NOT NULL`,
+      caseId,
+    );
+    return new Set(rows.map((row) => row.id));
+  } catch (error) {
+    if (isMissingArchiveColumn(error)) return null;
+    throw error;
+  }
+}
+
+export async function retireReplacedVersions(db: D1Database, bucket: R2Bucket, requirementId: string, keepVersionId: string) {
+  let older: Array<{ id: string; r2_key: string; review_state: string }>;
+  try {
+    older = await all(
+      db,
+      `SELECT id, r2_key, review_state FROM document_versions
+       WHERE requirement_id = ? AND id != ? AND archived_at IS NULL`,
+      requirementId,
+      keepVersionId,
+    );
+  } catch (error) {
+    if (isMissingArchiveColumn(error)) return;
+    throw error;
+  }
+  const now = nowIso();
+  for (const row of older) {
+    const review = await one<{ id: string }>(db, "SELECT id FROM document_reviews WHERE version_id = ?", row.id);
+    const share = await customerDecision(db, row.id);
+    if (!review && row.review_state === "UPLOADED" && !share) {
+      const removed = await db
+        .prepare(
+          `DELETE FROM document_versions
+            WHERE id = ? AND review_state = 'UPLOADED'
+              AND NOT EXISTS (SELECT 1 FROM document_reviews WHERE version_id = ?)`,
+        )
+        .bind(row.id, row.id)
+        .run();
+      if ((removed.meta?.changes ?? 0) === 1) {
+        try {
+          await bucket.delete(row.r2_key);
+        } catch {
+          /* The row is already gone. */
+        }
+        continue;
+      }
+    }
+    await db.prepare("UPDATE document_versions SET archived_at = ? WHERE id = ? AND archived_at IS NULL").bind(now, row.id).run();
+    try {
+      await db
+        .prepare("UPDATE customer_file_shares SET unpublished_at = COALESCE(unpublished_at, ?), updated_at = ? WHERE version_id = ?")
+        .bind(now, now, row.id)
+        .run();
+    } catch (error) {
+      if (!isMissingShareTable(error)) throw error;
+    }
+  }
 }
 
 export async function hideApprovedFileFromCustomer(db: D1Database, actor: Actor, env: Env, requirementId: string, requestId: string) {
@@ -286,16 +415,69 @@ export async function decideCustomerFile(
 }
 
 async function publishedLatest(db: D1Database, caseId: string, versionId: string) {
-  return one<{ r2_key: string; original_name: string; content_type: string }>(
-    db,
-    `SELECT v.r2_key, v.original_name, v.content_type
+  const sql = `SELECT v.r2_key, v.original_name, v.content_type
      FROM document_versions v
      JOIN operation_document_requirements r ON r.id = v.requirement_id
-     WHERE v.id = ? AND r.case_id = ? AND r.status = 'APPROVED'
-       AND v.version = (SELECT MAX(version) FROM document_versions WHERE requirement_id = r.id)`,
-    versionId,
-    caseId,
-  );
+     JOIN customer_file_shares s ON s.version_id = v.id AND s.unpublished_at IS NULL
+     WHERE v.id = ? AND r.case_id = ?
+       AND v.archived_at IS NULL
+       AND v.version = (
+         SELECT MAX(version) FROM document_versions
+         WHERE requirement_id = r.id AND archived_at IS NULL
+       )`;
+  const fallback = `SELECT v.r2_key, v.original_name, v.content_type
+     FROM document_versions v
+     JOIN operation_document_requirements r ON r.id = v.requirement_id
+     JOIN customer_file_shares s ON s.version_id = v.id AND s.unpublished_at IS NULL
+     WHERE v.id = ? AND r.case_id = ?
+       AND v.version = (SELECT MAX(version) FROM document_versions WHERE requirement_id = r.id)`;
+  try {
+    return await one<{ r2_key: string; original_name: string; content_type: string }>(db, sql, versionId, caseId);
+  } catch (error) {
+    if (!isMissingArchiveColumn(error)) throw error;
+    return one<{ r2_key: string; original_name: string; content_type: string }>(db, fallback, versionId, caseId);
+  }
+}
+
+async function visibleFiles(db: D1Database, caseId: string) {
+  try {
+    return await all<{
+      requirement_id: string;
+      version_id: string;
+      original_name: string;
+      byte_size: number;
+      version: number;
+      name_en: string;
+      name_ar: string;
+    }>(db, VISIBLE_FILE_SQL, caseId);
+  } catch (error) {
+    if (isMissingShareTable(error)) return [];
+    if (!isMissingArchiveColumn(error)) throw error;
+    try {
+      return await all<{
+        requirement_id: string;
+        version_id: string;
+        original_name: string;
+        byte_size: number;
+        version: number;
+        name_en: string;
+        name_ar: string;
+      }>(db, VISIBLE_FILE_SQL_WITHOUT_ARCHIVE, caseId);
+    } catch (inner) {
+      if (isMissingShareTable(inner)) return [];
+      throw inner;
+    }
+  }
+}
+
+async function customerDecision(db: D1Database, versionId: string) {
+  try {
+    const row = await one<{ decision: string | null }>(db, "SELECT decision FROM customer_file_shares WHERE version_id = ?", versionId);
+    return row?.decision ?? null;
+  } catch (error) {
+    if (isMissingShareTable(error)) return null;
+    throw error;
+  }
 }
 
 async function ensureCustomerShare(db: D1Database, versionId: string, caseId: string, now: string) {
@@ -305,7 +487,7 @@ async function ensureCustomerShare(db: D1Database, versionId: string, caseId: st
         `INSERT INTO customer_file_shares (
            id, version_id, case_id, published_at, published_by, unpublished_at, view_count, created_at, updated_at
          ) VALUES (?, ?, ?, ?, NULL, NULL, 0, ?, ?)
-         ON CONFLICT(version_id) DO UPDATE SET unpublished_at = NULL, updated_at = excluded.updated_at`,
+         ON CONFLICT(version_id) DO NOTHING`,
       )
       .bind(newId(), versionId, caseId, now, now, now)
       .run();
@@ -317,6 +499,15 @@ async function ensureCustomerShare(db: D1Database, versionId: string, caseId: st
 }
 
 function isMissingShareTable(error: unknown) {
-  const text = error instanceof Error ? `${error.message} ${String(error.cause ?? "")}` : String(error);
+  const text = errorText(error);
   return /no such table/i.test(text) && /customer_file_shares/i.test(text);
+}
+
+function isMissingArchiveColumn(error: unknown) {
+  const text = errorText(error);
+  return /no such column/i.test(text) && /archived_at/i.test(text);
+}
+
+function errorText(error: unknown) {
+  return error instanceof Error ? `${error.message} ${String(error.cause ?? "")}` : String(error);
 }

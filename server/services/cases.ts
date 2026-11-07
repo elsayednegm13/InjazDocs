@@ -13,7 +13,7 @@ import { assertCaseAccess, caseVisibilitySql, requirePermission } from "./actor"
 import { auditInsert, caseEventInsert, writeAudit, writeCaseEvent } from "./audit";
 import { assertRequiredCustomFields, invoiceCustomFieldStatements, readCustomFields } from "./custom-fields";
 import { templateRequirementStatements } from "./documents";
-import { customerSharesForCase, withCustomerShare } from "./customer-files";
+import { archivedVersionIds, customerSharesForCase, withCustomerShare } from "./customer-files";
 import { recomputeRemindersForCase } from "./reminders";
 
 type InvoiceWrite = {
@@ -132,9 +132,10 @@ export async function getCaseOverview(db: D1Database, actor: Actor, id: string) 
   );
   const customer = customerResult.results?.[0] as Record<string, unknown> | undefined;
   const customerShares = await customerSharesForCase(db, id);
-  const documentVersions = ((versionResult.results ?? []) as Array<{ id: string }>).map((version) =>
-    withCustomerShare(version, customerShares.rows.find((share) => share.version_id === version.id), customerShares.ready),
-  );
+  const archived = await archivedVersionIds(db, id);
+  const documentVersions = ((versionResult.results ?? []) as Array<{ id: string }>)
+    .filter((version) => !archived?.has(version.id))
+    .map((version) => withCustomerShare(version, customerShares.rows.find((share) => share.version_id === version.id), customerShares.ready));
   return {
     case: current,
     customer: customer ? { ...customer, phone: contact?.phone ?? null } : null,

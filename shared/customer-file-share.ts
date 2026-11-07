@@ -15,14 +15,14 @@ export type CustomerFileCard = {
   viewed: boolean;
 };
 
-/** The customer sees the latest file only after the employee approves that requirement. */
-export function visibleToCustomer(staffStatus: string) {
-  return staffStatus === "APPROVED";
+/** The customer sees the current file only after it is sent for their review and it is not archived. */
+export function customerSeesFile(input: { sentForReview: boolean; archived: boolean }) {
+  return input.sentForReview && !input.archived;
 }
 
-/** Both approvals count only when they refer to the file the employee has approved. */
+/** Both approvals count only when the employee has approved the same current file. */
 export function bothPartiesApproved(staffStatus: string, decision: string | null) {
-  return visibleToCustomer(staffStatus) && decision === "ACCEPTED";
+  return staffStatus === "APPROVED" && decision === "ACCEPTED";
 }
 
 export function normalizeCustomerFileDecision(

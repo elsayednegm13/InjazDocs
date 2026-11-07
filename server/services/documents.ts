@@ -6,6 +6,7 @@ import { errors } from "../http/errors";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requirePermission } from "./actor";
 import { writeAudit, writeCaseEvent } from "./audit";
+import { retireReplacedVersions } from "./customer-files";
 import { recomputeRemindersForCase } from "./reminders";
 
 /**
@@ -193,6 +194,7 @@ export async function attachVersion(
     }
   }
   if (!version) throw errors.conflict("Another version was uploaded at the same time. Try again.", "DOCUMENT_VERSION_BUSY");
+  await retireReplacedVersions(db, env.DOCUMENTS, requirementId, id);
   await db
     .prepare("UPDATE operation_document_requirements SET status = ?, updated_at = ? WHERE id = ?")
     .bind(nextStatus, nowIso(), requirementId)

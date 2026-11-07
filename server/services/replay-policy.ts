@@ -210,6 +210,7 @@ const RULES: ReplayRule[] = [
   { method: "POST", path: /^\/api\/v1\/imports\/customers\/commit$/, permission: "customers.create" },
   { method: "POST", path: /^\/api\/v1\/settings\/whatsapp-template$/, permission: "settings.manage" },
   { method: "POST", path: /^\/api\/v1\/document-requirements\/[^/]+\/hide-from-customer$/, permission: "documents.review", caseResolver: caseFromRequirement },
+  { method: "POST", path: /^\/api\/v1\/document-versions\/[^/]+\/customer-share$/, anyOf: ["documents.review", "tracking_links.manage"], caseResolver: caseFromDocumentVersion },
   { method: "DELETE", path: /^\/api\/v1\/document-versions\/[^/]+$/, permission: "documents.upload", caseResolver: caseFromDocumentVersion },
   { method: "POST", path: /^\/api\/v1\/custom-fields$/, permission: "settings.manage" },
   { method: "PATCH", path: /^\/api\/v1\/custom-fields\/[^/]+$/, permission: "settings.manage" },
