@@ -184,6 +184,28 @@ export function DocumentsPanel({
                     {customerShareReady ? <CustomerShareStatus version={latestRow} tx={tx} /> : null}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
+                    {canSend && latestRow.customer_decision === "ACCEPTED" && Number(latestRow.customer_revision_open) !== 1 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            await api(`/api/v1/document-versions/${latestRow.id}/customer-revision`, {
+                              method: "POST",
+                              idempotencyKey: createIdempotencyKey(),
+                              body: JSON.stringify({}),
+                            });
+                            notifySuccess(tx("customerReviewReopened", "The customer can review and approve again"));
+                            onDone();
+                          } catch (error) {
+                            notifyError(error);
+                          }
+                        }}
+                      >
+                        {tx("reopenCustomerReview", "Allow the customer to review again")}
+                      </Button>
+                    ) : null}
                     {canSend ? (
                       <Button
                         type="button"
@@ -336,6 +358,7 @@ function CustomerShareStatus({ version, tx }: { version: Record<string, string |
         <p className="whitespace-pre-wrap text-warn">{tx("customerFileNeedsChange", "Customer asked for a change")}{version.customer_comment ? `: ${version.customer_comment}` : ""}</p>
       ) : null}
       {decision === "ACCEPTED" ? <p className="text-ok">{tx("customerFileAcceptedStaff", "Customer accepted this version")}</p> : null}
+      {decision === "ACCEPTED" && Number(version.customer_revision_open) === 1 ? <p className="text-ink-muted">{tx("customerReviewReopened", "The customer can review and approve again")}</p> : null}
       {published && !decision && version.customer_first_viewed_at ? <p className="text-ink-muted">{tx("customerFileViewed", "Customer opened the file")}</p> : null}
       {published && !decision && !version.customer_first_viewed_at ? <p className="text-ink-muted">{tx("customerFileWaiting", "Waiting for the customer")}</p> : null}
     </div>

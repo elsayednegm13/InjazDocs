@@ -17,20 +17,28 @@ type ShareRow = {
   comment: string | null;
   first_viewed_at: string | null;
   decided_at: string | null;
+  revision_open: number;
 };
 
 export async function customerSharesForCase(db: D1Database, caseId: string): Promise<{ ready: boolean; rows: ShareRow[] }> {
   try {
     const rows = await all<ShareRow>(
       db,
-      `SELECT version_id, unpublished_at, decision, comment, first_viewed_at, decided_at
+      `SELECT version_id, unpublished_at, decision, comment, first_viewed_at, decided_at, revision_open
        FROM customer_file_shares WHERE case_id = ?`,
       caseId,
     );
     return { ready: true, rows };
   } catch (error) {
     if (isMissingShareTable(error)) return { ready: false, rows: [] };
-    throw error;
+    if (!isMissingRevisionColumn(error)) throw error;
+    const rows = await all<Omit<ShareRow, "revision_open">>(
+      db,
+      `SELECT version_id, unpublished_at, decision, comment, first_viewed_at, decided_at
+       FROM customer_file_shares WHERE case_id = ?`,
+      caseId,
+    );
+    return { ready: true, rows: rows.map((row) => ({ ...row, revision_open: 0 })) };
   }
 }
 
@@ -43,6 +51,7 @@ export function withCustomerShare<T extends { id: string }>(version: T, share: S
     customer_comment: share?.comment ?? null,
     customer_first_viewed_at: share?.first_viewed_at ?? null,
     customer_decided_at: share?.decided_at ?? null,
+    customer_revision_open: share?.revision_open === 1 ? 1 : 0,
   };
 }
 
@@ -88,6 +97,7 @@ export async function publishedCustomerFiles(db: D1Database, caseId: string): Pr
       decision,
       comment: share?.comment ?? null,
       viewed: Boolean(share?.first_viewed_at),
+      revisionOpen: share?.revision_open === 1,
     };
   });
 }
@@ -150,6 +160,41 @@ export async function setCustomerFileShare(db: D1Database, actor: Actor, version
     .run();
   await writeAudit(db, { actorId: actor.id, entityType: "document_version", entityId: versionId, action: "customer_file.publish", requestId });
   return { published: true };
+}
+
+export async function reopenCustomerRevision(db: D1Database, actor: Actor, versionId: string, requestId: string) {
+  requireAny(actor, ["documents.review", "tracking_links.manage"]);
+  const version = await one<{ id: string; case_id: string }>(
+    db,
+    `SELECT v.id, r.case_id
+     FROM document_versions v
+     JOIN operation_document_requirements r ON r.id = v.requirement_id
+     WHERE v.id = ?`,
+    versionId,
+  );
+  if (!version) throw errors.notFound("File not found");
+  await assertCaseAccess(db, actor, version.case_id);
+  const now = nowIso();
+  try {
+    const saved = await db
+      .prepare(
+        `UPDATE customer_file_shares
+            SET revision_open = 1, updated_at = ?
+          WHERE version_id = ? AND case_id = ? AND decision = 'ACCEPTED'`,
+      )
+      .bind(now, versionId, version.case_id)
+      .run();
+    if ((saved.meta?.changes ?? 0) !== 1) {
+      throw errors.validation("The customer has not accepted this file, so there is nothing to open.");
+    }
+  } catch (error) {
+    if (isMissingRevisionColumn(error) || isMissingShareTable(error)) {
+      throw errors.coded(503, "SCHEMA_UPGRADE_REQUIRED", "This deployment is waiting for a database upgrade. No change was saved.");
+    }
+    throw error;
+  }
+  await writeAudit(db, { actorId: actor.id, entityType: "document_version", entityId: versionId, action: "customer_file.reopen", requestId });
+  return { revisionOpen: true };
 }
 
 export async function archivedVersionIds(db: D1Database, caseId: string): Promise<Set<string> | null> {
@@ -390,14 +435,18 @@ export async function decideCustomerFile(
   if (!(await ensureCustomerShare(db, versionId, link.case_id, now))) {
     throw errors.coded(503, "SCHEMA_UPGRADE_REQUIRED", "This deployment is waiting for a database upgrade. No change was saved.");
   }
-  const saved = await db
-    .prepare(
-      `UPDATE customer_file_shares
-          SET decision = ?, comment = ?, decided_at = ?, link_id = ?, updated_at = ?
-        WHERE version_id = ? AND case_id = ?`,
-    )
-    .bind(normalized.decision, normalized.comment, now, link.id, now, versionId, link.case_id)
-    .run();
+  const current = await shareDecisionState(db, versionId);
+  if (current.decision === "ACCEPTED" && current.revisionOpen !== 1) {
+    throw errors.conflict("This file is closed after your approval. The company can open it again.", "CUSTOMER_REVIEW_CLOSED");
+  }
+  const saved = await saveCustomerDecision(db, {
+    decision: normalized.decision,
+    comment: normalized.comment,
+    now,
+    linkId: link.id,
+    versionId,
+    caseId: link.case_id,
+  });
   if ((saved.meta?.changes ?? 0) !== 1) {
     const stillThere = await publishedLatest(db, link.case_id, versionId);
     if (!stillThere) {
@@ -498,9 +547,55 @@ async function ensureCustomerShare(db: D1Database, versionId: string, caseId: st
   }
 }
 
+async function shareDecisionState(db: D1Database, versionId: string) {
+  try {
+    const row = await one<{ decision: string | null; revision_open: number | null }>(
+      db,
+      "SELECT decision, revision_open FROM customer_file_shares WHERE version_id = ?",
+      versionId,
+    );
+    return { decision: row?.decision ?? null, revisionOpen: row?.revision_open ?? 0 };
+  } catch (error) {
+    if (!isMissingRevisionColumn(error) && !isMissingShareTable(error)) throw error;
+    return { decision: await customerDecision(db, versionId), revisionOpen: 0 };
+  }
+}
+
+async function saveCustomerDecision(
+  db: D1Database,
+  input: { decision: "ACCEPTED" | "CHANGES_REQUESTED"; comment: string | null; now: string; linkId: string; versionId: string; caseId: string },
+) {
+  const revisionOpen = input.decision === "ACCEPTED" ? 0 : 1;
+  try {
+    return await db
+      .prepare(
+        `UPDATE customer_file_shares
+            SET decision = ?, comment = ?, decided_at = ?, link_id = ?, revision_open = ?, updated_at = ?
+          WHERE version_id = ? AND case_id = ?`,
+      )
+      .bind(input.decision, input.comment, input.now, input.linkId, revisionOpen, input.now, input.versionId, input.caseId)
+      .run();
+  } catch (error) {
+    if (!isMissingRevisionColumn(error)) throw error;
+    return db
+      .prepare(
+        `UPDATE customer_file_shares
+            SET decision = ?, comment = ?, decided_at = ?, link_id = ?, updated_at = ?
+          WHERE version_id = ? AND case_id = ?`,
+      )
+      .bind(input.decision, input.comment, input.now, input.linkId, input.now, input.versionId, input.caseId)
+      .run();
+  }
+}
+
 function isMissingShareTable(error: unknown) {
   const text = errorText(error);
   return /no such table/i.test(text) && /customer_file_shares/i.test(text);
+}
+
+function isMissingRevisionColumn(error: unknown) {
+  const text = errorText(error);
+  return /no such column/i.test(text) && /revision_open/i.test(text);
 }
 
 function isMissingArchiveColumn(error: unknown) {

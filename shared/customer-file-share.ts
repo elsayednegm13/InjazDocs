@@ -13,7 +13,13 @@ export type CustomerFileCard = {
   decision: CustomerFileDecision | null;
   comment: string | null;
   viewed: boolean;
+  revisionOpen: boolean;
 };
+
+/** After the customer accepts, the review stays closed until the company opens it again. */
+export function customerReviewLocked(decision: string | null, revisionOpen: boolean) {
+  return decision === "ACCEPTED" && !revisionOpen;
+}
 
 /** The customer sees the current file only after it is sent for their review and it is not archived. */
 export function customerSeesFile(input: { sentForReview: boolean; archived: boolean }) {

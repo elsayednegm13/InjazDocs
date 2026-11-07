@@ -63,6 +63,7 @@ const ACTIVITY: Record<string, string> = {
   "customer_file.hide": "activity.customerFileHide",
   "customer_file.delete": "activity.customerFileDelete",
   "customer_file.decision": "activity.customerFileDecision",
+  "customer_file.reopen": "activity.customerFileReopen",
   "profile.email": "activity.profileEmail",
   "invoice.update": "activity.invoiceUpdate",
   "invoice.open": "activity.invoiceOpen",

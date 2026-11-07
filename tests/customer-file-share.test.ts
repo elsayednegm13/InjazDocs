@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bothPartiesApproved, customerSeesFile, normalizeCustomerFileDecision } from "../shared/customer-file-share";
+import { bothPartiesApproved, customerReviewLocked, customerSeesFile, normalizeCustomerFileDecision } from "../shared/customer-file-share";
 
 describe("customer file decision", () => {
   it("accepts a file without turning it into an internal approval", () => {
@@ -23,5 +23,8 @@ describe("customer file decision", () => {
     expect(bothPartiesApproved("APPROVED", "ACCEPTED")).toBe(true);
     expect(bothPartiesApproved("UPLOADED", "ACCEPTED")).toBe(false);
     expect(bothPartiesApproved("APPROVED", null)).toBe(false);
+    expect(customerReviewLocked("ACCEPTED", false)).toBe(true);
+    expect(customerReviewLocked("ACCEPTED", true)).toBe(false);
+    expect(customerReviewLocked("CHANGES_REQUESTED", false)).toBe(false);
   });
 });

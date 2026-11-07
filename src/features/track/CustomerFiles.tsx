@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/ui/status";
 import { api } from "@/lib/api";
 import { useCopy } from "@/lib/copy";
 import { notifyError, notifySuccess } from "@/lib/notify";
-import type { CustomerFileCard } from "@shared/customer-file-share";
+import { customerReviewLocked, type CustomerFileCard } from "@shared/customer-file-share";
 
 export type TrackDocument = {
   requirementId?: string;
@@ -86,24 +86,31 @@ export function CustomerDocuments({
                           <a href={`/api/v1/public/track/${token}/files/${file.versionId}`}>{tx("downloadFile", "Download")}</a>
                         </Button>
                       </div>
-                      {file.decision === "ACCEPTED" ? <p className="text-sm text-ok">{tx("customerFileAccepted", "You accepted this file. The company still confirms it.")}</p> : null}
+                      {file.decision === "ACCEPTED" ? <p className="text-sm font-medium text-ok">{tx("customerApprovedLabel", "Approved by the customer")}</p> : null}
+                      {document.status === "APPROVED" ? <p className="text-sm font-medium text-ok">{tx("companyApprovedLabel", "Approved by the company")}</p> : <p className="text-sm text-ink-muted">{tx("companyPendingLabel", "Company approval is still pending")}</p>}
                       {file.decision === "CHANGES_REQUESTED" && file.comment ? <p className="whitespace-pre-wrap text-sm text-warn">{file.comment}</p> : null}
-                      <Textarea
-                        dir="auto"
-                        rows={3}
-                        value={notes[file.versionId] ?? file.comment ?? ""}
-                        placeholder={tx("customerFileNote", "What should change")}
-                        aria-label={tx("customerFileNote", "What should change")}
-                        onChange={(event) => setNotes((current) => ({ ...current, [file.versionId]: event.target.value }))}
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <Button type="button" size="sm" disabled={busy === file.versionId} onClick={() => void decide(file.versionId, "ACCEPTED")}>
-                          {tx("customerFileAccept", "Accept file")}
-                        </Button>
-                        <Button type="button" size="sm" variant="outline" disabled={busy === file.versionId} onClick={() => void decide(file.versionId, "CHANGES_REQUESTED")}>
-                          {tx("customerFileChanges", "Request another review")}
-                        </Button>
-                      </div>
+                      {customerReviewLocked(file.decision, file.revisionOpen) ? (
+                        <p className="text-sm text-ink-muted">{tx("customerReviewClosed", "The file stays available to view and download. Review and approval are closed.")}</p>
+                      ) : (
+                        <>
+                          <Textarea
+                            dir="auto"
+                            rows={3}
+                            value={notes[file.versionId] ?? file.comment ?? ""}
+                            placeholder={tx("customerFileNote", "What should change")}
+                            aria-label={tx("customerFileNote", "What should change")}
+                            onChange={(event) => setNotes((current) => ({ ...current, [file.versionId]: event.target.value }))}
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="button" size="sm" disabled={busy === file.versionId} onClick={() => void decide(file.versionId, "ACCEPTED")}>
+                              {tx("customerFileAccept", "Accept file")}
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" disabled={busy === file.versionId} onClick={() => void decide(file.versionId, "CHANGES_REQUESTED")}>
+                              {tx("customerFileChanges", "Request another review")}
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </>
                   ) : (
                     <p className="text-sm text-ink-muted">{tx("customerFileNotReleased", "The company has not approved a file for you yet.")}</p>
