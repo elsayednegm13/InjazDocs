@@ -192,7 +192,7 @@ export async function publicTracking(db: D1Database, _env: Env, token: string, i
      FROM operation_document_requirements r
      JOIN document_type_definitions d ON d.id = r.document_type_id
      WHERE r.case_id = ?
-     ORDER BY d.name_en`,
+     ORDER BY r.created_at ASC, r.id ASC`,
     link.case_id,
   );
   const freshness = await one<{ ts: string | null }>(

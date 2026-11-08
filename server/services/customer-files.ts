@@ -67,7 +67,7 @@ const VISIBLE_FILE_SQL = `SELECT r.id AS requirement_id, v.id AS version_id, v.o
          SELECT MAX(version) FROM document_versions
          WHERE requirement_id = r.id AND archived_at IS NULL
        )
-     ORDER BY d.name_en`;
+     ORDER BY r.created_at ASC, r.id ASC`;
 
 const VISIBLE_FILE_SQL_WITHOUT_ARCHIVE = `SELECT r.id AS requirement_id, v.id AS version_id, v.original_name, v.byte_size, v.version,
             d.name_en, d.name_ar
@@ -77,7 +77,7 @@ const VISIBLE_FILE_SQL_WITHOUT_ARCHIVE = `SELECT r.id AS requirement_id, v.id AS
      JOIN customer_file_shares s ON s.version_id = v.id AND s.unpublished_at IS NULL
      WHERE r.case_id = ?
        AND v.version = (SELECT MAX(version) FROM document_versions WHERE requirement_id = r.id)
-     ORDER BY d.name_en`;
+     ORDER BY r.created_at ASC, r.id ASC`;
 
 export async function publishedCustomerFiles(db: D1Database, caseId: string): Promise<CustomerFileCard[]> {
   const rows = await visibleFiles(db, caseId);
