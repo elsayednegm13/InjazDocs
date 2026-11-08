@@ -197,6 +197,23 @@ export async function reopenCustomerRevision(db: D1Database, actor: Actor, versi
   return { revisionOpen: true };
 }
 
+export async function requirementIdsWithArchive(db: D1Database, caseId: string): Promise<Set<string> | null> {
+  try {
+    const rows = await all<{ requirement_id: string }>(
+      db,
+      `SELECT DISTINCT v.requirement_id AS requirement_id
+       FROM document_versions v
+       JOIN operation_document_requirements r ON r.id = v.requirement_id
+       WHERE r.case_id = ? AND v.archived_at IS NOT NULL`,
+      caseId,
+    );
+    return new Set(rows.map((row) => row.requirement_id));
+  } catch (error) {
+    if (isMissingArchiveColumn(error)) return null;
+    throw error;
+  }
+}
+
 export async function archivedVersionIds(db: D1Database, caseId: string): Promise<Set<string> | null> {
   try {
     const rows = await all<{ id: string }>(

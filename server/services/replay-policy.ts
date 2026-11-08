@@ -43,6 +43,13 @@ const caseFromExportCase: CaseResolver = async (_db, path) => pathId(path, /\/ex
 const caseFromInvoice: CaseResolver = async (db, path) => caseIdFromTable(db, "export_invoices", pathId(path, /\/invoices\/([^/]+)/));
 const caseFromRequirement: CaseResolver = async (db, path) =>
   caseIdFromTable(db, "operation_document_requirements", pathId(path, /\/document-requirements\/([^/]+)/));
+const caseFromRestore: CaseResolver = async (db, path) => {
+  const documentId = pathId(path, /\/document-requirements\/([^/]+)/);
+  const caseId = pathId(path, /\/export-cases\/([^/]+)/);
+  const row = await one<{ case_id: string }>(db, "SELECT case_id FROM operation_document_requirements WHERE id = ? AND case_id = ?", documentId, caseId);
+  if (!row) throw errors.notFound();
+  return row.case_id;
+};
 const caseFromCourier: CaseResolver = async (db, path) => caseIdFromTable(db, "courier_shipments", pathId(path, /\/courier\/([^/]+)/));
 const caseFromBooking: CaseResolver = async (db, path) => caseIdFromTable(db, "bookings", pathId(path, /\/bookings\/([^/]+)/));
 const caseFromContainer: CaseResolver = async (db, path) => caseIdFromTable(db, "containers", pathId(path, /\/containers\/([^/]+)/));
@@ -209,6 +216,7 @@ const RULES: ReplayRule[] = [
 
   { method: "POST", path: /^\/api\/v1\/imports\/customers\/commit$/, permission: "customers.create" },
   { method: "POST", path: /^\/api\/v1\/settings\/whatsapp-template$/, permission: "settings.manage" },
+  { method: "POST", path: /^\/api\/v1\/export-cases\/[^/]+\/document-requirements\/[^/]+\/restore$/, anyOf: ["documents.upload", "documents.review"], caseResolver: caseFromRestore },
   { method: "POST", path: /^\/api\/v1\/document-requirements\/[^/]+\/hide-from-customer$/, permission: "documents.review", caseResolver: caseFromRequirement },
   { method: "POST", path: /^\/api\/v1\/document-versions\/[^/]+\/customer-share$/, anyOf: ["documents.review", "tracking_links.manage"], caseResolver: caseFromDocumentVersion },
   { method: "POST", path: /^\/api\/v1\/document-versions\/[^/]+\/customer-revision$/, anyOf: ["documents.review", "tracking_links.manage"], caseResolver: caseFromDocumentVersion },

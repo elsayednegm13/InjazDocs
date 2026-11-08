@@ -13,6 +13,20 @@ const MIGRATIONS = [
   "0006_customer_imports.sql",
   "0007_performance_indexes.sql",
   "0008_replay_safety_and_import_identity.sql",
+  "0009_reports_view_all.sql",
+  "0010_quotations.sql",
+  "0011_company_logo.sql",
+  "0012_company_brand.sql",
+  "0013_booking_before_case.sql",
+  "0014_invoice_edit_window.sql",
+  "0015_one_invoice_one_booking.sql",
+  "0016_customer_code.sql",
+  "0017_notification_list_idx.sql",
+  "0018_dashboard_event_idx.sql",
+  "0019_whatsapp_template.sql",
+  "0020_customer_file_share.sql",
+  "0021_document_version_archive.sql",
+  "0022_customer_revision_lock.sql",
 ];
 
 export type AuditDatabase = {
@@ -24,7 +38,7 @@ export type AuditDatabase = {
 };
 
 export function createAuditDatabase(options: { upTo?: string; seed?: boolean } = {}): AuditDatabase {
-  const upTo = options.upTo ?? "0008";
+  const upTo = options.upTo ?? "0022";
   const dir = mkdtempSync(path.join(os.tmpdir(), "et-20261021-"));
   const temporaryRoot = path.resolve(os.tmpdir()).toLowerCase();
   if (!path.resolve(dir).toLowerCase().startsWith(`${temporaryRoot}${path.sep}`)) {

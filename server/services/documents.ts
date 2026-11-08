@@ -4,7 +4,7 @@ import { assertDocumentTransition, assertRouteChange, initialRouteStatus } from 
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
-import { assertCaseAccess, requirePermission } from "./actor";
+import { assertCaseAccess, requireAny, requirePermission } from "./actor";
 import { writeAudit, writeCaseEvent } from "./audit";
 import { retireReplacedVersions } from "./customer-files";
 import { recomputeRemindersForCase } from "./reminders";
@@ -89,6 +89,80 @@ export async function addRequirement(
   await writeAudit(db, { actorId: actor.id, entityType: "document_requirement", entityId: id, action: "requirement.add", requestId });
   await recomputeRemindersForCase(db, env, caseId);
   return { id };
+}
+
+export async function restorePreviousDocument(db: D1Database, actor: Actor, caseId: string, documentId: string, requestId: string) {
+  requireAny(actor, ["documents.upload", "documents.review"]);
+  const requirement = await one<{ id: string; case_id: string }>(
+    db,
+    "SELECT id, case_id FROM operation_document_requirements WHERE id = ? AND case_id = ?",
+    documentId,
+    caseId,
+  );
+  if (!requirement) throw errors.notFound("Document not found");
+  await assertCaseAccess(db, actor, requirement.case_id);
+  let current: { id: string } | null;
+  let previous: { id: string } | null;
+  try {
+    current = await one<{ id: string }>(
+      db,
+      `SELECT id FROM document_versions
+       WHERE requirement_id = ? AND archived_at IS NULL
+       ORDER BY version DESC LIMIT 1`,
+      documentId,
+    );
+    previous = await one<{ id: string }>(
+      db,
+      `SELECT id FROM document_versions
+       WHERE requirement_id = ? AND archived_at IS NOT NULL
+       ORDER BY version DESC LIMIT 1`,
+      documentId,
+    );
+  } catch (error) {
+    if (isMissingArchiveColumn(error)) {
+      throw errors.coded(503, "SCHEMA_UPGRADE_REQUIRED", "This deployment is waiting for a database upgrade. No change was saved.");
+    }
+    throw error;
+  }
+  if (!current) throw errors.validation("There is no current file to keep.");
+  if (!previous) throw errors.validation("There is no previous version to restore.");
+  const now = nowIso();
+  const [swapped] = await db.batch([
+    db
+      .prepare(
+        `UPDATE document_versions
+            SET archived_at = CASE id WHEN ? THEN ? ELSE NULL END
+          WHERE requirement_id = ?
+            AND id IN (?, ?)
+            AND ((id = ? AND archived_at IS NULL) OR (id = ? AND archived_at IS NOT NULL))
+            AND EXISTS (
+              SELECT 1 FROM document_versions
+              WHERE id = ? AND requirement_id = ? AND archived_at IS NULL
+            )
+            AND EXISTS (
+              SELECT 1 FROM document_versions
+              WHERE id = ? AND requirement_id = ? AND archived_at IS NOT NULL
+            )`,
+      )
+      .bind(current.id, now, documentId, current.id, previous.id, current.id, previous.id, current.id, documentId, previous.id, documentId),
+  ]);
+  if ((swapped?.meta?.changes ?? 0) !== 2) {
+    throw errors.conflict("The document changed while the previous version was being restored. Reload it and try again.", "DOCUMENT_CHANGED");
+  }
+  await writeAudit(db, {
+    actorId: actor.id,
+    entityType: "document_requirement",
+    entityId: documentId,
+    action: "document.restore",
+    after: { archivedVersionId: current.id, restoredVersionId: previous.id },
+    requestId,
+  });
+  return { archivedVersionId: current.id, restoredVersionId: previous.id };
+}
+
+function isMissingArchiveColumn(error: unknown) {
+  const text = error instanceof Error ? `${error.message} ${String(error.cause ?? "")}` : String(error);
+  return /no such column/i.test(text) && /archived_at/i.test(text);
 }
 
 export async function removeRequirement(db: D1Database, actor: Actor, env: Env, requirementId: string, requestId: string) {

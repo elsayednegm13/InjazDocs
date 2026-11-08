@@ -19,6 +19,7 @@ import {
   listDocumentTypes,
   listTemplates,
   removeRequirement,
+  restorePreviousDocument,
   reviewDocument,
 } from "../../services/documents";
 import { requirePermission } from "../../services/actor";
@@ -105,6 +106,7 @@ export function mountOperationRoutes(api: Hono<AppEnv>) {
     return jsonSuccess({ ok: true }, c.get("requestId"));
   });
   api.post("/document-requirements/:id/versions", async (c) => jsonSuccess(await attachVersion(c.env.DB, c.get("actor"), c.env, c.req.param("id"), await c.req.json(), c.get("requestId")), c.get("requestId"), {}, 201));
+  api.post("/export-cases/:id/document-requirements/:documentId/restore", async (c) => jsonSuccess(await restorePreviousDocument(c.env.DB, c.get("actor"), c.req.param("id"), c.req.param("documentId"), c.get("requestId")), c.get("requestId")));
   api.post("/document-requirements/:id/review", async (c) => {
     await reviewDocument(c.env.DB, c.get("actor"), c.env, c.req.param("id"), await c.req.json(), c.get("requestId"));
     return jsonSuccess({ ok: true }, c.get("requestId"));

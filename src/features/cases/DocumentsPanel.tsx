@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { RotateCcw } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormDisclosure } from "@/components/ui/form-disclosure";
@@ -41,6 +42,21 @@ export function DocumentsPanel({
   onDone: () => void;
 }) {
   const { tx, fail, ar, i18n } = useCopy();
+  const client = useQueryClient();
+  const restore = useMutation({
+    mutationFn: async (documentId: string) => {
+      await api(`/api/v1/export-cases/${caseId}/document-requirements/${documentId}/restore`, {
+        method: "POST",
+        idempotencyKey: createIdempotencyKey(),
+        body: JSON.stringify({}),
+      });
+    },
+    onSuccess: async () => {
+      notifySuccess(tx("previousVersionRestored", "Previous version restored"));
+      await client.invalidateQueries({ queryKey: ["case", caseId] });
+    },
+    onError: (error) => notifyError(error),
+  });
   const user = useSession();
   const canReview = can(user, "documents.review");
   const canUpload = can(user, "documents.upload");
@@ -204,6 +220,20 @@ export function DocumentsPanel({
                         }}
                       >
                         {tx("reopenCustomerReview", "Allow the customer to review again")}
+                      </Button>
+                    ) : null}
+                    {Number(req.has_previous_version) === 1 && (canUpload || canReview) ? (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="rounded-full"
+                        disabled={restore.isPending && restore.variables === reqId}
+                        aria-label={tx("restorePreviousVersion", "Restore previous version")}
+                        title={tx("restorePreviousVersion", "Restore previous version")}
+                        onClick={() => restore.mutate(reqId)}
+                      >
+                        <RotateCcw className={`h-3.5 w-3.5 ${restore.isPending && restore.variables === reqId ? "animate-spin" : ""}`} />
                       </Button>
                     ) : null}
                     {canSend ? (
