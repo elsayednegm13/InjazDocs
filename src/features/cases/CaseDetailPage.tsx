@@ -1,3 +1,4 @@
+import { Dialog, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from "@radix-ui/react-dialog";
 import { Bell, ClipboardList } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -10,6 +11,7 @@ import { CustomFieldsPanel } from "@/features/fields/CustomFieldsPanel";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { customerAcceptancePending } from "@shared/customer-file-share";
 
 import { DOCUMENT_STEP_OF, formatWhen } from "./case-format";
 import { InvoicePanel } from "./InvoicePanel";
@@ -37,6 +39,8 @@ export function CaseDetailPage() {
   const client = useQueryClient();
   const [tab, setTab] = useState("overview");
   const [caseError, setCaseError] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [closing, setClosing] = useState(false);
   const query = useQuery({
     queryKey: ["case", id],
     refetchInterval: 15_000,
@@ -47,6 +51,32 @@ export function CaseDetailPage() {
   if (query.isError) return <p className="text-danger">{tx("casesError", "Could not load cases.")}</p>;
   if (!query.data) return <p className="text-danger">{tx("caseDenied", "Case not found or not permitted.")}</p>;
   const data = query.data;
+  const versions = (data.documentVersions ?? []) as Array<Record<string, string | number | null>>;
+  const customerAcceptanceOpen = data.customerFileShareReady === true && customerAcceptancePending(versions.map((row) => ({
+    requirementId: String(row.requirement_id ?? ""),
+    version: Number(row.version) || 0,
+    published: Number(row.customer_published) === 1,
+    decision: row.customer_decision == null ? null : String(row.customer_decision),
+  })).filter((row) => row.requirementId));
+  async function completeCase() {
+    if (closing) return;
+    setClosing(true);
+    try {
+      await api(`/api/v1/export-cases/${id}/status`, { method: "POST", body: JSON.stringify({ to: "COMPLETED", version: data.case.version }) });
+      setConfirmClose(false);
+      setCaseError(null);
+      notifySuccess(tx("caseCompleted", "Case completed"));
+      await client.invalidateQueries({ queryKey: ["case", id] });
+      await client.invalidateQueries({ queryKey: ["notifications"] });
+      await client.invalidateQueries({ queryKey: ["reminders"] });
+    } catch (error) {
+      setConfirmClose(false);
+      setCaseError(fail(error));
+      notifyError(error);
+    } finally {
+      setClosing(false);
+    }
+  }
   const tabs = ["overview", "invoices", "documents", "bank", "courier", "bookings", "reminders", "share"];
   return (
     <div className="space-y-4" data-dossier="loaded">
@@ -75,18 +105,12 @@ export function CaseDetailPage() {
                 }
               }}>{tx("markActive", "Mark active")}</Button>
             ) : null}
-            <Button size="sm" variant="outline" onClick={async () => {
-              try {
-                await api(`/api/v1/export-cases/${id}/status`, { method: "POST", body: JSON.stringify({ to: "COMPLETED", version: data.case.version }) });
-                setCaseError(null);
-                notifySuccess(tx("caseCompleted", "Case completed"));
-                await client.invalidateQueries({ queryKey: ["case", id] });
-                await client.invalidateQueries({ queryKey: ["notifications"] });
-                await client.invalidateQueries({ queryKey: ["reminders"] });
-              } catch (error) {
-                setCaseError(fail(error));
-                notifyError(error);
+            <Button size="sm" variant="outline" type="button" disabled={closing} onClick={() => {
+              if (customerAcceptanceOpen) {
+                setConfirmClose(true);
+                return;
               }
+              void completeCase();
             }}>{tx("completeCase", "Complete case")}</Button>
           </div>
         </div>
@@ -116,6 +140,25 @@ export function CaseDetailPage() {
           </div>
         </div>
       </header>
+      <Dialog open={confirmClose} onOpenChange={(open) => { if (!closing) setConfirmClose(open); }}>
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 z-40 bg-ink/40" />
+          <DialogContent className="fixed left-1/2 top-1/2 z-50 w-[min(100%-2rem,26rem)] -translate-x-1/2 -translate-y-1/2 rounded-card border border-line bg-card p-5 text-start shadow-card focus:outline-none">
+            <DialogTitle className="text-base font-semibold text-ink">{tx("completeCase", "Complete case")}</DialogTitle>
+            <DialogDescription className="mt-2 text-sm leading-relaxed text-ink-muted">
+              {tx("completeWithoutCustomer", "The customer has not approved the documents yet. Are you sure you want to close the operation?")}
+            </DialogDescription>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={closing} onClick={() => setConfirmClose(false)}>
+                {tx("keepCaseOpen", "Go back")}
+              </Button>
+              <Button type="button" size="sm" disabled={closing} onClick={() => void completeCase()}>
+                {tx("confirmCaseClose", "Confirm close")}
+              </Button>
+            </div>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
       {caseError ? <AlertText>{caseError}</AlertText> : null}
       <DualLane
         documentTitle={tx("documentTrack", "Document track")}

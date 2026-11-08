@@ -31,6 +31,26 @@ export function bothPartiesApproved(staffStatus: string, decision: string | null
   return staffStatus === "APPROVED" && decision === "ACCEPTED";
 }
 
+export type CustomerVersionAcceptance = {
+  requirementId: string;
+  version: number;
+  published: boolean;
+  decision: string | null;
+};
+
+/** A current file sent to the customer still needs their acceptance. Older versions do not count. */
+export function customerAcceptancePending(versions: CustomerVersionAcceptance[]) {
+  const latest = new Map<string, CustomerVersionAcceptance>();
+  for (const row of versions) {
+    const current = latest.get(row.requirementId);
+    if (!current || row.version >= current.version) latest.set(row.requirementId, row);
+  }
+  for (const row of latest.values()) {
+    if (row.published && row.decision !== "ACCEPTED") return true;
+  }
+  return false;
+}
+
 export function normalizeCustomerFileDecision(
   decision: unknown,
   comment: unknown,

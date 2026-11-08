@@ -157,6 +157,51 @@ describe("W1 GAP-05 closure never lowers the bar through expected_containers", (
       (audit.sqlite.prepare("SELECT status FROM export_cases WHERE id = 'case-1'").get() as { status: string }).status,
     ).toBe("COMPLETED");
   });
+
+  it("customer acceptance does not block the same closure", async () => {
+    const audit = fresh();
+    const harness = createTestHarness(audit);
+    audit.sqlite.prepare("UPDATE operation_document_requirements SET status = 'APPROVED' WHERE id = 'requirement-1'").run();
+    audit.sqlite.prepare("UPDATE export_cases SET bank_path_status = 'DOCUMENTS_DELIVERED' WHERE id = 'case-1'").run();
+    audit.sqlite
+      .prepare(
+        `INSERT INTO document_versions (id, requirement_id, version, r2_key, original_name, content_type, byte_size, uploaded_by, review_state, created_at)
+         VALUES ('version-open', 'requirement-1', 1, 'synthetic/open.pdf', 'open.pdf', 'application/pdf', 100, 'user-admin', 'UPLOADED', '2026-10-01T00:00:00.000Z')`,
+      )
+      .run();
+    audit.sqlite
+      .prepare(
+        `INSERT INTO customer_file_shares (id, version_id, case_id, published_at, published_by, created_at, updated_at)
+         VALUES ('share-open', 'version-open', 'case-1', '2026-10-01T00:00:00.000Z', 'user-admin', '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')`,
+      )
+      .run();
+    audit.sqlite
+      .prepare(
+        `INSERT INTO bookings (id, case_id, booking_number, ucr, expected_containers, status, version, created_at, updated_at)
+         VALUES ('booking-w1', 'case-1', 'BKG-W1-0001', 'UCR-W1-1', 5, 'CONFIRMED', 1, '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')`,
+      )
+      .run();
+    for (let i = 1; i <= 5; i += 1) {
+      audit.sqlite
+        .prepare(
+          `INSERT INTO containers (id, booking_id, case_id, slot_index, status, version, created_at, updated_at)
+           VALUES (?, 'booking-w1', 'case-1', ?, 'DELIVERED_TO_CUSTOMER', 1, '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')`,
+        )
+        .run(`container-w1-${i}`, i);
+    }
+    const response = await harness.request({
+      method: "POST",
+      path: "/api/v1/export-cases/case-1/status",
+      body: { to: "COMPLETED", version: 1 },
+    });
+    expect(response.status).toBe(200);
+    expect(
+      (audit.sqlite.prepare("SELECT status FROM export_cases WHERE id = 'case-1'").get() as { status: string }).status,
+    ).toBe("COMPLETED");
+    expect(
+      (audit.sqlite.prepare("SELECT decision FROM customer_file_shares WHERE id = 'share-open'").get() as { decision: string | null }).decision,
+    ).toBeNull();
+  });
 });
 
 describe("W1 GAP-02 a new version never inherits the previous approval", () => {

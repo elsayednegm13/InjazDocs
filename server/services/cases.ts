@@ -323,6 +323,8 @@ export async function transitionCase(
       "SELECT required, status FROM operation_document_requirements WHERE case_id = ?",
       id,
     );
+    // Customer acceptance stays outside this decision. Closing is a staff action
+    // gated by export_cases.close and the internal document and goods tracks.
     const decision = canCompleteCase({
       status: current.status as CaseStatus,
       route: current.document_route as DocumentRoute,

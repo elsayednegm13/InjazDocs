@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bothPartiesApproved, customerReviewLocked, customerSeesFile, normalizeCustomerFileDecision } from "../shared/customer-file-share";
+import { bothPartiesApproved, customerAcceptancePending, customerReviewLocked, customerSeesFile, normalizeCustomerFileDecision } from "../shared/customer-file-share";
 
 describe("customer file decision", () => {
   it("accepts a file without turning it into an internal approval", () => {
@@ -26,5 +26,17 @@ describe("customer file decision", () => {
     expect(customerReviewLocked("ACCEPTED", false)).toBe(true);
     expect(customerReviewLocked("ACCEPTED", true)).toBe(false);
     expect(customerReviewLocked("CHANGES_REQUESTED", false)).toBe(false);
+  });
+
+  it("asks for confirmation only while the current published file is not accepted", () => {
+    const accepted = { requirementId: "req-1", version: 2, published: true, decision: "ACCEPTED" as const };
+    expect(customerAcceptancePending([accepted])).toBe(false);
+    expect(customerAcceptancePending([{ ...accepted, decision: null }])).toBe(true);
+    expect(customerAcceptancePending([{ ...accepted, decision: "CHANGES_REQUESTED" }])).toBe(true);
+    expect(customerAcceptancePending([{ ...accepted, published: false, decision: null }])).toBe(false);
+    expect(customerAcceptancePending([
+      { requirementId: "req-1", version: 1, published: true, decision: null },
+      accepted,
+    ])).toBe(false);
   });
 });
