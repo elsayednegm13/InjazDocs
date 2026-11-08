@@ -1,3 +1,4 @@
+import { buildCustomerTimeline } from "../../shared/customer-timeline";
 import { carrierTrackingUrl } from "../../shared/carrier";
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
@@ -213,6 +214,44 @@ export async function publicTracking(db: D1Database, _env: Env, token: string, i
     "SELECT carrier, tracking_number, status FROM courier_shipments WHERE case_id = ? ORDER BY created_at DESC LIMIT 1",
     link.case_id,
   );
+  const containerEvents = await all<{ status: string; event_at: string; slot_index: number; official_number: string | null }>(
+    db,
+    `SELECT e.status, e.event_at, c.slot_index, c.official_number
+     FROM container_events e
+     JOIN containers c ON c.id = e.container_id
+     WHERE c.case_id = ? AND c.status != 'CANCELLED' AND e.is_actual = 1`,
+    link.case_id,
+  );
+  const courierEvents = await all<{ status: string; event_at: string }>(
+    db,
+    `SELECT e.status, e.event_at
+     FROM courier_tracking_events e
+     JOIN courier_shipments s ON s.id = e.shipment_id
+     WHERE s.case_id = ?`,
+    link.case_id,
+  );
+  const sharedDocuments = await sharedDocumentEvents(db, link.case_id);
+  const timeline = buildCustomerTimeline({
+    showEta: scope.showEta,
+    showCourierTracking: scope.showCourierTracking,
+    showContainerNumbers: scope.showContainerNumbers,
+    containers: containerEvents.map((row) => ({
+      status: row.status,
+      eventAt: row.event_at,
+      slot: row.slot_index,
+      officialNumber: row.official_number,
+    })),
+    booking: booking
+      ? {
+          plannedEtd: booking.planned_etd,
+          actualEtd: booking.actual_etd,
+          plannedEta: booking.planned_eta,
+          actualEta: booking.actual_eta,
+        }
+      : null,
+    courier: courierEvents.map((row) => ({ status: row.status, eventAt: row.event_at })),
+    documents: sharedDocuments,
+  });
   const settings = await one<{ exporter_display_name: string }>(db, "SELECT exporter_display_name FROM company_settings WHERE id = 'default'");
 
   await db.prepare("UPDATE customer_tracking_links SET last_accessed_at = ? WHERE id = ?").bind(nowIso(), link.id).run();
@@ -256,9 +295,48 @@ export async function publicTracking(db: D1Database, _env: Env, token: string, i
       nameAr: document.name_ar,
       status: document.status,
     })),
+    timeline,
     lastUpdatedAt: freshness?.ts ?? exportCase.updated_at,
     attribution: "Data provided by the exporter. Courier and milestone dates are manually updated.",
   };
+}
+
+async function sharedDocumentEvents(db: D1Database, caseId: string): Promise<Array<{ publishedAt: string; typeKey: string }>> {
+  const sql = `SELECT s.published_at, d.key AS type_key
+     FROM customer_file_shares s
+     JOIN document_versions v ON v.id = s.version_id AND v.archived_at IS NULL
+     JOIN operation_document_requirements r ON r.id = v.requirement_id
+     JOIN document_type_definitions d ON d.id = r.document_type_id
+     WHERE s.case_id = ? AND s.unpublished_at IS NULL
+       AND v.version = (
+         SELECT MAX(version) FROM document_versions
+         WHERE requirement_id = r.id AND archived_at IS NULL
+       )`;
+  const fallback = `SELECT s.published_at, d.key AS type_key
+     FROM customer_file_shares s
+     JOIN document_versions v ON v.id = s.version_id
+     JOIN operation_document_requirements r ON r.id = v.requirement_id
+     JOIN document_type_definitions d ON d.id = r.document_type_id
+     WHERE s.case_id = ? AND s.unpublished_at IS NULL
+       AND v.version = (SELECT MAX(version) FROM document_versions WHERE requirement_id = r.id)`;
+  try {
+    const rows = await all<{ published_at: string; type_key: string }>(db, sql, caseId);
+    return rows.map((row) => ({ publishedAt: row.published_at, typeKey: row.type_key }));
+  } catch (error) {
+    if (!isMissingShareShape(error)) throw error;
+    try {
+      const rows = await all<{ published_at: string; type_key: string }>(db, fallback, caseId);
+      return rows.map((row) => ({ publishedAt: row.published_at, typeKey: row.type_key }));
+    } catch (inner) {
+      if (isMissingShareShape(inner)) return [];
+      throw inner;
+    }
+  }
+}
+
+function isMissingShareShape(error: unknown) {
+  const text = error instanceof Error ? error.message : String(error);
+  return /no such (table|column)/i.test(text) && /customer_file_shares|archived_at/i.test(text);
 }
 
 function summarizeGoods(statuses: string[]): string {

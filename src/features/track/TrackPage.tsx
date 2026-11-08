@@ -10,6 +10,8 @@ import { StatusBadge } from "@/components/ui/status";
 import { api } from "@/lib/api";
 import { formatWhen, useCopy } from "@/lib/copy";
 import { CustomerDocuments, type TrackDocument } from "@/features/track/CustomerFiles";
+import { CustomerTimeline } from "@/features/track/CustomerTimeline";
+import type { UnifiedTimelineEvent } from "@shared/customer-timeline";
 import { CONTAINER_JOURNEY, containerJourneyIndex } from "@shared/container-flow";
 import type { CustomerFileCard } from "@shared/customer-file-share";
 
@@ -83,6 +85,7 @@ export function TrackPage() {
   const data = query.data!;
   const containers = (data.containers as Array<Record<string, unknown>> | undefined) ?? [];
   const documents = (data.documents as TrackDocument[] | undefined) ?? [];
+  const timeline = (data.timeline as UnifiedTimelineEvent[] | undefined) ?? [];
   const customerFiles = (data.customerFiles as CustomerFileCard[] | undefined) ?? [];
   const etd = String(data.actualEtd || data.plannedEtd || tx("notConfirmed", "Not yet confirmed"));
   const eta = String(data.actualEta || data.plannedEta || tx("notConfirmed", "Not yet confirmed"));
@@ -158,6 +161,8 @@ export function TrackPage() {
           ]}
           goodsCurrent={String(data.goodsTrackStatus)}
         />
+
+        <CustomerTimeline events={timeline} language={i18n.language} />
 
         <CustomerDocuments token={String(token ?? "")} documents={documents} files={customerFiles} />
 
