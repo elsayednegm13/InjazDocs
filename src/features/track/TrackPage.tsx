@@ -28,7 +28,7 @@ function SlotRail({ status }: { status: string }) {
 
 function InfoRow({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
-    <div className="flex items-start gap-2.5 rounded-xl border border-line/70 bg-paper/40 p-3">
+    <div className="flex items-start gap-2 rounded-xl border border-line/70 bg-paper/40 p-2">
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-card text-accent ring-1 ring-line">{icon}</span>
       <span className="min-w-0">
         <span className="block text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{label}</span>
@@ -96,7 +96,7 @@ export function TrackPage() {
       <header className="relative overflow-hidden bg-accent-2 text-white">
         <div className="pointer-events-none absolute -end-24 -top-28 h-72 w-72 rounded-full bg-accent/25 blur-3xl" aria-hidden />
         <div className="pointer-events-none absolute -bottom-32 start-1/4 h-64 w-64 rounded-full bg-accent/10 blur-3xl" aria-hidden />
-        <div className="relative mx-auto max-w-5xl px-4 py-6 sm:px-6">
+        <div className="relative mx-auto max-w-5xl px-4 py-4 sm:px-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 ring-1 ring-white/15">
@@ -118,12 +118,12 @@ export function TrackPage() {
               {ar ? "EN" : "ع"}
             </Button>
           </div>
-          <div className="mt-8 pb-10">
+          <div className="mt-4 pb-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">
               {tx("trackingTitle", "Shipment tracking")}
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"><Ltr>{String(data.caseReference)}</Ltr></h1>
-            <div className="mt-5 flex flex-wrap gap-2 text-xs text-white/75">
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl"><Ltr>{String(data.caseReference)}</Ltr></h1>
+            <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-white/75">
               <span className="rounded-full bg-white/10 px-3 py-1">
                 {tx("plannedLoading", "Loading")}: <Ltr>{loading}</Ltr>
               </span>
@@ -138,7 +138,7 @@ export function TrackPage() {
         </div>
       </header>
 
-      <div className="mx-auto mt-6 max-w-5xl space-y-4 px-4 pb-12 sm:px-6">
+      <div className="mx-auto mt-3 max-w-5xl space-y-3 px-4 pb-6 sm:px-6">
         <DualLane
           documentTitle={tx("publicDocuments", "Documents")}
           documentStatus={String(data.documentTrackStatus)}
@@ -162,12 +162,14 @@ export function TrackPage() {
           goodsCurrent={String(data.goodsTrackStatus)}
         />
 
-        <CustomerTimeline events={timeline} language={i18n.language} />
+        <div className="grid items-start gap-3 lg:grid-cols-2">
+          <CustomerTimeline events={timeline} language={i18n.language} />
+          <CustomerDocuments token={String(token ?? "")} documents={documents} files={customerFiles} />
+        </div>
 
-        <CustomerDocuments token={String(token ?? "")} documents={documents} files={customerFiles} />
-
+        <div className="grid items-start gap-3 lg:grid-cols-2">
         {containers.length ? (
-          <section className="rounded-2xl border border-line bg-card p-4 shadow-[var(--shadow-card)]">
+          <section className="rounded-2xl border border-line bg-card p-3 shadow-[var(--shadow-card)]">
             <div className="flex items-center gap-2">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent/10 text-accent">
                 <Boxes className="h-4 w-4" aria-hidden />
@@ -177,9 +179,9 @@ export function TrackPage() {
                 {containers.length}
               </span>
             </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="mt-2 grid gap-2">
               {containers.map((container) => (
-                <div key={String(container.slot)} className="rounded-xl border border-line/70 bg-paper/40 p-3">
+                <div key={String(container.slot)} className="rounded-xl border border-line/70 bg-paper/40 p-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-card text-xs font-semibold text-ink-muted ring-1 ring-line">
@@ -196,21 +198,21 @@ export function TrackPage() {
                     </div>
                     <StatusBadge value={String(container.status)} />
                   </div>
-                  <div className="mt-3"><SlotRail status={String(container.status)} /></div>
+                  <div className="mt-2"><SlotRail status={String(container.status)} /></div>
                 </div>
               ))}
             </div>
           </section>
         ) : null}
 
-        <section className="rounded-2xl border border-line bg-card p-4 shadow-[var(--shadow-card)]">
+        <section className="rounded-2xl border border-line bg-card p-3 shadow-[var(--shadow-card)]">
           <div className="flex items-center gap-2">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent/10 text-accent">
               <Truck className="h-4 w-4" aria-hidden />
             </span>
             <h2 className="text-[15px] font-semibold text-ink">{tx("logistics", "Logistics")}</h2>
           </div>
-          <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+          <dl className="mt-2 grid gap-2">
             <InfoRow icon={<FileText className="h-4 w-4" aria-hidden />} label={tx("invoice", "Invoice")}>
               <Ltr>{String(data.invoiceNumber || tx("hidden", "hidden"))}</Ltr>
             </InfoRow>
@@ -241,18 +243,15 @@ export function TrackPage() {
             ) : null}
           </dl>
         </section>
+        </div>
 
-        <section className="rounded-2xl border border-line bg-card p-4 shadow-[var(--shadow-card)]">
-          <h2 className="text-[15px] font-semibold text-ink">{tx("trackingNotes", "About this summary")}</h2>
-          <p dir="ltr" className="mt-2 text-xs leading-relaxed text-ink-muted">{String(data.attribution)}</p>
-          <p className="mt-2 text-xs leading-relaxed text-ink-muted">
-            {tx("manualSourceNote", "Courier and milestone dates are entered manually. This is not a live carrier feed.")}
-          </p>
-          <p className="mt-3 flex items-center gap-2 border-t border-line pt-3 text-xs text-ink-muted">
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-relaxed text-ink-muted">
+          <span>{tx("manualSourceNote", "Courier and milestone dates are entered manually. This is not a live carrier feed.")}</span>
+          <span className="inline-flex items-center gap-1">
             <CalendarClock className="h-3.5 w-3.5" aria-hidden />
             {tx("lastUpdated", "Last updated")} <Ltr>{formatWhen(String(data.lastUpdatedAt), i18n.language)}</Ltr>
-          </p>
-        </section>
+          </span>
+        </p>
       </div>
     </main>
   );

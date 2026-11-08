@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildCustomerTimeline, type UnifiedTimelineEvent } from "../shared/customer-timeline";
+import { buildCustomerTimeline, splitCustomerTimeline, type UnifiedTimelineEvent } from "../shared/customer-timeline";
 import { hashToken } from "../server/services/tracking";
 import { createTestHarness } from "./transition-2026-10-21/harness/app";
 import { createAuditDatabase, type AuditDatabase } from "./transition-2026-10-21/harness/db";
@@ -36,6 +36,36 @@ describe("customer timeline", () => {
     });
     expect(hidden.map((event) => event.code)).toEqual(["ETD", "LOADED"]);
     expect(hidden[1]?.reference).toBeNull();
+    expect(splitCustomerTimeline(hidden).documents).toEqual([]);
+    expect(splitCustomerTimeline(hidden).shipment.map((event) => event.code)).toEqual(["ETD", "LOADED"]);
+  });
+
+  it("keeps the customer decision on the document track and leaves the note out", () => {
+    const events = buildCustomerTimeline({
+      showEta: true,
+      showCourierTracking: true,
+      showContainerNumbers: true,
+      containers: [
+        { status: "LOADED", eventAt: "2026-11-02T10:00:00.000Z", slot: 1, officialNumber: "TLCU1234567" },
+        { status: "DEPARTED", eventAt: "2026-11-06T10:00:00.000Z", slot: 2, officialNumber: "TLCU7654321" },
+      ],
+      booking,
+      courier: [{ status: "DISPATCHED", eventAt: "2026-11-03T10:00:00.000Z" }],
+      documents: [{
+        publishedAt: "2026-11-05T10:00:00.000Z",
+        typeKey: "commercial_invoice",
+        decision: "ACCEPTED",
+        decidedAt: "2026-11-07T10:00:00.000Z",
+      }],
+    });
+    const tracks = splitCustomerTimeline(events);
+    expect(tracks.shipment.map((event) => event.code)).toEqual(["ETD", "LOADED", "ETA", "DEPARTED"]);
+    expect(tracks.documents.map((event) => `${event.code}|${event.reference ?? ""}`)).toEqual([
+      "DISPATCHED|",
+      "SHARED|commercial_invoice",
+      "ACCEPTED|commercial_invoice",
+    ]);
+    expect(JSON.stringify(events)).not.toContain("SECRET");
   });
 
   it("returns the public timeline in date order without bank or staff fields", async () => {
@@ -131,6 +161,9 @@ describe("customer timeline", () => {
       "2026-11-05T10:00:00.000Z|documents|SHARED|false",
     ]);
     expect(timeline[4]?.reference).toBe("commercial_invoice");
+    const tracks = splitCustomerTimeline(timeline);
+    expect(tracks.shipment.map((event) => event.code)).toEqual(["ETD", "LOADED", "ETA"]);
+    expect(tracks.documents.map((event) => event.code)).toEqual(["DISPATCHED", "SHARED"]);
     const visible = JSON.stringify(timeline);
     for (const secret of ["SECRET-BANK-REASON", "SECRET-COURIER-NOTE", "STAFF-ONLY-NOTE", "SECRET-SHARE-NOTE", "user-admin", "424242", "internal-draft.pdf", "CORRECTION_REQUESTED"]) {
       expect(visible).not.toContain(secret);

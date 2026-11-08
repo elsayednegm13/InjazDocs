@@ -12,6 +12,19 @@ export type UnifiedTimelineEvent = {
 const CUSTOMER_CONTAINER = new Set(["LOADED", "DEPARTED", "ARRIVED_PORT", "CUSTOMS_RELEASED", "DELIVERED_TO_CUSTOMER"]);
 const CUSTOMER_COURIER = new Set(["DISPATCHED", "IN_TRANSIT", "DELIVERED", "DELIVERY_EXCEPTION", "RETURNED", "CANCELLED"]);
 
+export type CustomerTimelineTracks = {
+  shipment: UnifiedTimelineEvent[];
+  documents: UnifiedTimelineEvent[];
+};
+
+/** Shipment events stay on one track. Document and courier events stay on the other. */
+export function splitCustomerTimeline(events: UnifiedTimelineEvent[]): CustomerTimelineTracks {
+  return {
+    shipment: events.filter((event) => event.source === "booking" || event.source === "container"),
+    documents: events.filter((event) => event.source === "documents" || event.source === "courier"),
+  };
+}
+
 export function buildCustomerTimeline(input: {
   showEta: boolean;
   showCourierTracking: boolean;
@@ -24,7 +37,7 @@ export function buildCustomerTimeline(input: {
     actualEta: string | null;
   } | null;
   courier: Array<{ status: string; eventAt: string }>;
-  documents: Array<{ publishedAt: string; typeKey: string }>;
+  documents: Array<{ publishedAt: string; typeKey: string; decision?: string | null; decidedAt?: string | null }>;
 }): UnifiedTimelineEvent[] {
   const events: UnifiedTimelineEvent[] = [];
   for (const row of input.containers) {
@@ -76,6 +89,17 @@ export function buildCustomerTimeline(input: {
       slot: null,
       reference: typeKey,
     });
+    const decidedAt = present(row.decidedAt);
+    if ((row.decision === "ACCEPTED" || row.decision === "CHANGES_REQUESTED") && decidedAt) {
+      events.push({
+        occurredAt: decidedAt,
+        source: "documents",
+        code: row.decision,
+        planned: false,
+        slot: null,
+        reference: typeKey,
+      });
+    }
   }
   events.sort((a, b) => {
     const time = a.occurredAt.localeCompare(b.occurredAt);

@@ -250,7 +250,12 @@ export async function publicTracking(db: D1Database, _env: Env, token: string, i
         }
       : null,
     courier: courierEvents.map((row) => ({ status: row.status, eventAt: row.event_at })),
-    documents: sharedDocuments,
+    documents: sharedDocuments.map((row) => ({
+      publishedAt: row.publishedAt,
+      typeKey: row.typeKey,
+      decision: row.decision,
+      decidedAt: row.decidedAt,
+    })),
   });
   const settings = await one<{ exporter_display_name: string }>(db, "SELECT exporter_display_name FROM company_settings WHERE id = 'default'");
 
@@ -301,8 +306,8 @@ export async function publicTracking(db: D1Database, _env: Env, token: string, i
   };
 }
 
-async function sharedDocumentEvents(db: D1Database, caseId: string): Promise<Array<{ publishedAt: string; typeKey: string }>> {
-  const sql = `SELECT s.published_at, d.key AS type_key
+async function sharedDocumentEvents(db: D1Database, caseId: string): Promise<Array<{ publishedAt: string; typeKey: string; decision: string | null; decidedAt: string | null }>> {
+  const sql = `SELECT s.published_at, s.decision, s.decided_at, d.key AS type_key
      FROM customer_file_shares s
      JOIN document_versions v ON v.id = s.version_id AND v.archived_at IS NULL
      JOIN operation_document_requirements r ON r.id = v.requirement_id
@@ -312,7 +317,7 @@ async function sharedDocumentEvents(db: D1Database, caseId: string): Promise<Arr
          SELECT MAX(version) FROM document_versions
          WHERE requirement_id = r.id AND archived_at IS NULL
        )`;
-  const fallback = `SELECT s.published_at, d.key AS type_key
+  const fallback = `SELECT s.published_at, s.decision, s.decided_at, d.key AS type_key
      FROM customer_file_shares s
      JOIN document_versions v ON v.id = s.version_id
      JOIN operation_document_requirements r ON r.id = v.requirement_id
@@ -320,18 +325,22 @@ async function sharedDocumentEvents(db: D1Database, caseId: string): Promise<Arr
      WHERE s.case_id = ? AND s.unpublished_at IS NULL
        AND v.version = (SELECT MAX(version) FROM document_versions WHERE requirement_id = r.id)`;
   try {
-    const rows = await all<{ published_at: string; type_key: string }>(db, sql, caseId);
-    return rows.map((row) => ({ publishedAt: row.published_at, typeKey: row.type_key }));
+    const rows = await all<{ published_at: string; type_key: string; decision: string | null; decided_at: string | null }>(db, sql, caseId);
+    return rows.map(shareEvent);
   } catch (error) {
     if (!isMissingShareShape(error)) throw error;
     try {
-      const rows = await all<{ published_at: string; type_key: string }>(db, fallback, caseId);
-      return rows.map((row) => ({ publishedAt: row.published_at, typeKey: row.type_key }));
+      const rows = await all<{ published_at: string; type_key: string; decision: string | null; decided_at: string | null }>(db, fallback, caseId);
+      return rows.map(shareEvent);
     } catch (inner) {
       if (isMissingShareShape(inner)) return [];
       throw inner;
     }
   }
+}
+
+function shareEvent(row: { published_at: string; type_key: string; decision: string | null; decided_at: string | null }) {
+  return { publishedAt: row.published_at, typeKey: row.type_key, decision: row.decision, decidedAt: row.decided_at };
 }
 
 function isMissingShareShape(error: unknown) {
