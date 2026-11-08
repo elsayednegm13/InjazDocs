@@ -1,5 +1,5 @@
 import type { Hono } from "hono";
-import { transitionBank, createCourier, listCourier, transitionDirect, updateCourierStatus } from "../../services/bank-courier";
+import { bankPresentationCheck, transitionBank, createCourier, listCourier, transitionDirect, updateCourierStatus } from "../../services/bank-courier";
 import {
   addContainerSlots,
   assignContainerNumber,
@@ -119,6 +119,9 @@ export function mountOperationRoutes(api: Hono<AppEnv>) {
   });
   api.delete("/document-versions/:id", async (c) => jsonSuccess(await deleteUnreviewedVersion(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.env, c.req.param("id"), c.get("requestId")), c.get("requestId")));
 
+  api.get("/export-cases/:id/bank/presentation-check", async (c) => {
+    return jsonSuccess({ discrepancies: await bankPresentationCheck(c.env.DB, c.get("actor"), c.req.param("id")) }, c.get("requestId"));
+  });
   api.post("/export-cases/:id/bank/status", async (c) => {
     const body = await c.req.json<{ to: never; bankName?: string; reason?: string }>();
     await transitionBank(c.env.DB, c.get("actor"), c.env, c.req.param("id"), body.to, body, c.get("requestId"));

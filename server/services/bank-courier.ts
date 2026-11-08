@@ -1,3 +1,4 @@
+import { discrepancyReason, evaluateBankPresentation } from "../../shared/bank-presentation";
 import { carrierTrackingUrl } from "../../shared/carrier";
 import type { BankPathStatus, CourierStatus, DirectPathStatus, DocumentRoute } from "../../shared/enums";
 import { assertBankTransition, assertCourierTransition, assertDirectTransition } from "../domain/transitions";
@@ -60,6 +61,17 @@ export async function transitionBank(
       .run();
   }
   if (submission) {
+    // Warnings are recorded and the handover still proceeds. Case completion
+    // does not read these events.
+    if (to === "HANDED_TO_BANK") {
+      const warnings = await loadPresentationDiscrepancies(db, caseId);
+      for (const warning of warnings) {
+        await db
+          .prepare("INSERT INTO bank_events (id, submission_id, event_type, reason, actor_id, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+          .bind(newId(), submission.id, "DISCREPANCY_WARNING", discrepancyReason(warning), actor.id, nowIso())
+          .run();
+      }
+    }
     await db
       .prepare("INSERT INTO bank_events (id, submission_id, event_type, reason, actor_id, created_at) VALUES (?, ?, ?, ?, ?, ?)")
       .bind(newId(), submission.id, to, input.reason ?? null, actor.id, nowIso())
@@ -68,6 +80,47 @@ export async function transitionBank(
   await writeCaseEvent(db, caseId, "BANK_STATUS", `Bank path → ${to}`, actor.id);
   await writeAudit(db, { actorId: actor.id, entityType: "bank_submission", entityId: caseId, action: "bank.transition", after: { to }, requestId });
   await recomputeRemindersForCase(db, env, caseId);
+}
+
+export async function bankPresentationCheck(db: D1Database, actor: Actor, caseId: string) {
+  requirePermission(actor, "bank.manage");
+  const current = await assertCaseAccess(db, actor, caseId);
+  if (current.document_route !== "BANK_ROUTE") return [];
+  return loadPresentationDiscrepancies(db, caseId);
+}
+
+async function loadPresentationDiscrepancies(db: D1Database, caseId: string) {
+  const invoices = await all<{ port_of_loading: string | null; port_of_discharge: string | null; payment_term_code: string }>(
+    db,
+    "SELECT port_of_loading, port_of_discharge, payment_term_code FROM export_invoices WHERE case_id = ?",
+    caseId,
+  );
+  const bookings = await all<{ port_of_loading: string | null; port_of_discharge: string | null; status: string }>(
+    db,
+    "SELECT port_of_loading, port_of_discharge, status FROM bookings WHERE case_id = ? AND status != 'CANCELLED'",
+    caseId,
+  );
+  const documents = await all<{ key: string; status: string }>(
+    db,
+    `SELECT d.key, r.status
+     FROM operation_document_requirements r
+     JOIN document_type_definitions d ON d.id = r.document_type_id
+     WHERE r.case_id = ?`,
+    caseId,
+  );
+  return evaluateBankPresentation({
+    invoices: invoices.map((row) => ({
+      portOfLoading: row.port_of_loading,
+      portOfDischarge: row.port_of_discharge,
+      paymentTerm: row.payment_term_code,
+    })),
+    bookings: bookings.map((row) => ({
+      portOfLoading: row.port_of_loading,
+      portOfDischarge: row.port_of_discharge,
+      status: row.status,
+    })),
+    documents: documents.map((row) => ({ typeKey: row.key, status: row.status })),
+  });
 }
 
 export async function transitionDirect(

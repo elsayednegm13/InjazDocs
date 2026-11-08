@@ -52,6 +52,7 @@ export function createApp(deps: AppDependencies = {}) {
       // W2 independent quotations (D-10): literal path verbs of the quotations
       // routes. Any other segment (an id) keeps mapping to ":id".
       "quotations", "items", "issue", "response", "revise", "link", "unlink", "copy-items", "archive", "pdf",
+      "bank", "presentation-check",
     ]);
     const pattern = new URL(c.req.url).pathname.split("/").map((part) => (part && !known.has(part) ? ":id" : part)).join("/");
     if (trace) console.log(`[exportflow-handler] enter ${c.req.method} ${pattern}`);
