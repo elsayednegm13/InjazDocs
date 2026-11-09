@@ -24,6 +24,8 @@ import {
 import { CatalogDialog, CompanyDialog, PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
 import { includesFreight, ShippingMethodField, useShippingMethods } from "./TradeExtras";
 import { LiveInvoiceView, stampFromRow, type LiveSheetModel } from "./LiveSheet";
+import { defaultPrintFields, parsePrintFields, resolvePrintRows, type CustomerPrintProfile } from "@shared/trade-print-fields";
+import { PrintFieldsPanel, useCustomerPrintProfile } from "./PrintFields";
 
 type SheetLine = {
   description: string;
@@ -71,6 +73,7 @@ type Sheet = {
     packing_stamp_y_ratio: number | null;
     packing_stamp_scale: number | null;
     packing_stamp_rotation: number | null;
+    print_fields_json: string | null;
   };
   lines: SheetLine[];
   packing: SheetPack[];
@@ -82,6 +85,8 @@ export function TradeBuilder({
   containers,
   canEdit,
   customerCode = "",
+  customerId = "",
+  invoiceDate = "",
   customerName = "",
   customerCountry = "",
   invoiceNumber = "",
@@ -91,6 +96,8 @@ export function TradeBuilder({
   containers: Array<{ id: string; slot_index?: number; official_number?: string | null; status?: string }>;
   canEdit: boolean;
   customerCode?: string;
+  customerId?: string;
+  invoiceDate?: string;
   customerName?: string;
   customerCountry?: string;
   invoiceNumber?: string;
@@ -111,7 +118,9 @@ export function TradeBuilder({
   const [reference, setReference] = useState("");
   const [stamp, setStamp] = useState(stampFromRow(null));
   const [packingStamp, setPackingStamp] = useState(stampFromRow(null));
+  const [printFields, setPrintFields] = useState(defaultPrintFields());
   const [liveDoc, setLiveDoc] = useState<"commercial" | "packing">("commercial");
+  const printProfile = useCustomerPrintProfile(customerId);
   const [companyOpen, setCompanyOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [shippingLabel, setShippingLabel] = useState("CFR");
@@ -143,6 +152,7 @@ export function TradeBuilder({
       stamp_scale: data.header.packing_stamp_scale,
       stamp_rotation: data.header.packing_stamp_rotation,
     }));
+    setPrintFields(parsePrintFields(data.header.print_fields_json) ?? defaultPrintFields());
     setShippingLabel(data.header.shipping_method_label ?? "CFR");
     setOrigin(data.header.origin_of_goods ?? "EGYPT");
     setPortLoading(data.header.port_of_loading ?? "");
@@ -193,6 +203,7 @@ export function TradeBuilder({
           packingStampYRatio: packingStamp.yRatio,
           packingStampScale: packingStamp.scale,
           packingStampRotation: packingStamp.rotation,
+          printFields,
         }),
       });
       await api(`/api/v1/invoices/${invoiceId}/lines`, { method: "PUT", body: JSON.stringify({ lines: lines.map(serializeInvoice) }) });
@@ -245,7 +256,7 @@ export function TradeBuilder({
   async function saveQuiet() {
     await api(`/api/v1/invoices/${invoiceId}/trade-header`, {
       method: "PUT",
-      body: JSON.stringify({ paymentTermLabel: paymentLabel, shippingMethodLabel: shippingLabel, originOfGoods: origin, portOfLoading: portLoading, portOfDischarge: portDischarge, exporterBankAccountId: bankId || null, seaFreightMinor: freightMinor, printReference: reference, isStamped: stamp.stamped, stampXRatio: stamp.xRatio, stampYRatio: stamp.yRatio, stampScale: stamp.scale, stampRotation: stamp.rotation, packingIsStamped: packingStamp.stamped, packingStampXRatio: packingStamp.xRatio, packingStampYRatio: packingStamp.yRatio, packingStampScale: packingStamp.scale, packingStampRotation: packingStamp.rotation }),
+      body: JSON.stringify({ paymentTermLabel: paymentLabel, shippingMethodLabel: shippingLabel, originOfGoods: origin, portOfLoading: portLoading, portOfDischarge: portDischarge, exporterBankAccountId: bankId || null, seaFreightMinor: freightMinor, printReference: reference, isStamped: stamp.stamped, stampXRatio: stamp.xRatio, stampYRatio: stamp.yRatio, stampScale: stamp.scale, stampRotation: stamp.rotation, packingIsStamped: packingStamp.stamped, packingStampXRatio: packingStamp.xRatio, packingStampYRatio: packingStamp.yRatio, packingStampScale: packingStamp.scale, packingStampRotation: packingStamp.rotation, printFields }),
     });
     await api(`/api/v1/invoices/${invoiceId}/lines`, { method: "PUT", body: JSON.stringify({ lines: lines.map(serializeInvoice) }) });
     await api(`/api/v1/invoices/${invoiceId}/packing-lines`, { method: "PUT", body: JSON.stringify({ lines: packing.map(serializePacking) }) });
@@ -266,6 +277,8 @@ export function TradeBuilder({
   }
 
   function tradeLiveModel(): LiveSheetModel {
+    const profile: CustomerPrintProfile = printProfile.data ?? { name: "", address: "", taxId: "", phone: "", email: "", bankName: "", accountName: "", accountLast4: "", ibanLast4: "", swift: "", code: "", country: "" };
+    const printed = resolvePrintRows(printFields, profile, { date: invoiceDate, invoiceNumber: invoiceNumber || invoiceId, reference });
     const company = identity.data;
     const bank = (banks.data ?? []).find((item) => item.id === bankId);
     const identityBlock = {
@@ -297,8 +310,8 @@ export function TradeBuilder({
         title: "PACKING LIST",
         draft: !issued,
         identity: identityBlock,
-        meta: [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceNumber || invoiceId }],
-        buyer: [{ label: "BILL TO", value: customerName }, { label: "ADDRESS", value: "" }, { label: "Registration number", value: "" }],
+        meta: printed.meta.length ? printed.meta : [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceNumber || invoiceId }],
+        buyer: printed.buyer.length ? printed.buyer : [{ label: "BILL TO", value: profile.name }, { label: "ADDRESS", value: profile.address }, { label: "Registration number", value: profile.taxId }],
         columns: ["NO", "CONTAINER", "ITEM", "PKG", "PER", "PCS", "GROSS", "NET"],
         lines: packing.map((line, index) => ({ cells: [String(index + 1), line.containerId || "—", line.description || "—", line.packages, line.perPackage, String(Number(line.packages) * Number(line.perPackage) || 0), line.grossKg, line.netKg] })),
         totals: [],
@@ -311,8 +324,8 @@ export function TradeBuilder({
       title: "COMMERCIAL INVOICE",
       draft: !issued,
       identity: identityBlock,
-        meta: [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceNumber || invoiceId }],
-        buyer: [{ label: "BILL TO", value: customerName }, { label: "ADDRESS", value: "" }, { label: "Registration number", value: "" }],
+        meta: printed.meta.length ? printed.meta : [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceNumber || invoiceId }],
+        buyer: printed.buyer.length ? printed.buyer : [{ label: "BILL TO", value: profile.name }, { label: "ADDRESS", value: profile.address }, { label: "Registration number", value: profile.taxId }],
       columns: ["NO", "DESCRIPTION", "UNIT", "QTY", "PRICE", "AMOUNT"],
       lines: lines.map((line, index) => ({ cells: [String(index + 1), line.description || "—", line.unit, line.quantity, line.price, moneyText(lineAmount(line, currency), currency)] })),
       totals: [{ label: "TOTAL F.O.B", value: moneyText(fob, currency) }, ...(chargesFreight ? [{ label: "SEA FREIGHT", value: moneyText(freightMinor, currency) }, { label: `TOTAL ${shippingLabel}`, value: moneyText(fob + freightMinor, currency) }] : [])],
@@ -384,6 +397,7 @@ export function TradeBuilder({
               <Button type="button" size="sm" variant={liveDoc === "packing" ? "default" : "outline"} onClick={() => setLiveDoc("packing")}>{tx("tradeLivePacking", "Live packing list")}</Button>
             </div>
             <h2 className="text-sm font-semibold text-ink">{tx("tradeLiveView", "Live view and stamp")}</h2>
+            <PrintFieldsPanel customerId={customerId} fields={printFields} disabled={locked} document={{ date: invoiceDate, invoiceNumber: invoiceNumber || invoiceId, reference }} onChange={setPrintFields} />
             <LiveInvoiceView model={tradeLiveModel()} stamp={liveDoc === "packing" ? packingStamp : stamp} disabled={locked} onChange={liveDoc === "packing" ? setPackingStamp : setStamp} />
           </div>
         </div>

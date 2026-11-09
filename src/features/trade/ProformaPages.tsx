@@ -8,10 +8,12 @@ import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
 import { tradePdfFilename } from "@shared/trade-sheet";
+import { defaultPrintFields, parsePrintFields, resolvePrintRows, type CustomerPrintProfile } from "@shared/trade-print-fields";
+import { LiveInvoiceView, stampFromRow, type LiveSheetModel } from "./LiveSheet";
+import { PrintFieldsPanel, useCustomerPrintProfile } from "./PrintFields";
 import { downloadPdf, lineAmount, moneyMinor, moneyText, newKey, type BankAccount, type InvoiceDraftLine, type ProductPreset } from "./trade-model";
 import { CatalogDialog, CompanyDialog, PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
 import { includesFreight, ShippingMethodField, useShippingMethods } from "./TradeExtras";
-import { LiveInvoiceView, stampFromRow, type LiveSheetModel } from "./LiveSheet";
 
 type Proforma = {
   id: string;
@@ -42,6 +44,7 @@ type Proforma = {
   stamp_y_ratio?: number | null;
   stamp_scale?: number | null;
   stamp_rotation?: number | null;
+  print_fields_json?: string | null;
   lines?: Array<{ description: string; unit_label: string | null; quantity: number; unit_price_minor: number }>;
 };
 
@@ -138,8 +141,10 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
   const [bankId, setBankId] = useState(initial?.exporter_bank_account_id ?? "");
   const [freight, setFreight] = useState(moneyText(initial?.sea_freight_minor ?? 0));
   const [stamp, setStamp] = useState(stampFromRow(initial));
+  const [printFields, setPrintFields] = useState(() => parsePrintFields(initial?.print_fields_json) ?? defaultPrintFields());
   const [lines, setLines] = useState<InvoiceDraftLine[]>(initial?.lines?.length ? initial.lines.map((line) => ({ key: newKey(), description: line.description, hsCode: "", barcode: "", unit: line.unit_label ?? "PCS", quantity: String(line.quantity), price: moneyText(line.unit_price_minor) })) : [{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "PCS", quantity: "1", price: "0.00" }]);
   const [busy, setBusy] = useState(false);
+  const printProfile = useCustomerPrintProfile(customerId);
   const methods = useShippingMethods();
   const freightOn = includesFreight(shipping, methods.data ?? []);
   const issued = initial?.status === "ISSUED";
@@ -167,6 +172,7 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
       stampYRatio: stamp.yRatio,
       stampScale: stamp.scale,
       stampRotation: stamp.rotation,
+      printFields,
       lines: lines.map((line) => ({ description: line.description, unit: line.unit, quantity: Number(line.quantity), unitPriceMinor: moneyMinor(line.price) })),
     };
   }
@@ -221,6 +227,8 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
 
   function proformaLiveModel(): LiveSheetModel {
     const company = identity.data;
+    const profile: CustomerPrintProfile = printProfile.data ?? { name: "", address: "", taxId: "", phone: "", email: "", bankName: "", accountName: "", accountLast4: "", ibanLast4: "", swift: "", code: "", country: "" };
+    const printed = resolvePrintRows(printFields, profile, { date, invoiceNumber: number, reference });
     const customer = (customers.data ?? []).find((item) => item.id === customerId);
     const bank = (banks.data ?? []).find((item) => item.id === bankId);
     return {
@@ -236,15 +244,8 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
         taxFile: company?.tax_file ?? "",
         commercialRegistry: company?.commercial_registry ?? "",
       },
-      meta: [
-        { label: "DATE", value: date },
-        { label: "INVOICE NO#", value: number },
-      ],
-      buyer: [
-        { label: "BILL TO", value: customer?.legal_name ?? "" },
-        { label: "ADDRESS", value: "" },
-        { label: "Registration number", value: "" },
-      ],
+      meta: printed.meta.length ? printed.meta : [{ label: "DATE", value: date }, { label: "INVOICE NO#", value: number }],
+      buyer: printed.buyer.length ? printed.buyer : [{ label: "BILL TO", value: profile.name }, { label: "ADDRESS", value: profile.address }, { label: "Registration number", value: profile.taxId }],
       columns: ["NO", "DESCRIPTION", "UNIT", "QTY", "PRICE", "AMOUNT"],
       lines: lines.map((line, index) => ({ cells: [String(index + 1), line.description || "—", line.unit, line.quantity, line.price, moneyText(lineAmount(line, "USD"))] })),
       totals: [{ label: "TOTAL F.O.B", value: moneyText(fob) }, ...(freightOn ? [{ label: "SEA FREIGHT", value: moneyText(freightMinor) }, { label: `TOTAL ${shipping}`, value: moneyText(fob + freightMinor) }] : [])],
@@ -331,6 +332,9 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
           </div>
         ))}
         <p className="text-sm font-medium text-ink md:col-span-2" dir="ltr">TOTAL FOB {moneyText(fob)}{freightOn ? ` + SEA FREIGHT ${moneyText(freightMinor)} = TOTAL ${shipping} ${moneyText(fob + freightMinor)}` : ""}</p>
+        <div className="md:col-span-2">
+          <PrintFieldsPanel customerId={customerId} fields={printFields} disabled={issued} document={{ date, invoiceNumber: number, reference }} onChange={setPrintFields} />
+        </div>
         <div className="md:col-span-2">
           <h2 className="mb-2 text-sm font-semibold text-ink">{tx("tradeLiveView", "Live view and stamp")}</h2>
           <LiveInvoiceView model={proformaLiveModel()} stamp={stamp} disabled={issued} onChange={setStamp} />

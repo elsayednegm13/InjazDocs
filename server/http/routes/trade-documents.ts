@@ -12,6 +12,7 @@ import {
   issueTradeDocuments,
   listExporterBanks,
   listProformas,
+  customerPrintProfile,
   uploadExporterMark,
   listProductPresets,
   listShippingMethods,
@@ -63,6 +64,7 @@ export function mountTradeRoutes(api: Hono<AppEnv>) {
   api.patch("/shipping-methods/:id", async (c) => jsonSuccess(await saveShippingMethod(c.env.DB, c.get("actor"), await c.req.json(), c.req.param("id")), c.get("requestId")));
   api.delete("/shipping-methods/:id", async (c) => jsonSuccess(await deleteShippingMethod(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
 
+  api.get("/customer-print-profiles/:id", async (c) => jsonSuccess(await customerPrintProfile(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
   api.get("/proformas", async (c) => jsonSuccess(await listProformas(c.env.DB, c.get("actor"), c.req.query("caseId") || undefined), c.get("requestId")));
   api.post("/proformas", async (c) => jsonSuccess(await createProforma(c.env.DB, c.get("actor"), await c.req.json()), c.get("requestId"), {}, 201));
   api.get("/proformas/:id", async (c) => jsonSuccess(await getProforma(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));

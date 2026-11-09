@@ -160,8 +160,8 @@ export function LiveInvoiceView({
                       <div className="flex items-center justify-between gap-3">
                         <table className="w-[62%] border-collapse text-center text-[10px]">
                           <tbody>
-                            {model.buyer.map((row) => (
-                              <tr key={row.label}>
+                            {model.buyer.map((row, index) => (
+                              <tr key={`${row.label}-${index}`}>
                                 <th className="w-[36%] border border-[#0f172a] px-1 py-1 font-semibold">{row.label}</th>
                                 <td className="border border-[#0f172a] px-1 py-1">{row.value || "—"}</td>
                               </tr>
@@ -170,8 +170,8 @@ export function LiveInvoiceView({
                         </table>
                         <table className="w-[34%] border-collapse text-center text-[10px]">
                           <tbody>
-                            {model.meta.map((row) => (
-                              <tr key={row.label}>
+                            {model.meta.map((row, index) => (
+                              <tr key={`${row.label}-${index}`}>
                                 <th className="border border-[#0f172a] px-1 py-1 font-semibold">{row.label}</th>
                                 <td className="border border-[#0f172a] px-1 py-1">{row.value || "—"}</td>
                               </tr>

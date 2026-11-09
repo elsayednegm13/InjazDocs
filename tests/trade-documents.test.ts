@@ -318,4 +318,53 @@ describe("trade document rules", () => {
     expect(pdf.text).not.toContain("APPROVED");
     expect(pdf.text).not.toContain("/ImStamp");
   });
+
+  it("prints the customer profile and only the visible custom fields", async () => {
+    const audit = fresh();
+    seedCaseInvoice(audit);
+    const now = "2026-11-09T00:00:00.000Z";
+    audit.sqlite.prepare("UPDATE customers SET tax_id = 'TAX-7788' WHERE id = 'customer-1'").run();
+    audit.sqlite.prepare(
+      `INSERT INTO customer_addresses (id, customer_id, kind, line1, city, country_code, is_primary)
+       VALUES ('addr-print', 'customer-1', 'BILLING', 'Scheelegatan 9', 'Malmo', 'SE', 1)`,
+    ).run();
+    audit.sqlite.prepare(
+      `INSERT INTO customer_bank_accounts (id, customer_id, bank_name, account_name, account_number, account_number_last4, iban, iban_last4, swift, created_at)
+       VALUES ('bank-print', 'customer-1', 'CLIENTBANKX', 'Buyer Account', '123456789012', '9012', 'EG998877660000000000000001', '0001', 'CLIENTSW', ?)`,
+    ).run(now);
+    const harness = createTestHarness(audit);
+    const profile = await harness.request({ path: "/api/v1/customer-print-profiles/customer-1" });
+    expect(profile.status).toBe(200);
+    expect(profile.json?.data?.address).toContain("Scheelegatan 9");
+    expect(profile.json?.data?.taxId).toBe("TAX-7788");
+    expect(profile.json?.data?.ibanLast4).toBe("EG998877660000000000000001");
+    expect(profile.json?.data?.accountLast4).toBe("123456789012");
+    const fields = [
+      { id: "name", side: "buyer", source: "profile", key: "name", label: "BILL TO", visible: true },
+      { id: "address", side: "buyer", source: "profile", key: "address", label: "ADDRESS", visible: true },
+      { id: "taxId", side: "buyer", source: "profile", key: "taxId", label: "Registration number", visible: false },
+      { id: "bankName", side: "buyer", source: "profile", key: "bankName", label: "BANK", visible: true },
+      { id: "ibanLast4", side: "buyer", source: "profile", key: "ibanLast4", label: "IBAN", visible: true },
+      { id: "accountLast4", side: "buyer", source: "profile", key: "accountLast4", label: "ACCOUNT NO", visible: true },
+      { id: "date", side: "meta", source: "profile", key: "date", label: "DATE", visible: true },
+      { id: "invoiceNumber", side: "meta", source: "profile", key: "invoiceNumber", label: "INVOICE NO#", visible: true },
+      { id: "lc", side: "meta", source: "custom", key: "lc", label: "LC NO", value: "LC-9", visible: true },
+    ];
+    const saved = await harness.request({
+      method: "PUT",
+      path: "/api/v1/invoices/invoice-trade/trade-header",
+      body: { shippingMethodLabel: "CFR", printFields: fields },
+    });
+    expect(saved.status).toBe(200);
+    expect(String(saved.json?.data?.header?.print_fields_json)).toContain("LC-9");
+    const pdf = await harness.request({ path: "/api/v1/invoices/invoice-trade/commercial-pdf" });
+    expect(pdf.status).toBe(200);
+    expect(pdf.text).toContain("Scheelegatan");
+    expect(pdf.text).toContain("Malmo");
+    expect(pdf.text).toContain("CLIENTBANKX");
+    expect(pdf.text).toContain("EG998877660000000000000001");
+    expect(pdf.text).toContain("123456789012");
+    expect(pdf.text).toContain("LC-9");
+    expect(pdf.text).not.toContain("TAX-7788");
+  });
 });

@@ -21,7 +21,7 @@ import { downloadPdf } from "@/features/trade/trade-model";
 import { tradePdfFilename } from "@shared/trade-sheet";
 import { Link } from "react-router";
 
-export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], customerName = "", customerCode = "", customerCountry = "", onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; customerName?: string; customerCode?: string; customerCountry?: string; onDone?: () => void }) {
+export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], customerId = "", customerName = "", customerCode = "", customerCountry = "", onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; customerId?: string; customerName?: string; customerCode?: string; customerCountry?: string; onDone?: () => void }) {
   const { tx } = useCopy();
   const user = useSession();
   const locked = caseStatus === "COMPLETED";
@@ -135,6 +135,8 @@ export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], cu
                 currency={currency}
                 canEdit={canEdit && (!locked || Number(inv.edit_open) === 1)}
                 customerCode={customerCode}
+                customerId={customerId}
+                invoiceDate={String(inv.invoice_date ?? "")}
                 customerName={customerName}
                 customerCountry={customerCountry}
                 invoiceNumber={String(inv.invoice_number)}

@@ -1,4 +1,5 @@
 import { netAboveGross, packingPieces, reconcileTradeTotals, sumNumbers, type ReconciliationSummary, type TradeTotals } from "../../shared/trade-documents";
+import { normalizePrintFields } from "../../shared/trade-print-fields";
 import { TRADE_PAGE_H, TRADE_PAGE_W } from "../../shared/trade-sheet";
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
@@ -42,6 +43,7 @@ type InvoiceHead = {
   packing_stamp_y_ratio: number | null;
   packing_stamp_scale: number | null;
   packing_stamp_rotation: number | null;
+  print_fields_json: string | null;
 };
 
 type CommercialLineInput = {
@@ -108,7 +110,7 @@ async function invoiceHead(db: D1Database, actor: Actor, invoiceId: string) {
             port_of_loading, port_of_discharge,
             exporter_bank_account_id, goods_value_minor, print_reference, incoterm, is_stamped, stamp_x, stamp_y, stamp_rotation,
             stamp_x_ratio, stamp_y_ratio, stamp_scale, packing_is_stamped, packing_stamp_x_ratio, packing_stamp_y_ratio,
-            packing_stamp_scale, packing_stamp_rotation
+            packing_stamp_scale, packing_stamp_rotation, print_fields_json
      FROM export_invoices WHERE id = ?`,
     invoiceId,
   );
@@ -148,6 +150,11 @@ function ratioOf(ratio: unknown, absolute: unknown, page: number) {
   return 0.5;
 }
 
+function storedPrintFields(input: Record<string, unknown>) {
+  if (!Array.isArray(input.printFields)) return null;
+  return JSON.stringify(normalizePrintFields(input.printFields));
+}
+
 function clampNumber(value: unknown, min: number, max: number) {
   const number = Number(value);
   if (!Number.isFinite(number)) return (min + max) / 2;
@@ -156,6 +163,46 @@ function clampNumber(value: unknown, min: number, max: number) {
 
 function assertDraft(status: string) {
   if (status === "ISSUED") throw errors.conflict("This document is already issued.", "TRADE_ISSUED");
+}
+
+export async function customerPrintProfile(db: D1Database, actor: Actor, customerId: string) {
+  await ready(db);
+  requirePermission(actor, "invoices.view");
+  const customer = await one<{ legal_name: string; tax_id: string | null; customer_code: string | null; country_code: string | null }>(
+    db,
+    "SELECT legal_name, tax_id, customer_code, country_code FROM customers WHERE id = ?",
+    customerId,
+  );
+  if (!customer) throw errors.notFound("Customer not found");
+  const address = await one<{ line1: string; line2: string | null; city: string | null; region: string | null; postal_code: string | null; country_code: string | null }>(
+    db,
+    "SELECT line1, line2, city, region, postal_code, country_code FROM customer_addresses WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1",
+    customerId,
+  );
+  const contact = await one<{ phone: string | null; email: string | null }>(
+    db,
+    "SELECT phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1",
+    customerId,
+  );
+  const bank = await one<{ bank_name: string; account_name: string | null; account_number: string | null; account_number_last4: string | null; iban: string | null; iban_last4: string | null; swift: string | null }>(
+    db,
+    "SELECT bank_name, account_name, account_number, account_number_last4, iban, iban_last4, swift FROM customer_bank_accounts WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1",
+    customerId,
+  );
+  return {
+    name: customer.legal_name,
+    address: [address?.line1, address?.line2, address?.city, address?.region, address?.postal_code, address?.country_code].filter(Boolean).join(", "),
+    taxId: customer.tax_id ?? "",
+    phone: contact?.phone ?? "",
+    email: contact?.email ?? "",
+    bankName: bank?.bank_name ?? "",
+    accountName: bank?.account_name ?? "",
+    accountLast4: bank?.account_number || bank?.account_number_last4 || "",
+    ibanLast4: bank?.iban || bank?.iban_last4 || "",
+    swift: bank?.swift ?? "",
+    code: customer.customer_code ?? "",
+    country: customer.country_code ?? address?.country_code ?? "",
+  };
 }
 
 export async function getExporterIdentity(db: D1Database, actor: Actor) {
@@ -675,6 +722,8 @@ export async function createProforma(db: D1Database, actor: Actor, input: Record
         .bind(newId(), id, index + 1, line.description, line.unit, line.quantity, line.unitPriceMinor, lineTotal(line.quantity, line.unitPriceMinor)),
     ),
   ]);
+  const fields = storedPrintFields(input);
+  if (fields) await db.prepare("UPDATE proforma_invoices SET print_fields_json = ? WHERE id = ?").bind(fields, id).run();
   return getProforma(db, actor, id);
 }
 
@@ -750,6 +799,8 @@ export async function updateProforma(db: D1Database, actor: Actor, id: string, i
         .bind(newId(), id, index + 1, line.description, line.unit, line.quantity, line.unitPriceMinor, lineTotal(line.quantity, line.unitPriceMinor)),
     ),
   ]);
+  const fields = storedPrintFields(input);
+  if (fields) await db.prepare("UPDATE proforma_invoices SET print_fields_json = ? WHERE id = ?").bind(fields, id).run();
   return getProforma(db, actor, id);
 }
 
@@ -790,6 +841,7 @@ export async function convertProforma(db: D1Database, actor: Actor, id: string) 
     sea_freight_minor: number;
     total_minor: number;
     status: string;
+    print_fields_json: string | null;
   }>(db, "SELECT * FROM proforma_invoices WHERE id = ?", id);
   if (!proforma) throw errors.notFound("Proforma not found");
   if (!proforma.case_id) throw errors.conflict("Link the proforma to an operation before converting it.", "PROFORMA_CASE_REQUIRED");
@@ -861,6 +913,7 @@ export async function convertProforma(db: D1Database, actor: Actor, id: string) 
       )
       .run();
   }
+  await db.prepare("UPDATE export_invoices SET print_fields_json = ? WHERE id = ?").bind(proforma.print_fields_json, invoice.id).run();
   await db.batch([
     db.prepare("DELETE FROM invoice_lines WHERE invoice_id = ?").bind(invoice.id),
     ...lines.map((line, index) =>
@@ -937,7 +990,7 @@ export async function saveTradeHeader(db: D1Database, actor: Actor, invoiceId: s
            print_reference = ?, invoiced_freight_minor = ?, invoice_total_minor = ?,
            is_stamped = ?, stamp_x = ?, stamp_y = ?, stamp_rotation = ?, stamp_x_ratio = ?, stamp_y_ratio = ?, stamp_scale = ?,
            packing_is_stamped = ?, packing_stamp_x_ratio = ?, packing_stamp_y_ratio = ?, packing_stamp_scale = ?, packing_stamp_rotation = ?,
-           version = version + 1, updated_at = ?
+           print_fields_json = ?, version = version + 1, updated_at = ?
        WHERE id = ?`,
     )
     .bind(
@@ -962,6 +1015,7 @@ export async function saveTradeHeader(db: D1Database, actor: Actor, invoiceId: s
       packingStamp.yRatio,
       packingStamp.scale,
       packingStamp.rotation,
+      storedPrintFields(input),
       nowIso(),
       invoiceId,
     )

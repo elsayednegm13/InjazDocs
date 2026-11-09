@@ -49,6 +49,8 @@ type Common = {
   draft: boolean;
   identity: TradeIdentity;
   buyer: TradeBuyer;
+  buyerRows?: Array<{ label: string; value: string }>;
+  metaRows?: Array<{ label: string; value: string }>;
   date: string;
   invoiceNumber: string;
   printReference: string;
@@ -160,39 +162,46 @@ function paintHeader(page: Page, model: TradePdfModel, images: ImageObj[]) {
   page.y -= 16;
   const partyTop = page.y;
   const leftBottom = paintBuyer(page, model, partyTop);
-  paintInvoiceMeta(page, model, partyTop, leftBottom);
-  page.y = leftBottom - 10;
+  const rightBottom = paintInvoiceMeta(page, model, partyTop, leftBottom);
+  page.y = Math.min(leftBottom, rightBottom) - 10;
 }
 
 function paintBuyer(page: Page, model: TradePdfModel, top: number) {
-  const rows: Array<[string, string]> = [
-    ["BILL TO", dash(model.buyer.name)],
-    ["ADDRESS", dash(model.buyer.address)],
-    ["Registration number", dash(model.buyer.vat)],
-  ];
-  return paintPairTable(page, rows, MARGIN, top, 110, 250);
+  const rows = model.buyerRows?.length
+    ? model.buyerRows
+    : [
+        ["BILL TO", dash(model.buyer.name)],
+        ["ADDRESS", dash(model.buyer.address)],
+        ["Registration number", dash(model.buyer.vat)],
+      ].map(([label, value]) => ({ label, value }));
+  return paintPairTable(page, rows.map((row) => [row.label, row.value]), MARGIN, top, 110, 250);
 }
 
 function paintInvoiceMeta(page: Page, model: TradePdfModel, top: number, bottom: number) {
-  const rows: Array<[string, string]> = [
-    ["DATE", dash(model.date)],
-    ["INVOICE NO#", dash(model.invoiceNumber)],
-  ];
+  const rows = model.metaRows?.length
+    ? model.metaRows
+    : [
+        { label: "DATE", value: dash(model.date) },
+        { label: "INVOICE NO#", value: dash(model.invoiceNumber) },
+      ];
   const height = rows.length * 18;
-  const block = bottom - top;
+  const block = Math.max(18, bottom - top);
   const y = top - Math.max(0, (block - height) / 2);
-  paintPairTable(page, rows, PAGE_W - MARGIN - 210, y, 90, 120);
+  return paintPairTable(page, rows.map((row) => [row.label, row.value]), PAGE_W - MARGIN - 210, y, 90, 120);
 }
 
 function paintPairTable(page: Page, rows: Array<[string, string]>, x: number, top: number, labelW: number, valueW: number) {
   let y = top;
   for (const [label, value] of rows) {
-    const height = 18;
+    const lines = Math.max(1, tradeLineCount(value || "—", 8, valueW - 10));
+    const height = Math.max(18, lines * 10 + 6);
     page.ops.push(`${INK} RG`, `0.6 w ${n(x)} ${n(y - height)} ${n(labelW + valueW)} ${n(height)} re S`);
     page.ops.push(`${n(x + labelW)} ${n(y)} m ${n(x + labelW)} ${n(y - height)} l S`);
     ink(page.ops);
-    text(page.ops, label, x + labelW / 2, y - 12, 8, "center");
-    text(page.ops, value, x + labelW + valueW / 2, y - 12, 8, "center");
+    const base = y - height / 2 - (lines - 1) * 5 + 3;
+    text(page.ops, label, x + labelW / 2, y - height / 2 - 2, 8, "center");
+    paintTradeCenteredBlock(page.ops, value || "—", x + labelW + valueW / 2, base, 8, valueW - 10);
+    ink(page.ops);
     y -= height;
   }
   return y;

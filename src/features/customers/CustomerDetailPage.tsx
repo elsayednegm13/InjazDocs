@@ -205,8 +205,8 @@ export function CustomerDetailPage() {
         id: String(bank.id ?? ""),
         bankName: String(bank.bank_name ?? ""),
         accountName: String(bank.account_name ?? ""),
-        accountNumber: "",
-        iban: "",
+        accountNumber: String(bank.account_number ?? bank.account_number_last4 ?? ""),
+        iban: String(bank.iban ?? bank.iban_last4 ?? ""),
         swift: String(bank.swift ?? ""),
         accountEnding: String(bank.account_number_last4 ?? ""),
         ibanEnding: String(bank.iban_last4 ?? ""),
@@ -361,10 +361,10 @@ export function CustomerDetailPage() {
                       <Input {...form.register(`banks.${index}.bankName`)} />
                     </Field>
                     <Field label={tx("name", "Name")}><Input {...form.register(`banks.${index}.accountName`)} /></Field>
-                    <Field label={tx("accountNumber", "Account number")} hint={field.accountEnding ? `${tx("accountEnding", "Account ending")} ${field.accountEnding}. ${tx("keepAccountHint", "Leave the number blank to keep the current ending.")}` : undefined}>
+                    <Field label={tx("accountNumber", "Account number")}>
                       <Input {...form.register(`banks.${index}.accountNumber`)} dir="ltr" autoComplete="off" />
                     </Field>
-                    <Field label={tx("iban", "IBAN")} hint={field.ibanEnding ? `${tx("ibanEnding", "IBAN ending")} ${field.ibanEnding}. ${tx("keepAccountHint", "Leave the number blank to keep the current ending.")}` : undefined}>
+                    <Field label={tx("iban", "IBAN")}>
                       <Input {...form.register(`banks.${index}.iban`)} dir="ltr" autoComplete="off" />
                     </Field>
                     <Field label={tx("swift", "SWIFT")}><Input {...form.register(`banks.${index}.swift`)} dir="ltr" /></Field>
@@ -476,8 +476,8 @@ export function CustomerDetailPage() {
                   <p className="font-medium text-ink">{bank.bank_name}</p>
                   <p className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-muted">
                     {bank.account_name ? <span>{bank.account_name}</span> : null}
-                    {bank.account_number_last4 ? <span>{tx("accountEnding", "Account ending")} <Ltr>{bank.account_number_last4}</Ltr></span> : null}
-                    {bank.iban_last4 ? <span>{tx("ibanEnding", "IBAN ending")} <Ltr>{bank.iban_last4}</Ltr></span> : null}
+                    {bank.account_number || bank.account_number_last4 ? <span><Ltr>{String(bank.account_number || bank.account_number_last4)}</Ltr></span> : null}
+                    {bank.iban || bank.iban_last4 ? <span><Ltr>{String(bank.iban || bank.iban_last4)}</Ltr></span> : null}
                     {bank.swift ? <span>SWIFT <Ltr>{bank.swift}</Ltr></span> : null}
                   </p>
                 </li>

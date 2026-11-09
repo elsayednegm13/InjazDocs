@@ -35,7 +35,12 @@ const PROBE_GROUPS = {
     { key: "packing_lines", sql: "SELECT pieces_count, net_weight_grams, gross_weight_grams FROM packing_lines LIMIT 1" },
     { key: "export_invoice_trade", sql: "SELECT packages_count, trade_status, trade_revision, shipping_method_label, print_reference, is_stamped, stamp_x_ratio, stamp_scale, packing_is_stamped, packing_stamp_x_ratio FROM export_invoices LIMIT 1" },
     { key: "shipping_methods", sql: "SELECT code, label, includes_freight FROM shipping_methods LIMIT 1" },
-    { key: "proforma_stamp", sql: "SELECT is_stamped, stamp_x_ratio, stamp_y_ratio, stamp_scale, stamp_rotation FROM proforma_invoices LIMIT 1" },
+    { key: "proforma_stamp", sql: "SELECT is_stamped, stamp_x_ratio, stamp_y_ratio, stamp_scale, stamp_rotation, print_fields_json FROM proforma_invoices LIMIT 1" },
+    { key: "invoice_print_fields", sql: "SELECT print_fields_json FROM export_invoices LIMIT 1" },
+    { key: "customer_bank_full", sql: "SELECT account_number, iban FROM customer_bank_accounts LIMIT 1" },
+  ],
+  customers: [
+    { key: "customer_bank_full", sql: "SELECT account_number, iban FROM customer_bank_accounts LIMIT 1" },
   ],
 } as const;
 

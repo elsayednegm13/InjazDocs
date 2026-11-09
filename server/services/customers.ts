@@ -5,6 +5,7 @@ import type { Actor } from "./actor";
 import { caseVisibilitySql, requirePermission } from "./actor";
 import { writeAudit, auditInsert } from "./audit";
 import { planCustomFieldWrites, readCustomFields, saveCustomFields } from "./custom-fields";
+import { assertSchemaReady } from "./schema";
 
 export async function listCustomers(
   db: D1Database,
@@ -33,9 +34,10 @@ export async function getCustomer(db: D1Database, actor: Actor, id: string) {
   const addresses = await all(db, "SELECT * FROM customer_addresses WHERE customer_id = ?", id);
   let banks: unknown[] = [];
   if (actor.permissions.has("customers.bank_details.view")) {
+    await assertSchemaReady(db, "customers");
     banks = await all(
       db,
-      "SELECT id, bank_name, account_name, account_number_last4, iban_last4, swift, created_at FROM customer_bank_accounts WHERE customer_id = ?",
+      "SELECT id, bank_name, account_name, account_number, account_number_last4, iban, iban_last4, swift, created_at FROM customer_bank_accounts WHERE customer_id = ?",
       id,
     );
   }
@@ -76,7 +78,10 @@ export async function createCustomer(
   }
   // Check the sensitive-bank permission before writing the customer so a
   // denied bank block cannot leave a partially created record behind.
-  if (input.banks?.length) requirePermission(actor, "customers.bank_details.edit");
+  if (input.banks?.length) {
+    requirePermission(actor, "customers.bank_details.edit");
+    await assertSchemaReady(db, "customers");
+  }
   // Bound the number of child rows so one request cannot build an oversized
   // transaction or exceed the D1 batch limit.
   if ((input.contacts?.length ?? 0) > 20) throw errors.validation("Too many contacts", { contactName: "Use 20 contacts or fewer." }, "CUSTOMER_CONTACTS_LIMIT");
@@ -136,15 +141,17 @@ export async function createCustomer(
     statements.push(
       db
         .prepare(
-          `INSERT INTO customer_bank_accounts (id, customer_id, bank_name, account_name, account_number_last4, iban_last4, swift, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO customer_bank_accounts (id, customer_id, bank_name, account_name, account_number, account_number_last4, iban, iban_last4, swift, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           newId(),
           id,
           bank.bankName,
           bank.accountName ?? null,
+          bank.accountNumber ?? null,
           last4(bank.accountNumber),
+          bank.iban ?? null,
           last4(bank.iban),
           bank.swift ?? null,
           now,
@@ -219,11 +226,14 @@ export async function updateCustomer(
   const contacts = input.contacts === undefined ? undefined : normalizeContacts(input.contacts);
   const addresses = input.addresses === undefined ? undefined : normalizeAddresses(input.addresses);
   const banks = input.banks === undefined ? undefined : normalizeBanks(input.banks);
-  if (banks) requirePermission(actor, "customers.bank_details.edit");
+  if (banks) {
+    requirePermission(actor, "customers.bank_details.edit");
+    await assertSchemaReady(db, "customers");
+  }
   const storedBanks = banks
-    ? await all<{ id: string; account_number_last4: string | null; iban_last4: string | null; restricted_notes: string | null }>(
+    ? await all<{ id: string; account_number: string | null; account_number_last4: string | null; iban: string | null; iban_last4: string | null; restricted_notes: string | null }>(
         db,
-        "SELECT id, account_number_last4, iban_last4, restricted_notes FROM customer_bank_accounts WHERE customer_id = ?",
+        "SELECT id, account_number, account_number_last4, iban, iban_last4, restricted_notes FROM customer_bank_accounts WHERE customer_id = ?",
         id,
       )
     : [];
@@ -296,8 +306,8 @@ export async function updateCustomer(
       statements.push(
         db
           .prepare(
-            `INSERT INTO customer_bank_accounts (id, customer_id, bank_name, account_name, account_number_last4, iban_last4, swift, restricted_notes, created_at)
-             SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+            `INSERT INTO customer_bank_accounts (id, customer_id, bank_name, account_name, account_number, account_number_last4, iban, iban_last4, swift, restricted_notes, created_at)
+             SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
              WHERE EXISTS (SELECT 1 FROM customers WHERE id = ? AND version = ?)`,
           )
           .bind(
@@ -305,7 +315,9 @@ export async function updateCustomer(
             id,
             bank.bankName,
             bank.accountName,
+            bank.accountNumber || prior?.account_number || prior?.account_number_last4 || null,
             bank.accountNumber ? last4(bank.accountNumber) : prior?.account_number_last4 ?? null,
+            bank.iban || prior?.iban || prior?.iban_last4 || null,
             bank.iban ? last4(bank.iban) : prior?.iban_last4 ?? null,
             bank.swift,
             prior?.restricted_notes ?? null,

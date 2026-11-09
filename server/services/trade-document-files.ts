@@ -6,6 +6,7 @@ import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requirePermission } from "./actor";
+import { parsePrintFields, resolvePrintRows, type CustomerPrintProfile } from "../../shared/trade-print-fields";
 import { TRADE_PAGE_H, TRADE_PAGE_W, tradePdfFilename } from "../../shared/trade-sheet";
 import { ensureTradeDefaults, shippingIncludesFreight } from "./trade-defaults";
 
@@ -138,6 +139,7 @@ async function proformaModel(db: D1Database, bucket: R2Bucket, id: string, draft
     ...chrome,
     stamp: stamped ? chrome.stamp : null,
     ...placement(row),
+    ...printRowsFor(row, chrome.profile, String(row.invoice_date ?? ""), String(row.invoice_number ?? ""), String(row.print_reference ?? "")),
     includeFreight: await shippingIncludesFreight(db, shippingMethod),
     date: String(row.invoice_date ?? ""),
     invoiceNumber: String(row.invoice_number ?? ""),
@@ -171,6 +173,7 @@ async function commercialModel(db: D1Database, bucket: R2Bucket, invoiceId: stri
     ...chrome,
     stamp: stamped ? chrome.stamp : null,
     ...placement(row),
+    ...printRowsFor(row, chrome.profile, String(row.invoice_date ?? ""), String(row.invoice_number ?? ""), String(row.print_reference ?? "")),
     includeFreight: await shippingIncludesFreight(db, shippingMethod),
     date: String(row.invoice_date ?? ""),
     invoiceNumber: String(row.invoice_number ?? ""),
@@ -304,14 +307,19 @@ async function chromeFor(db: D1Database, customerId: string, bankId: string | nu
     "SELECT legal_name, tax_id, customer_code, country_code FROM customers WHERE id = ?",
     customerId,
   );
-  const address = await one<{ line1: string; city: string | null; country_code: string | null }>(
+  const address = await one<{ line1: string; line2: string | null; city: string | null; region: string | null; postal_code: string | null; country_code: string | null }>(
     db,
-    "SELECT line1, city, country_code FROM customer_addresses WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1",
+    "SELECT line1, line2, city, region, postal_code, country_code FROM customer_addresses WHERE customer_id = ? ORDER BY is_primary DESC, kind = 'BILLING' DESC LIMIT 1",
     customerId,
   );
   const contact = await one<{ phone: string | null; email: string | null }>(
     db,
     "SELECT phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1",
+    customerId,
+  );
+  const customerBank = await one<{ bank_name: string; account_name: string | null; account_number: string | null; account_number_last4: string | null; iban: string | null; iban_last4: string | null; swift: string | null }>(
+    db,
+    "SELECT bank_name, account_name, account_number, account_number_last4, iban, iban_last4, swift FROM customer_bank_accounts WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1",
     customerId,
   );
   const bankRow = bankId
@@ -326,6 +334,21 @@ async function chromeFor(db: D1Database, customerId: string, bankId: string | nu
     code: customer?.customer_code ?? "",
     country: customer?.country_code ?? address?.country_code ?? "",
   };
+  const profile: CustomerPrintProfile = {
+    name: buyer.name,
+    address: [address?.line1, address?.line2, address?.city, address?.region, address?.postal_code, address?.country_code].filter(Boolean).join(", "),
+    taxId: buyer.vat,
+    phone: buyer.phone,
+    email: buyer.email,
+    bankName: customerBank?.bank_name ?? "",
+    accountName: customerBank?.account_name ?? "",
+    accountLast4: customerBank?.account_number || customerBank?.account_number_last4 || "",
+    ibanLast4: customerBank?.iban || customerBank?.iban_last4 || "",
+    swift: customerBank?.swift ?? "",
+    code: buyer.code,
+    country: buyer.country,
+  };
+  buyer.address = profile.address;
   const bank: TradeBank | null = bankRow
     ? {
         accountName: String(bankRow.account_name ?? ""),
@@ -353,7 +376,13 @@ async function chromeFor(db: D1Database, customerId: string, bankId: string | nu
     bank,
     logo: bucket && marks?.logo_r2_key ? await readObject(bucket, marks.logo_r2_key) : null,
     stamp: bucket && marks?.stamp_r2_key ? await readObject(bucket, marks.stamp_r2_key) : null,
+    profile,
   };
+}
+
+function printRowsFor(row: Record<string, unknown>, profile: CustomerPrintProfile, date: string, invoiceNumber: string, reference: string) {
+  const rows = resolvePrintRows(parsePrintFields(row.print_fields_json), profile, { date, invoiceNumber, reference });
+  return { buyerRows: rows.buyer, metaRows: rows.meta };
 }
 
 async function readObject(bucket: R2Bucket, key: string) {
