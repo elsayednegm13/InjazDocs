@@ -297,28 +297,28 @@ export function TradeBuilder({
         title: "PACKING LIST",
         draft: !issued,
         identity: identityBlock,
-        meta: [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceId }, { label: "REFERENCE", value: reference }],
-        buyer: [{ label: "NAME", value: customerName }, { label: "ADDRESS", value: "" }],
+        meta: [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceNumber || invoiceId }],
+        buyer: [{ label: "BILL TO", value: customerName }, { label: "ADDRESS", value: "" }, { label: "Registration number", value: "" }],
         columns: ["NO", "CONTAINER", "ITEM", "PKG", "PER", "PCS", "GROSS", "NET"],
         lines: packing.map((line, index) => ({ cells: [String(index + 1), line.containerId || "—", line.description || "—", line.packages, line.perPackage, String(Number(line.packages) * Number(line.perPackage) || 0), line.grossKg, line.netKg] })),
         totals: [],
         facts,
         bank: [],
-        clientCode: customerCode,
+        clientCode: reference || customerCode,
       };
     }
     return {
       title: "COMMERCIAL INVOICE",
       draft: !issued,
       identity: identityBlock,
-      meta: [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceId }, { label: "REFERENCE", value: reference }],
-      buyer: [{ label: "NAME", value: customerName }, { label: "ADDRESS", value: "" }],
+        meta: [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceNumber || invoiceId }],
+        buyer: [{ label: "BILL TO", value: customerName }, { label: "ADDRESS", value: "" }, { label: "Registration number", value: "" }],
       columns: ["NO", "DESCRIPTION", "UNIT", "QTY", "PRICE", "AMOUNT"],
       lines: lines.map((line, index) => ({ cells: [String(index + 1), line.description || "—", line.unit, line.quantity, line.price, moneyText(lineAmount(line, currency), currency)] })),
       totals: [{ label: "TOTAL F.O.B", value: moneyText(fob, currency) }, ...(chargesFreight ? [{ label: "SEA FREIGHT", value: moneyText(freightMinor, currency) }, { label: `TOTAL ${shippingLabel}`, value: moneyText(fob + freightMinor, currency) }] : [])],
       facts,
       bank: bankRows,
-      clientCode: customerCode,
+      clientCode: reference || customerCode,
     };
   }
 

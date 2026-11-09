@@ -239,12 +239,11 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
       meta: [
         { label: "DATE", value: date },
         { label: "INVOICE NO#", value: number },
-        { label: "REFERENCE", value: reference },
       ],
       buyer: [
-        { label: "NAME", value: customer?.legal_name ?? "" },
+        { label: "BILL TO", value: customer?.legal_name ?? "" },
         { label: "ADDRESS", value: "" },
-        { label: "VAT", value: "" },
+        { label: "Registration number", value: "" },
       ],
       columns: ["NO", "DESCRIPTION", "UNIT", "QTY", "PRICE", "AMOUNT"],
       lines: lines.map((line, index) => ({ cells: [String(index + 1), line.description || "—", line.unit, line.quantity, line.price, moneyText(lineAmount(line, "USD"))] })),
@@ -263,7 +262,7 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
         { label: "BANK ADDRESS", value: bank.bank_address ?? "" },
         { label: "SWIFT CODE", value: bank.swift_code ?? "" },
       ] : [],
-      clientCode: customer?.customer_code ?? reference,
+      clientCode: reference || customer?.customer_code || "",
     };
   }
 

@@ -78,7 +78,6 @@ describe("trade document pdf", () => {
     for (const file of files) expect(textOf(file).startsWith("%PDF-")).toBe(true);
     expect(textOf(files[0])).toContain("DRAFT");
     expect(textOf(files[0])).toContain("(EX-116)");
-    expect(textOf(files[0])).toContain("(CLIENT)");
     expect(textOf(files[1])).not.toContain("DRAFT");
     expect(textOf(files[1])).not.toContain("APPROVED");
     expect(textOf(files[1])).not.toContain("/ImStamp");
@@ -87,7 +86,7 @@ describe("trade document pdf", () => {
     expect(textOf(files[4])).toContain("1 0 0 1 297.64 210.47 cm");
     expect(textOf(files[4])).not.toContain("APPROVED");
     expect(textOf(files[5])).toMatch(/\/Count [2-9]/);
-    expect(textOf(files[5]).split("(COMMERCIAL)").length - 1).toBe(1);
+    expect(textOf(files[5]).split("(FACTORY)").length - 1).toBe(1);
   });
 
   it("stores issued invoice and packing pdfs as new document versions without removing the previous one", async () => {

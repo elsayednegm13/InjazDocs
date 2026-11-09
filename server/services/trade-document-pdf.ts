@@ -89,14 +89,13 @@ const CONTENT_W = PAGE_W - MARGIN * 2;
 const BOTTOM = 46;
 
 const INK = "0.06 0.09 0.16";
-const HEAD = "0.12 0.16 0.23";
 
 type ImageObj = { name: string; bytes: Uint8Array; w: number; h: number; kind: "jpeg" | "png"; png?: { data: Uint8Array; colors: number; mask?: Uint8Array } };
 
 export async function renderTradePdf(model: TradePdfModel): Promise<Uint8Array> {
   const images = await collectImages(model.logo, placedStamp(model));
   const pages = layout(model, images);
-  stampPages(pages, model.draft, model.buyer.code);
+  stampPages(pages, model.draft, model.printReference || model.buyer.code);
   return assemble(pages, images);
 }
 
@@ -104,7 +103,7 @@ export async function renderCustomsBundle(commercial: CommercialPdf, packing: Pa
   const stampBytes = placedStamp(commercial) ?? placedStamp(packing);
   const images = await collectImages(commercial.logo ?? packing.logo, stampBytes);
   const pages = [...layout({ ...commercial, logo: commercial.logo, stamp: commercial.stamp }, images), ...layout(packing, images)];
-  stampPages(pages, commercial.draft || packing.draft, commercial.buyer.code || packing.buyer.code);
+  stampPages(pages, commercial.draft || packing.draft, commercial.printReference || commercial.buyer.code || packing.buyer.code);
   return assemble(pages, images);
 }
 
@@ -140,60 +139,61 @@ function paintHeader(page: Page, model: TradePdfModel, images: ImageObj[]) {
   text(page.ops, model.identity.nameEn || "Exporter", PAGE_W / 2, page.y, 15, "center");
   page.y -= 16;
   if (model.identity.nameAr) page.y = paintTradeCenteredBlock(page.ops, model.identity.nameAr, PAGE_W / 2, page.y, 11, CONTENT_W) - 2;
-  page.y = paintTradeCenteredBlock(page.ops, dash(model.identity.address), PAGE_W / 2, page.y, 8, CONTENT_W - 40) - 2;
-  text(page.ops, `Tel ${dash(model.identity.phone)}    Email ${dash(model.identity.email)}`, PAGE_W / 2, page.y, 8, "center");
-  page.y -= 12;
+  page.y = paintTradeCenteredBlock(page.ops, `FACTORY ADDRESS : ${dash(model.identity.address)}`, PAGE_W / 2, page.y, 8, CONTENT_W) - 2;
+  text(page.ops, `MOBILE: ${dash(model.identity.phone)}     E-MAIL: ${dash(model.identity.email)}`, PAGE_W / 2, page.y, 8, "center");
+  page.y -= 11;
   page.y = paintTradeCenteredBlock(
     page.ops,
-    `TAX CARD ${dash(model.identity.taxCard)}    TAX FILE ${dash(model.identity.taxFile)}    CR ${dash(model.identity.commercialRegistry)}`,
+    `TAX CARD : ${dash(model.identity.taxCard)}    TAX FILE : ${dash(model.identity.taxFile)}    COMMERCIAL REGISTRY : ${dash(model.identity.commercialRegistry)}`,
     PAGE_W / 2,
     page.y,
     7.5,
-    CONTENT_W - 20,
-  ) - 6;
+    CONTENT_W,
+  ) - 4;
   ink(page.ops);
   page.ops.push(`0.8 w ${n(MARGIN)} ${n(page.y)} m ${n(PAGE_W - MARGIN)} ${n(page.y)} l S`);
-  page.y -= 8;
+  page.y -= 16;
   const title = model.kind === "proforma" ? "PROFORMA INVOICE" : model.kind === "commercial" ? "COMMERCIAL INVOICE" : "PACKING LIST";
-  const barTop = page.y;
-  page.ops.push(`${HEAD} rg`, `${n(MARGIN)} ${n(barTop - 20)} ${n(CONTENT_W)} 20 re f`, "1 1 1 rg", "1 1 1 RG");
-  paintTradeLine(page.ops, title, PAGE_W / 2, barTop - 15, 12, "center");
+  text(page.ops, title, PAGE_W / 2, page.y, 12, "center");
+  page.ops.push(`${INK} RG`, `0.8 w ${n(PAGE_W / 2 - 70)} ${n(page.y - 3)} m ${n(PAGE_W / 2 + 70)} ${n(page.y - 3)} l S`);
   ink(page.ops);
-  page.y = barTop - 28;
+  page.y -= 16;
   const partyTop = page.y;
   const leftBottom = paintBuyer(page, model, partyTop);
-  const rightBottom = paintInvoiceMeta(page, model, partyTop);
-  page.y = Math.min(leftBottom, rightBottom) - 10;
+  paintInvoiceMeta(page, model, partyTop, leftBottom);
+  page.y = leftBottom - 10;
 }
 
 function paintBuyer(page: Page, model: TradePdfModel, top: number) {
-  const width = CONTENT_W * 0.54;
-  let y = top;
-  text(page.ops, "BILL TO", MARGIN, y, 8, "left");
-  y -= 13;
-  y = block(page.ops, dash(model.buyer.name), MARGIN, y, 9, width, "left") - 2;
-  y = block(page.ops, dash(model.buyer.address), MARGIN, y, 8, width, "left") - 2;
-  if (model.buyer.vat) y = block(page.ops, `VAT  ${model.buyer.vat}`, MARGIN, y, 8, width, "left") - 2;
-  if (model.kind !== "proforma" && model.buyer.phone) y = block(page.ops, `Tel  ${model.buyer.phone}`, MARGIN, y, 8, width, "left") - 2;
-  if (model.kind !== "proforma" && model.buyer.email) y = block(page.ops, model.buyer.email, MARGIN, y, 8, width, "left") - 2;
-  return y;
+  const rows: Array<[string, string]> = [
+    ["BILL TO", dash(model.buyer.name)],
+    ["ADDRESS", dash(model.buyer.address)],
+    ["Registration number", dash(model.buyer.vat)],
+  ];
+  return paintPairTable(page, rows, MARGIN, top, 110, 250);
 }
 
-function paintInvoiceMeta(page: Page, model: TradePdfModel, top: number) {
+function paintInvoiceMeta(page: Page, model: TradePdfModel, top: number, bottom: number) {
   const rows: Array<[string, string]> = [
     ["DATE", dash(model.date)],
     ["INVOICE NO#", dash(model.invoiceNumber)],
   ];
-  if (model.printReference) rows.push(["REFERENCE", model.printReference]);
-  const boxW = 230;
-  const x = PAGE_W - MARGIN - boxW;
+  const height = rows.length * 18;
+  const block = bottom - top;
+  const y = top - Math.max(0, (block - height) / 2);
+  paintPairTable(page, rows, PAGE_W - MARGIN - 210, y, 90, 120);
+}
+
+function paintPairTable(page: Page, rows: Array<[string, string]>, x: number, top: number, labelW: number, valueW: number) {
   let y = top;
   for (const [label, value] of rows) {
-    page.ops.push(`${INK} RG`, `0.7 w ${n(x)} ${n(y - 16)} ${n(boxW)} 16 re S`);
+    const height = 18;
+    page.ops.push(`${INK} RG`, `0.6 w ${n(x)} ${n(y - height)} ${n(labelW + valueW)} ${n(height)} re S`);
+    page.ops.push(`${n(x + labelW)} ${n(y)} m ${n(x + labelW)} ${n(y - height)} l S`);
     ink(page.ops);
-    text(page.ops, label, x + 6, y - 11, 8, "left");
-    text(page.ops, value, x + boxW - 6, y - 11, 8, "right");
-    y -= 16;
+    text(page.ops, label, x + labelW / 2, y - 12, 8, "center");
+    text(page.ops, value, x + labelW + valueW / 2, y - 12, 8, "center");
+    y -= height;
   }
   return y;
 }
@@ -204,8 +204,8 @@ function paintItems(cursor: { page: Page }, model: ProformaPdf | CommercialPdf, 
   header();
   model.lines.forEach((line, index) => {
     const size = 8;
-    const lines = Math.max(1, tradeLineCount(line.description, size, columns[1].w - 12));
-    const height = tradeRowHeight(lines, size);
+    const lines = Math.max(1, tradeLineCount(line.description, size, columns[1].w - 8));
+    const height = tightHeight(lines, size);
     if (cursor.page.y - height < BOTTOM + 8) {
       fresh();
       header();
@@ -215,7 +215,8 @@ function paintItems(cursor: { page: Page }, model: ProformaPdf | CommercialPdf, 
     const base = rowBaseline(top, height, size, lines);
     boxRow(page.ops, top, height, columns.map((column) => column.w));
     text(page.ops, String(index + 1), columns[0].x + columns[0].w / 2, base, size, "center");
-    block(page.ops, line.description, columns[1].x + 6, base, size, columns[1].w - 12, "left");
+    paintTradeCenteredBlock(page.ops, line.description || "—", columns[1].x + columns[1].w / 2, base, size, columns[1].w - 8);
+    ink(page.ops);
     text(page.ops, line.unit || "—", columns[2].x + columns[2].w / 2, base, size, "center");
     text(page.ops, String(line.quantity), columns[3].x + columns[3].w / 2, base, size, "center");
     text(page.ops, money(line.unitPriceMinor), columns[4].x + columns[4].w / 2, base, size, "center");
@@ -230,13 +231,15 @@ function paintItems(cursor: { page: Page }, model: ProformaPdf | CommercialPdf, 
     totals.push([model.shippingMethod.toUpperCase().includes("C&F") || model.shippingMethod.toUpperCase().includes("CFR") ? "TOTAL C&F / CFR" : "TOTAL CFR", model.fobMinor + model.freightMinor]);
   }
   for (const [label, amount] of totals) {
-    if (cursor.page.y < BOTTOM + 22) fresh();
+    if (cursor.page.y < BOTTOM + 18) fresh();
     page = cursor.page;
-    const height = tradeRowHeight(1, 9);
+    const height = 16;
     const top = page.y;
-    boxRow(page.ops, top, height, [CONTENT_W - 120, 120]);
-    text(page.ops, label, MARGIN + CONTENT_W - 126, top - 15, 9, "right");
-    text(page.ops, money(amount), PAGE_W - MARGIN - 6, top - 15, 9, "right");
+    page.ops.push(`0.90 0.90 0.90 rg`, `${n(MARGIN)} ${n(top - height)} ${n(CONTENT_W)} ${n(height)} re f`);
+    ink(page.ops);
+    boxRow(page.ops, top, height, [CONTENT_W - 88, 88]);
+    text(page.ops, label, MARGIN + CONTENT_W - 96, top - 11, 8, "right");
+    text(page.ops, `$  ${money(amount)}`, PAGE_W - MARGIN - 6, top - 11, 8, "right");
     page.y = top - height;
   }
   if (model.kind === "commercial") {
@@ -295,27 +298,30 @@ function paintPacking(cursor: { page: Page }, model: PackingPdf, fresh: () => vo
 }
 
 function paintFooter(cursor: { page: Page }, model: TradePdfModel, fresh: () => void) {
-  const needed = 8 * tradeRowHeight(1, 8);
-  if (cursor.page.y < BOTTOM + needed) fresh();
-  cursor.page.y -= 8;
-  paintKvTable(cursor.page, [
-    ["ORIGIN OF GOODS", dash(model.origin)],
-    ["PORT OF LOADING", dash(model.portOfLoading)],
-    ["PORT OF DISCHARGE", dash(model.portOfDischarge)],
-    ["SHIPPING METHOD", dash(model.shippingMethod)],
-    ["PAYMENT TERM", dash(model.paymentTerm)],
-  ]);
+  const lines = [
+    `ORIGIN OF GOODS ${dash(model.origin)}`,
+    `PORT OF LOADING : ${dash(model.portOfLoading)}`,
+    `PORT OF DISCHARGE : ${dash(model.portOfDischarge)}`,
+    `SHIPPING METHOD : ${dash(model.shippingMethod)}`,
+    `PAYMENT TERM : ${dash(model.paymentTerm)}`,
+  ];
   if (model.kind !== "packing" && model.bank) {
-    cursor.page.y -= 8;
-    text(cursor.page.ops, "BANK DETAILS", MARGIN, cursor.page.y, 8, "left");
+    lines.push(
+      `ACCOUNT NAME : ${model.bank.accountName || "—"}`,
+      `ACCOUNT NUMBER (IBAN) : ${model.bank.iban || "—"}`,
+      `BANK NAME : ${model.bank.bankName || "—"}`,
+      `BANK ADDRESS : ${model.bank.bankAddress || "—"}`,
+      `SWIFT CODE : ${model.bank.swift || "—"}`,
+    );
+  }
+  if (model.kind === "commercial") {
+    lines.splice(4, 0, `GROSS ${kg(model.grossGrams)} KG    NET ${kg(model.netGrams)} KG    PACKAGES ${model.packages}`);
+  }
+  if (cursor.page.y < BOTTOM + lines.length * 12) fresh();
+  cursor.page.y -= 10;
+  for (const line of lines) {
+    text(cursor.page.ops, line, MARGIN, cursor.page.y, 8, "left");
     cursor.page.y -= 12;
-    paintKvTable(cursor.page, [
-      ["ACCOUNT NAME", model.bank.accountName || "—"],
-      ["ACCOUNT NUMBER (IBAN)", model.bank.iban || "—"],
-      ["BANK NAME", model.bank.bankName || "—"],
-      ["BANK ADDRESS", model.bank.bankAddress || "—"],
-      ["SWIFT CODE", model.bank.swift || "—"],
-    ]);
   }
 }
 
@@ -345,13 +351,17 @@ function paintPlacedStamp(page: Page, model: TradePdfModel, images: ImageObj[]) 
 function paintTableHeader(page: Page, labels: string[]) {
   const columns = labels.length === 6 ? itemColumns() : packingColumns();
   const widths = columns.map((column) => column.w);
-  page.ops.push(`${HEAD} rg`, `${n(MARGIN)} ${n(page.y - 18)} ${n(CONTENT_W)} 18 re f`);
-  page.ops.push("1 1 1 rg", "1 1 1 RG");
+  page.ops.push(`0.90 0.90 0.90 rg`, `${n(MARGIN)} ${n(page.y - 16)} ${n(CONTENT_W)} 16 re f`);
+  ink(page.ops);
   labels.forEach((label, index) => {
-    paintTradeLine(page.ops, label, columns[index].x + columns[index].w / 2, page.y - 13, 6.5, "center");
+    paintTradeLine(page.ops, label, columns[index].x + columns[index].w / 2, page.y - 11, 7, "center");
   });
-  boxRow(page.ops, page.y, 18, widths);
-  page.y -= 18;
+  boxRow(page.ops, page.y, 16, widths);
+  page.y -= 16;
+}
+
+function tightHeight(lines: number, size: number) {
+  return 6 + Math.max(1, lines) * (size + 1.4);
 }
 
 function rowBaseline(top: number, height: number, size: number, lines: number) {
@@ -360,7 +370,7 @@ function rowBaseline(top: number, height: number, size: number, lines: number) {
 }
 
 function itemColumns() {
-  const widths = [28, 247.28, 52, 46, 78, 88];
+  const widths = [28, 301.28, 46, 42, 56, 66];
   return columns(widths, ["NO", "DESCRIPTION", "UNIT", "QTY", "PRICE", "AMOUNT"]);
 }
 
@@ -382,9 +392,11 @@ function stampPages(pages: Page[], draft: boolean, clientCode: string) {
   const total = pages.length;
   pages.forEach((page, index) => {
     const label = `Page ${index + 1} of ${total}`;
-    page.ops.push(`${INK} RG`, `0.6 w ${n(MARGIN)} 36 m ${n(PAGE_W - MARGIN)} 36 l S`);
-    if (clientCode.trim()) text(page.ops, `CLIENT CODE  ${clientCode.trim()}`, MARGIN, 24, 8, "left");
-    text(page.ops, label, PAGE_W - MARGIN, 24, 8, "right");
+    if (clientCode.trim()) text(page.ops, clientCode.trim(), PAGE_W / 2, 22, 8, "center");
+    if (total > 1) {
+      page.ops.push(`${INK} RG`, `0.6 w ${n(MARGIN)} 36 m ${n(PAGE_W - MARGIN)} 36 l S`);
+      text(page.ops, label, PAGE_W - MARGIN, 24, 8, "right");
+    }
     if (draft) {
       page.ops.push("q", "0.75 0.78 0.82 rg", "0.75 0.78 0.82 RG", `q 0.866 -0.5 0.5 0.866 ${n(PAGE_W / 2 - 70)} ${n(PAGE_H / 2)} cm`);
       paintTradeLine(page.ops, "DRAFT", 0, 0, 28, "left");

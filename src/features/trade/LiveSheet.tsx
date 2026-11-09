@@ -146,44 +146,68 @@ export function LiveInvoiceView({
                   setHit((value) => value + 1);
                 } : undefined}
               >
-                <div className="absolute inset-[4.6%] flex flex-col gap-[1.4%] overflow-hidden text-[10px] leading-snug [overflow-wrap:anywhere]">
+                <div className="absolute inset-[5%] flex flex-col gap-2 overflow-hidden text-left text-[11px] leading-tight text-[#0f172a]" dir="ltr">
                   {pageIndex === 0 ? (
                     <>
                       <header className="text-center">
-                        <strong className="block text-sm text-[#0f172a]">{model.identity.nameEn || "Exporter"}</strong>
-                        {model.identity.nameAr ? <span className="block">{model.identity.nameAr}</span> : null}
-                        <p className="mt-1">{model.identity.address}</p>
-                        <p>Tel {model.identity.phone || "—"} · {model.identity.email || "—"}</p>
-                        <p>TAX CARD {model.identity.taxCard || "—"} · TAX FILE {model.identity.taxFile || "—"} · CR {model.identity.commercialRegistry || "—"}</p>
+                        <strong className="block text-[15px] tracking-wide">{model.identity.nameEn || "Exporter"}</strong>
+                        <p className="mt-1 text-[10px]">FACTORY ADDRESS : {model.identity.address}</p>
+                        <p className="text-[10px]">MOBILE: {model.identity.phone || "—"} &nbsp;&nbsp; E-MAIL: {model.identity.email || "—"}</p>
+                        <p className="text-[9px]">TAX CARD : {model.identity.taxCard || "—"} &nbsp; TAX FILE : {model.identity.taxFile || "—"} &nbsp; COMMERCIAL REGISTRY : {model.identity.commercialRegistry || "—"}</p>
+                        <div className="mx-auto mt-1 h-px w-full bg-[#0f172a]" />
+                        <p className="mt-2 text-sm font-bold underline">{model.title}{model.draft ? " - DRAFT" : ""}</p>
                       </header>
-                      <div className="bg-[#1e293b] py-1 text-center text-xs font-semibold tracking-wide text-white">{model.title}{model.draft ? " · DRAFT" : ""}</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="text-left">
-                          <p className="font-semibold">BILL TO</p>
-                          {model.buyer.map((row) => <p key={row.label}><span className="font-medium">{row.label}</span> {row.value || "—"}</p>)}
-                        </div>
-                        <Kv rows={model.meta} />
+                      <div className="flex items-center justify-between gap-3">
+                        <table className="w-[62%] border-collapse text-center text-[10px]">
+                          <tbody>
+                            {model.buyer.map((row) => (
+                              <tr key={row.label}>
+                                <th className="w-[36%] border border-[#0f172a] px-1 py-1 font-semibold">{row.label}</th>
+                                <td className="border border-[#0f172a] px-1 py-1">{row.value || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <table className="w-[34%] border-collapse text-center text-[10px]">
+                          <tbody>
+                            {model.meta.map((row) => (
+                              <tr key={row.label}>
+                                <th className="border border-[#0f172a] px-1 py-1 font-semibold">{row.label}</th>
+                                <td className="border border-[#0f172a] px-1 py-1">{row.value || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </>
                   ) : null}
-                  <table className="w-full border-collapse text-center text-[10px] text-[#0f172a]">
-                    <thead className="bg-[#1e293b] text-white">
-                      <tr>{model.columns.map((column) => <th key={column} className="border border-[#0f172a] px-1 py-1 align-middle font-medium">{column}</th>)}</tr>
+                  <table className="w-full border-collapse text-center text-[10px]">
+                    <thead className="bg-[#e5e7eb]">
+                      <tr>{model.columns.map((column) => <th key={column} className="border border-[#0f172a] px-1 py-1 align-middle font-semibold">{column}</th>)}</tr>
                     </thead>
                     <tbody>
                       {page.lines.map((line, index) => (
-                        <tr key={index}>{line.cells.map((cell, cellIndex) => <td key={cellIndex} className={`border border-[#0f172a] px-1 py-1 align-middle [overflow-wrap:anywhere] ${cellIndex === 1 ? "text-left" : "text-center"}`}>{cell}</td>)}</tr>
+                        <tr key={index}>
+                          {line.cells.map((cell, cellIndex) => (
+                            <td key={cellIndex} className="border border-[#0f172a] px-1 py-1 align-middle whitespace-pre-line">{cell}</td>
+                          ))}
+                        </tr>
                       ))}
+                      {page.showTail ? model.totals.map((row) => (
+                        <tr key={row.label} className="bg-[#e5e7eb] font-semibold">
+                          <td className="border border-[#0f172a] px-1 py-1 text-right" colSpan={Math.max(1, model.columns.length - 1)}>{row.label}</td>
+                          <td className="border border-[#0f172a] px-1 py-1 text-right">{row.value}</td>
+                        </tr>
+                      )) : null}
                     </tbody>
                   </table>
                   {page.showTail ? (
-                    <>
-                      <Kv rows={model.totals} />
-                      <Kv rows={model.facts} />
-                      {model.bank.length ? <><p className="text-center text-[10px] font-semibold">BANK DETAILS</p><Kv rows={model.bank} /></> : null}
-                    </>
+                    <div className="space-y-0.5 text-[10px] leading-4">
+                      {model.facts.map((row) => <p key={row.label}>{row.label}{row.label.includes("ORIGIN") ? " " : " : "}{row.value || "—"}</p>)}
+                      {model.bank.map((row) => <p key={row.label}>{row.label} : {row.value || "—"}</p>)}
+                    </div>
                   ) : null}
-                  <p className="mt-auto text-[10px] text-[#0f172a]">CLIENT CODE {model.clientCode || "—"}</p>
+                  <p className="mt-auto text-center text-[11px]">{model.clientCode}</p>
                 </div>
                 {pageIndex === 0 && arm && ghost && preview.data ? <StampImage src={preview.data} xRatio={ghost.xRatio} yRatio={ghost.yRatio} width={stampWidth} rotation={stamp.rotation} faint /> : null}
                 {pageIndex === 0 && stamp.stamped && preview.data ? (
@@ -214,31 +238,15 @@ export function LiveInvoiceView({
 }
 
 function paginate(model: LiveSheetModel) {
-  const first = 5;
-  const next = 12;
+  const limit = 18;
+  if (model.lines.length <= limit) return [{ lines: model.lines, showTail: true }];
   const pages: Array<{ lines: LiveLine[]; showTail: boolean }> = [];
-  if (model.lines.length <= first) return [{ lines: model.lines, showTail: true }];
-  pages.push({ lines: model.lines.slice(0, first), showTail: false });
-  for (let index = first; index < model.lines.length; index += next) {
-    const slice = model.lines.slice(index, index + next);
-    pages.push({ lines: slice, showTail: index + next >= model.lines.length });
+  pages.push({ lines: model.lines.slice(0, limit), showTail: false });
+  for (let index = limit; index < model.lines.length; index += limit) {
+    const slice = model.lines.slice(index, index + limit);
+    pages.push({ lines: slice, showTail: index + limit >= model.lines.length });
   }
   return pages;
-}
-
-function Kv({ rows }: { rows: LiveRow[] }) {
-  return (
-    <table className="w-full border-collapse text-[10px]">
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.label}>
-            <th className="w-[42%] border border-[#0f172a] px-1 py-1 text-left align-middle font-medium text-[#0f172a]">{row.label}</th>
-            <td className="border border-[#0f172a] px-1 py-1 text-left align-middle text-[#0f172a] [overflow-wrap:anywhere]">{row.value || "—"}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
 }
 
 function StampImage({
