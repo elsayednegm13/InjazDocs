@@ -28,6 +28,8 @@ const TrackPage = lazy(() => import("@/features/track/TrackPage").then((m) => ({
 const NewQuotationPage = lazy(() => import("@/features/quotations/QuotationForms").then((m) => ({ default: m.NewQuotationPage })));
 const QuotationEditPage = lazy(() => import("@/features/quotations/QuotationForms").then((m) => ({ default: m.QuotationEditPage })));
 const QuotationDetailPage = lazy(() => import("@/features/quotations/QuotationDetailPage").then((m) => ({ default: m.QuotationDetailPage })));
+const ProformaListPage = lazy(() => import("@/features/trade/ProformaPages").then((m) => ({ default: m.ProformaListPage })));
+const ProformaEditorPage = lazy(() => import("@/features/trade/ProformaPages").then((m) => ({ default: m.ProformaEditorPage })));
 const QuotationsListPage = lazy(() => import("@/features/quotations/QuotationListPage").then((m) => ({ default: m.QuotationsListPage })));
 
 function RequireSession() {
@@ -73,6 +75,9 @@ export function AppRouter() {
           <Route path="/bookings" element={<LazyPage><BookingsListPage /></LazyPage>} />
           <Route path="/bookings/:id" element={<LazyPage><BookingDetailPage /></LazyPage>} />
           <Route path="/quotations" element={<LazyPage><QuotationsListPage /></LazyPage>} />
+          <Route path="/proformas" element={<LazyPage><ProformaListPage /></LazyPage>} />
+          <Route path="/proformas/new" element={<LazyPage><ProformaEditorPage /></LazyPage>} />
+          <Route path="/proformas/:id" element={<LazyPage><ProformaEditorPage /></LazyPage>} />
           <Route path="/quotations/new" element={<LazyPage><NewQuotationPage /></LazyPage>} />
           <Route path="/quotations/:id" element={<LazyPage><QuotationDetailPage /></LazyPage>} />
           <Route path="/quotations/:id/edit" element={<LazyPage><QuotationEditPage /></LazyPage>} />

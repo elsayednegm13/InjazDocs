@@ -11,6 +11,7 @@ import { formatWhen, useCopy } from "@/lib/copy";
 import { isDefinitiveFailure, useIdempotencyKey, useSubmitLock } from "@/lib/idempotency";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { WhatsAppTemplateCard } from "@/features/admin/WhatsAppTemplateCard";
+import { TradeSettings } from "@/features/trade/TradeSettings";
 import { applyTheme } from "@/app/theme";
 import { useThemeName } from "@/app/use-theme";
 
@@ -245,6 +246,7 @@ export function SettingsPage() {
     ["rules", "reminderRules", "Reminder rules"],
     ["templates", "documentTemplates", "Document templates"],
     ["whatsapp", "whatsappMessages", "WhatsApp messages"],
+    ["trade", "tradeSettings", "Export documents"],
   ] as const;
   return (
     <div className="space-y-6" data-settings="ready" data-rules={rules.isLoading ? "loading" : "ready"}>
@@ -462,6 +464,7 @@ export function SettingsPage() {
         )}
       </SectionCard> : null}
       {tab === "whatsapp" ? <WhatsAppTemplateCard /> : null}
+      {tab === "trade" ? <TradeSettings /> : null}
     </div>
   );
 }

@@ -33,6 +33,7 @@ export function QuotationsListPage() {
           <p className="mt-0.5 text-sm text-ink-muted">{tx("quotationsHint", "Independent commercial quotations and proforma documents.")}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm"><Link to="/proformas">{tx("proformas", "Proforma invoices")}</Link></Button>
           {canExport ? (
             <Button asChild variant="outline" size="sm">
               <a href="/api/v1/quotations.csv">{tx("quotationDownloadCsv", "Download CSV")}</a>

@@ -857,6 +857,31 @@ function assemble(pages: string[][]): Uint8Array {
  * Render the quotation PDF as a pure function of the issued snapshot.
  * `draft: true` adds the unmistakable DRAFT watermark on every page.
  */
+/** Shared with the trade-document renderer. Does not change quotation output. */
+export function paintTradeLine(out: string[], text: string, x: number, y: number, size: number, align: "left" | "right" | "center") {
+  drawTextLine(out, text, { x, y, size, align });
+}
+
+export function tradeLineCount(text: string, size: number, maxWidth: number) {
+  const chunks = text.split(/\r?\n/).filter((line) => line.length > 0);
+  if (!chunks.length) return 1;
+  return chunks.reduce((count, chunk) => count + Math.max(1, wrapLines(chunk, size, maxWidth).length), 0);
+}
+
+export function paintTradeBlock(out: string[], text: string, x: number, y: number, size: number, maxWidth: number, align: "left" | "right") {
+  let cursor = y;
+  const chunks = text.split(/\r?\n/);
+  for (const chunk of chunks.length ? chunks : [""]) {
+    const lines = wrapLines(chunk || " ", size, maxWidth);
+    for (const line of lines.length ? lines : wrapLines(" ", size, maxWidth)) {
+      const left = align === "right" ? x - line.width : x;
+      drawTokens(out, line.tokens, left, cursor, size, line.rtl);
+      cursor -= size + 2;
+    }
+  }
+  return cursor;
+}
+
 export function renderQuotationPdf(snapshot: QuotationPdfSnapshot, opts: { draft: boolean }): Uint8Array {
   const writer = new PdfWriter();
   writer.startPage();

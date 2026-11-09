@@ -26,6 +26,7 @@ import { mountCaseRoutes } from "./routes/cases";
 import { mountFileRoutes } from "./routes/files";
 import { mountOperationRoutes, mountPublicTracking } from "./routes/operations";
 import { mountQuotationRoutes } from "./routes/quotations";
+import { mountTradeRoutes } from "./routes/trade-documents";
 import { mountReportRoutes } from "./routes/reports";
 import { mountUserRoutes } from "./routes/users";
 import type { AppDependencies, AppEnv } from "./types";
@@ -52,6 +53,9 @@ export function createApp(deps: AppDependencies = {}) {
       // W2 independent quotations (D-10): literal path verbs of the quotations
       // routes. Any other segment (an id) keeps mapping to ":id".
       "quotations", "items", "issue", "response", "revise", "link", "unlink", "copy-items", "archive", "pdf",
+      "proformas", "convert", "product-presets", "exporter-identity", "exporter-bank-accounts", "exporter-marks",
+      "packing-lines", "sync-totals", "reconciliation", "issue-trade", "lines", "trade-sheet", "trade-header",
+      "commercial-pdf", "packing-pdf", "customs-pdf",
       "bank", "presentation-check",
     ]);
     const pattern = new URL(c.req.url).pathname.split("/").map((part) => (part && !known.has(part) ? ":id" : part)).join("/");
@@ -314,6 +318,7 @@ export function createApp(deps: AppDependencies = {}) {
   mountUserRoutes(api, authFor, recovery);
   mountCaseRoutes(api);
   mountQuotationRoutes(api);
+  mountTradeRoutes(api);
   mountOperationRoutes(api);
   mountFileRoutes(api);
   mountReportRoutes(api);

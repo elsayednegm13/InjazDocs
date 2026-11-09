@@ -16,8 +16,10 @@ import { cn, formatMoney, gramsLabel } from "@/lib/utils";
 import { commercialInvoiceTotal, minorToDecimalString } from "@shared/money";
 
 import { formatWhen } from "./case-format";
+import { TradeBuilder } from "@/features/trade/TradeBuilder";
+import { Link } from "react-router";
 
-export function InvoicePanel({ invoices, caseStatus, caseId, onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; onDone?: () => void }) {
+export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; onDone?: () => void }) {
   const { tx } = useCopy();
   const user = useSession();
   const locked = caseStatus === "COMPLETED";
@@ -52,6 +54,7 @@ export function InvoicePanel({ invoices, caseStatus, caseId, onDone }: { invoice
           <AddInvoiceForm caseId={caseId} onDone={() => { setAdding(false); onDone?.(); }} />
         </FormDisclosure>
       ) : null}
+      {canEdit ? <p className="text-sm"><Link className="font-medium text-accent" to={`/proformas/new?caseId=${caseId}`}>{tx("proformaFromCase", "Create a proforma for this operation")}</Link></p> : null}
       {invoices.map((inv) => {
         const decimals = Number(inv.currency_decimals);
         const currency = String(inv.currency);
@@ -95,6 +98,19 @@ export function InvoicePanel({ invoices, caseStatus, caseId, onDone }: { invoice
             ) : null}
             <div className="border-t border-line px-4 py-3">
               <RevisionList invoiceId={String(inv.id)} />
+            </div>
+            <div className="border-t border-line px-4 py-3">
+              <TradeBuilder
+                invoiceId={String(inv.id)}
+                currency={currency}
+                canEdit={canEdit && (!locked || Number(inv.edit_open) === 1)}
+                containers={containers.map((item) => ({
+                  id: String(item.id),
+                  slot_index: Number(item.slot_index),
+                  official_number: item.official_number == null ? null : String(item.official_number),
+                  status: item.status == null ? undefined : String(item.status),
+                }))}
+              />
             </div>
             {(!locked && canEdit) || (locked && canCorrect && Number(inv.edit_open) === 1) ? (
               <div className="border-t border-line px-4 py-4">

@@ -42,6 +42,26 @@ export function createTestHarness(
     ...dependencies,
   });
   const base = "http://127.0.0.1:43199";
+  const storedObjects = new Map<string, Uint8Array>();
+  const documents = {
+    ...fakeDocuments,
+    async put(key: string, value: Uint8Array | ArrayBuffer) {
+      const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+      storedObjects.set(key, bytes);
+      return { key };
+    },
+    async get(key: string) {
+      const body = storedObjects.get(key);
+      if (!body) return null;
+      return {
+        arrayBuffer: async () => {
+          const copy = new Uint8Array(body.byteLength);
+          copy.set(body);
+          return copy.buffer;
+        },
+      };
+    },
+  };
   const env = {
     DB: audit.db,
     BETTER_AUTH_SECRET: "test-only-better-auth-secret-value",
@@ -51,7 +71,7 @@ export function createTestHarness(
     MAX_UPLOAD_BYTES: "419430400",
     UPLOAD_PART_SIZE_BYTES: "10485760",
     EXPORTFLOW_TEST_FAULTS: "1",
-    DOCUMENTS: fakeDocuments,
+    DOCUMENTS: documents,
   } as unknown as Env;
   const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
 
