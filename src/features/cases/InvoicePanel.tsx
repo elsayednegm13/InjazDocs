@@ -19,7 +19,7 @@ import { formatWhen } from "./case-format";
 import { TradeBuilder } from "@/features/trade/TradeBuilder";
 import { Link } from "react-router";
 
-export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; onDone?: () => void }) {
+export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], customerCode = "", onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; customerCode?: string; onDone?: () => void }) {
   const { tx } = useCopy();
   const user = useSession();
   const locked = caseStatus === "COMPLETED";
@@ -104,6 +104,7 @@ export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], on
                 invoiceId={String(inv.id)}
                 currency={currency}
                 canEdit={canEdit && (!locked || Number(inv.edit_open) === 1)}
+                customerCode={customerCode}
                 containers={containers.map((item) => ({
                   id: String(item.id),
                   slot_index: Number(item.slot_index),

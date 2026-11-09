@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
 import { downloadPdf, lineAmount, moneyMinor, moneyText, newKey, type BankAccount, type InvoiceDraftLine, type ProductPreset } from "./trade-model";
+import { CatalogDialog, CompanyDialog, PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
 
 type Proforma = {
   id: string;
@@ -74,7 +75,9 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
   const client = useQueryClient();
   const banks = useQuery({ queryKey: ["exporter-banks"], queryFn: async () => (await api<BankAccount[]>("/api/v1/settings/exporter-bank-accounts")).data });
   const presets = useQuery({ queryKey: ["product-presets"], queryFn: async () => (await api<ProductPreset[]>("/api/v1/product-presets")).data });
-  const customers = useQuery({ queryKey: ["customers", "proforma"], queryFn: async () => (await api<Array<{ id: string; legal_name: string }>>("/api/v1/customers?pageSize=100")).data });
+  const customers = useQuery({ queryKey: ["customers", "proforma"], queryFn: async () => (await api<Array<{ id: string; legal_name: string; customer_code: string | null }>>("/api/v1/customers?pageSize=100")).data });
+  const [companyOpen, setCompanyOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const [customerId, setCustomerId] = useState(initial?.customer_id ?? "");
   const [linkedCase, setLinkedCase] = useState(caseId);
   const [number, setNumber] = useState(initial?.invoice_number ?? "");
@@ -163,7 +166,12 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
       <PageHeader title={tx("proformaTitle", "Proforma invoice")} subtitle={reference || number || tx("proformaNew", "New proforma")} />
       <div className="grid gap-3 rounded-card border border-line bg-card p-3 shadow-card md:grid-cols-2">
         <Field label={tx("customer", "Customer")}>
-          <Select value={customerId} disabled={issued} onChange={(event) => setCustomerId(event.target.value)}>
+          <Select value={customerId} disabled={issued} onChange={(event) => {
+            const next = event.target.value;
+            setCustomerId(next);
+            const code = (customers.data ?? []).find((customer) => customer.id === next)?.customer_code ?? "";
+            if (!reference || reference === (customers.data ?? []).find((customer) => customer.id === customerId)?.customer_code) setReference(code ?? "");
+          }}>
             <option value="">{tx("tradeChooseCustomer", "Choose a customer")}</option>
             {(customers.data ?? []).map((customer) => <option key={customer.id} value={customer.id}>{customer.legal_name}</option>)}
           </Select>
@@ -178,7 +186,7 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
             {["TT", "LC", "DP", "DA", "OTHER"].map((code) => <option key={code}>{code}</option>)}
           </Select>
         </Field>
-        <Field label={tx("paymentTermLabel", "Payment term text")}><Input value={paymentLabel} disabled={issued} onChange={(event) => setPaymentLabel(event.target.value)} /></Field>
+        <PaymentTermField value={paymentLabel} disabled={issued} onChange={setPaymentLabel} />
         <Field label={tx("shippingMethod", "Shipping method")}>
           <Select value={shipping} disabled={issued} onChange={(event) => setShipping(event.target.value)}><option>CFR</option><option>C&F</option><option>FOB</option></Select>
         </Field>
@@ -189,16 +197,20 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
             {(banks.data ?? []).map((bank) => <option key={bank.id} value={bank.id}>{bank.account_name}</option>)}
           </Select>
         </Field>
-        <Field label={tx("tradeInsertPreset", "Insert from catalog")}>
-          <Select value="" disabled={issued} onChange={(event) => {
-            const preset = (presets.data ?? []).find((item) => item.id === event.target.value);
-            if (!preset) return;
-            setLines((current) => [...current, { key: newKey(), description: preset.description_template, hsCode: preset.hs_code ?? "", barcode: preset.barcode ?? "", unit: preset.unit_label ?? "PCS", quantity: "1", price: moneyText(preset.default_price_minor) }]);
-          }}>
-            <option value="">{tx("tradeChoosePreset", "Choose an item")}</option>
-            {(presets.data ?? []).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
-          </Select>
-        </Field>
+        <div className="flex flex-wrap items-end gap-2 md:col-span-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => setCompanyOpen(true)}>{tx("tradeCompanyDialog", "Company and bank")}</Button>
+          <Field label={tx("tradeInsertPreset", "Insert from catalog")}>
+            <Select value="" disabled={issued} onChange={(event) => {
+              const preset = (presets.data ?? []).find((item) => item.id === event.target.value);
+              if (!preset) return;
+              setLines((current) => [...current, { key: newKey(), description: preset.description_template, hsCode: preset.hs_code ?? "", barcode: preset.barcode ?? "", unit: preset.unit_label ?? "PCS", quantity: "1", price: moneyText(preset.default_price_minor) }]);
+            }}>
+              <option value="">{tx("tradeChoosePreset", "Choose an item")}</option>
+              {(presets.data ?? []).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+            </Select>
+          </Field>
+          <Button type="button" size="sm" variant="outline" disabled={issued} onClick={() => setCatalogOpen(true)}>{tx("tradeManageCatalog", "Manage catalog")}</Button>
+        </div>
         {lines.map((line) => (
           <div key={line.key} className="grid gap-2 md:col-span-2 md:grid-cols-6">
             <div className="md:col-span-2"><Field label={tx("description", "Description")}><Textarea className="min-h-16" value={line.description} disabled={issued} onChange={(event) => setLines((current) => current.map((item) => item.key === line.key ? { ...item, description: event.target.value } : item))} /></Field></div>
@@ -206,6 +218,7 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
             <Field label={tx("quantity", "Quantity")}><Input dir="ltr" value={line.quantity} disabled={issued} onChange={(event) => setLines((current) => current.map((item) => item.key === line.key ? { ...item, quantity: event.target.value } : item))} /></Field>
             <Field label={tx("price", "Price")}><Input dir="ltr" value={line.price} disabled={issued} onChange={(event) => setLines((current) => current.map((item) => item.key === line.key ? { ...item, price: event.target.value } : item))} /></Field>
             <Field label={tx("amount", "Amount")}><Input dir="ltr" readOnly value={moneyText(lineAmount(line, "USD"))} /></Field>
+            <div className="flex items-end"><Button type="button" size="sm" variant="outline" disabled={issued || !line.description.trim()} onClick={() => void saveLineToCatalog(line).then(() => { notifySuccess(tx("tradePresetSaved", "Catalog item saved")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("tradeSaveLineCatalog", "Save to catalog")}</Button></div>
           </div>
         ))}
         <p className="text-sm font-medium text-ink md:col-span-2" dir="ltr">TOTAL FOB {moneyText(fob)} + SEA FREIGHT {moneyText(freightMinor)} = {shipping === "FOB" ? "TOTAL FOB" : "TOTAL CFR / C&F"} {moneyText(shipping === "FOB" ? fob : fob + freightMinor)}</p>
@@ -216,6 +229,8 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
           {initial?.id ? <Button type="button" size="sm" variant="outline" disabled={busy || !linkedCase} onClick={() => void convert()}>{tx("proformaConvert", "Convert to commercial invoice")}</Button> : null}
         </div>
       </div>
+      <CompanyDialog open={companyOpen} onClose={() => setCompanyOpen(false)} />
+      <CatalogDialog open={catalogOpen} onClose={() => setCatalogOpen(false)} />
     </div>
   );
 }

@@ -218,4 +218,41 @@ describe("trade document rules", () => {
     expect(response.status).toBe(200);
     expect(response.text).not.toContain("EG999SECRETIBAN");
   });
+
+  it("seeds the company profile and keeps a customer code with a custom payment label", async () => {
+    const audit = fresh();
+    const harness = createTestHarness(audit);
+    audit.sqlite.prepare("UPDATE customers SET customer_code = 'EX-116' WHERE id = 'customer-1'").run();
+    seedCaseInvoice(audit);
+    const identity = await harness.request({ path: "/api/v1/settings/exporter-identity" });
+    expect(identity.status).toBe(200);
+    expect(identity.json?.data).toMatchObject({ name_en: "NANA SECRET COMPANY", tax_card: "535-629-524" });
+    const banks = await harness.request({ path: "/api/v1/settings/exporter-bank-accounts" });
+    expect(banks.json?.data?.[0]).toMatchObject({ iban: "EG310002017401740120000000966", swift_code: "BMISEGCXXXX" });
+    const presets = await harness.request({ path: "/api/v1/product-presets" });
+    expect(presets.json?.data).toHaveLength(7);
+    const created = await harness.request({
+      method: "POST",
+      path: "/api/v1/proformas",
+      body: {
+        customerId: "customer-1",
+        invoiceNumber: "PI-REF",
+        invoiceDate: "2026-11-09",
+        paymentTermCode: "TT",
+        paymentTermLabel: "30% ADVANCE, 70% AGAINST DOCUMENTS",
+        incoterm: "FOB",
+        lines: [{ description: "بطانية", unit: "Piece", quantity: 1, unitPriceMinor: 100 }],
+      },
+    });
+    expect(created.status).toBe(201);
+    expect(created.json?.data).toMatchObject({ print_reference: "EX-116", payment_term_label: "30% ADVANCE, 70% AGAINST DOCUMENTS" });
+    const header = await harness.request({
+      method: "PUT",
+      path: "/api/v1/invoices/invoice-trade/trade-header",
+      body: { paymentTermLabel: "30% ADVANCE, 70% AGAINST DOCUMENTS", printReference: "EX-01", shippingMethodLabel: "CFR", originOfGoods: "EGYPT", seaFreightMinor: 0 },
+    });
+    expect(header.status).toBe(200);
+    const sheet = await harness.request({ path: "/api/v1/invoices/invoice-trade/trade-sheet" });
+    expect(sheet.json?.data?.header).toMatchObject({ print_reference: "EX-01", payment_term_label: "30% ADVANCE, 70% AGAINST DOCUMENTS" });
+  });
 });

@@ -28,6 +28,7 @@ const MIGRATIONS = [
   "0021_document_version_archive.sql",
   "0022_customer_revision_lock.sql",
   "0023_trade_documents.sql",
+  "0024_invoice_print_reference.sql",
 ];
 
 export type AuditDatabase = {
@@ -39,7 +40,7 @@ export type AuditDatabase = {
 };
 
 export function createAuditDatabase(options: { upTo?: string; seed?: boolean } = {}): AuditDatabase {
-  const upTo = options.upTo ?? "0023";
+  const upTo = options.upTo ?? "0024";
   const dir = mkdtempSync(path.join(os.tmpdir(), "et-20261021-"));
   const temporaryRoot = path.resolve(os.tmpdir()).toLowerCase();
   if (!path.resolve(dir).toLowerCase().startsWith(`${temporaryRoot}${path.sep}`)) {

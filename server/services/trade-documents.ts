@@ -4,6 +4,7 @@ import { errors } from "../http/errors";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requireAny, requirePermission } from "./actor";
 import { assertSchemaReady } from "./schema";
+import { ensureTradeDefaults } from "./trade-defaults";
 import { storeIssuedProformaPdf, storeIssuedTradePdfs } from "./trade-document-files";
 
 const TERMS = new Set(["TT", "LC", "DP", "DA", "OTHER"]);
@@ -24,6 +25,7 @@ type InvoiceHead = {
   origin_of_goods: string | null;
   exporter_bank_account_id: string | null;
   goods_value_minor: number;
+  print_reference: string | null;
   incoterm: string;
 };
 
@@ -56,6 +58,7 @@ type ProformaLineInput = {
 
 async function ready(db: D1Database) {
   await assertSchemaReady(db, "trade");
+  await ensureTradeDefaults(db);
 }
 
 function text(value: unknown, field: string, max: number, required = false) {
@@ -93,7 +96,7 @@ async function invoiceHead(db: D1Database, actor: Actor, invoiceId: string) {
     db,
     `SELECT id, case_id, customer_id, invoiced_freight_minor, packages_count, gross_weight_grams, net_weight_grams,
             trade_status, trade_revision, payment_term_code, payment_term_label, shipping_method_label, origin_of_goods,
-            exporter_bank_account_id, goods_value_minor, incoterm
+            exporter_bank_account_id, goods_value_minor, print_reference, incoterm
      FROM export_invoices WHERE id = ?`,
     invoiceId,
   );
@@ -484,6 +487,11 @@ export async function createProforma(db: D1Database, actor: Actor, input: Record
   const now = nowIso();
   const id = newId();
   const number = text(input.invoiceNumber, "invoiceNumber", 40, true);
+  let printReference = text(input.printReference, "printReference", 40);
+  if (!printReference && customerId) {
+    const coded = await one<{ customer_code: string | null }>(db, "SELECT customer_code FROM customers WHERE id = ?", customerId);
+    printReference = coded?.customer_code ?? null;
+  }
   await db.batch([
     db
       .prepare(
@@ -498,13 +506,13 @@ export async function createProforma(db: D1Database, actor: Actor, input: Record
         customerId,
         caseId,
         number,
-        text(input.printReference, "printReference", 40),
+        printReference,
         text(input.invoiceDate, "invoiceDate", 40, true),
         text(input.originOfGoods, "originOfGoods", 80) ?? "EGYPT",
         text(input.portOfLoading, "portOfLoading", 80),
         text(input.portOfDischarge, "portOfDischarge", 80),
         term(input.paymentTermCode),
-        text(input.paymentTermLabel, "paymentTermLabel", 120),
+        text(input.paymentTermLabel, "paymentTermLabel", 200),
         incoterm(input.incoterm),
         text(input.shippingMethodLabel, "shippingMethodLabel", 40),
         text(input.exporterBankAccountId, "exporterBankAccountId", 80),
@@ -567,7 +575,7 @@ export async function updateProforma(db: D1Database, actor: Actor, id: string, i
         text(input.portOfLoading, "portOfLoading", 80),
         text(input.portOfDischarge, "portOfDischarge", 80),
         term(input.paymentTermCode),
-        text(input.paymentTermLabel, "paymentTermLabel", 120),
+        text(input.paymentTermLabel, "paymentTermLabel", 200),
         incoterm(input.incoterm),
         text(input.shippingMethodLabel, "shippingMethodLabel", 40),
         text(input.exporterBankAccountId, "exporterBankAccountId", 80),
@@ -748,14 +756,15 @@ export async function saveTradeHeader(db: D1Database, actor: Actor, invoiceId: s
     .prepare(
       `UPDATE export_invoices
        SET payment_term_label = ?, shipping_method_label = ?, origin_of_goods = ?, exporter_bank_account_id = ?,
-           invoiced_freight_minor = ?, invoice_total_minor = ?, version = version + 1, updated_at = ?
+           print_reference = ?, invoiced_freight_minor = ?, invoice_total_minor = ?, version = version + 1, updated_at = ?
        WHERE id = ?`,
     )
     .bind(
-      text(input.paymentTermLabel, "paymentTermLabel", 120),
+      text(input.paymentTermLabel, "paymentTermLabel", 200),
       text(input.shippingMethodLabel, "shippingMethodLabel", 40),
       text(input.originOfGoods, "originOfGoods", 80),
       text(input.exporterBankAccountId, "exporterBankAccountId", 80),
+      text(input.printReference, "printReference", 40),
       freight,
       Number(goods?.goods_value_minor ?? 0) + freight,
       nowIso(),

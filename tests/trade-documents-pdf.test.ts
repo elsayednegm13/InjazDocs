@@ -137,5 +137,27 @@ describe("trade document pdf", () => {
     expect(download.text.startsWith("%PDF-")).toBe(true);
     expect(download.text).toContain("/Count 2");
     expect(download.text).toContain("(Page)");
+    expect(download.text).toContain("0.06 0.09 0.16 rg");
+    expect(download.text).toContain("re S");
+    expect(download.text).toContain("NANA");
+    expect(download.text).toContain("BMISEGCXXXX");
+    expect(download.text).not.toContain("0.93 0.94 0.96 rg");
+  });
+
+  it("draws Arabic buyer and item text in dark ink with a boxed grid", async () => {
+    const arabic: ProformaPdf = {
+      ...base(false),
+      kind: "proforma",
+      incoterm: "FOB",
+      fobMinor: 300,
+      freightMinor: 0,
+      buyer: { name: "عميل التصدير", address: "جدة", vat: "", phone: "", email: "" },
+      lines: [{ description: "بطانية تصدير\n100% POLYESTER", unit: "Piece", quantity: 2, unitPriceMinor: 150, lineTotalMinor: 300 }],
+    };
+    const pdf = textOf(await renderTradePdf(arabic));
+    expect(pdf).toContain("0.06 0.09 0.16 rg");
+    expect(pdf).toContain("re S");
+    expect(pdf).toContain(" f");
+    expect(pdf).not.toContain("0.93 0.94 0.96 rg");
   });
 });

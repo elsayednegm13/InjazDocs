@@ -20,6 +20,7 @@ import {
   type PackingDraftLine,
   type ProductPreset,
 } from "./trade-model";
+import { CatalogDialog, CompanyDialog, PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
 
 type SheetLine = {
   description: string;
@@ -52,6 +53,7 @@ type Sheet = {
     gross_weight_grams: number;
     net_weight_grams: number;
     currency: string;
+    print_reference: string | null;
   };
   lines: SheetLine[];
   packing: SheetPack[];
@@ -62,11 +64,13 @@ export function TradeBuilder({
   currency,
   containers,
   canEdit,
+  customerCode = "",
 }: {
   invoiceId: string;
   currency: string;
   containers: Array<{ id: string; slot_index?: number; official_number?: string | null; status?: string }>;
   canEdit: boolean;
+  customerCode?: string;
 }) {
   const { tx } = useCopy();
   const client = useQueryClient();
@@ -80,6 +84,9 @@ export function TradeBuilder({
   const [lines, setLines] = useState<InvoiceDraftLine[]>([]);
   const [packing, setPacking] = useState<PackingDraftLine[]>([]);
   const [paymentLabel, setPaymentLabel] = useState("");
+  const [reference, setReference] = useState("");
+  const [companyOpen, setCompanyOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const [shippingLabel, setShippingLabel] = useState("CFR");
   const [origin, setOrigin] = useState("EGYPT");
   const [bankId, setBankId] = useState("");
@@ -98,6 +105,7 @@ export function TradeBuilder({
     setLines(data.lines.length ? data.lines.map(toInvoiceLine) : [blankInvoiceLine()]);
     setPacking(data.packing.length ? data.packing.map(toPackingLine) : [blankPackingLine()]);
     setPaymentLabel(data.header.payment_term_label ?? "");
+    setReference(data.header.print_reference || customerCode);
     setShippingLabel(data.header.shipping_method_label ?? "CFR");
     setOrigin(data.header.origin_of_goods ?? "EGYPT");
     setBankId(data.header.exporter_bank_account_id ?? "");
@@ -106,7 +114,7 @@ export function TradeBuilder({
     setGross(Number(data.header.gross_weight_grams ?? 0));
     setNet(Number(data.header.net_weight_grams ?? 0));
     setReady(true);
-  }, [sheet.data, ready, currency]);
+  }, [sheet.data, ready, currency, customerCode]);
 
   const summary = useMemo(
     () => liveReconciliation({ lines, packing, packages, grossGrams: gross, netGrams: net, currency }),
@@ -132,6 +140,7 @@ export function TradeBuilder({
           originOfGoods: origin,
           exporterBankAccountId: bankId || null,
           seaFreightMinor: freightMinor,
+          printReference: reference,
         }),
       });
       await api(`/api/v1/invoices/${invoiceId}/lines`, { method: "PUT", body: JSON.stringify({ lines: lines.map(serializeInvoice) }) });
@@ -184,7 +193,7 @@ export function TradeBuilder({
   async function saveQuiet() {
     await api(`/api/v1/invoices/${invoiceId}/trade-header`, {
       method: "PUT",
-      body: JSON.stringify({ paymentTermLabel: paymentLabel, shippingMethodLabel: shippingLabel, originOfGoods: origin, exporterBankAccountId: bankId || null, seaFreightMinor: freightMinor }),
+      body: JSON.stringify({ paymentTermLabel: paymentLabel, shippingMethodLabel: shippingLabel, originOfGoods: origin, exporterBankAccountId: bankId || null, seaFreightMinor: freightMinor, printReference: reference }),
     });
     await api(`/api/v1/invoices/${invoiceId}/lines`, { method: "PUT", body: JSON.stringify({ lines: lines.map(serializeInvoice) }) });
     await api(`/api/v1/invoices/${invoiceId}/packing-lines`, { method: "PUT", body: JSON.stringify({ lines: packing.map(serializePacking) }) });
@@ -207,6 +216,9 @@ export function TradeBuilder({
   return (
     <section className="space-y-3 rounded-card border border-line bg-card p-3 shadow-card">
       <ReconciliationBar summary={summary} />
+      <div className="flex justify-end">
+        <Button type="button" size="sm" variant="outline" onClick={() => setCompanyOpen(true)}>{tx("tradeCompanyDialog", "Company and bank")}</Button>
+      </div>
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" variant={section === "invoice" ? "default" : "outline"} onClick={() => setSection("invoice")}>{tx("tradeInvoiceLines", "Commercial lines")}</Button>
         <Button type="button" size="sm" variant={section === "packing" ? "default" : "outline"} onClick={() => setSection("packing")}>{tx("tradePacking", "Packing list")}</Button>
@@ -221,7 +233,8 @@ export function TradeBuilder({
                 {(banks.data ?? []).map((bank) => <option key={bank.id} value={bank.id}>{bank.account_name}</option>)}
               </Select>
             </Field>
-            <Field label={tx("paymentTermLabel", "Payment term text")}><Input value={paymentLabel} disabled={locked} onChange={(event) => setPaymentLabel(event.target.value)} /></Field>
+            <Field label={tx("printReference", "Print reference")}><Input dir="ltr" value={reference} disabled={locked} placeholder="EX-116" onChange={(event) => setReference(event.target.value)} /></Field>
+            <PaymentTermField value={paymentLabel} disabled={locked} onChange={setPaymentLabel} />
             <Field label={tx("shippingMethod", "Shipping method")}>
               <Select value={shippingLabel} disabled={locked} onChange={(event) => setShippingLabel(event.target.value)}>
                 <option>CFR</option><option>C&F</option><option>FOB</option>
@@ -229,12 +242,15 @@ export function TradeBuilder({
             </Field>
             <Field label={tx("originOfGoods", "Origin of goods")}><Input value={origin} disabled={locked} onChange={(event) => setOrigin(event.target.value)} /></Field>
             <Field label={tx("seaFreight", "Sea freight")}><Input value={freight} dir="ltr" disabled={locked} onChange={(event) => setFreight(event.target.value)} /></Field>
+          </div>
+          <div className="flex flex-wrap items-end gap-2 rounded-control border border-line bg-paper p-2">
             <Field label={tx("tradeInsertPreset", "Insert from catalog")}>
               <Select value="" disabled={locked} onChange={(event) => { insertPreset(event.target.value); event.target.value = ""; }}>
                 <option value="">{tx("tradeChoosePreset", "Choose an item")}</option>
                 {(presets.data ?? []).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
               </Select>
             </Field>
+            <Button type="button" size="sm" variant="outline" disabled={locked} onClick={() => setCatalogOpen(true)}>{tx("tradeManageCatalog", "Manage catalog")}</Button>
           </div>
           <div className="space-y-2">
             {lines.map((line) => (
@@ -249,6 +265,7 @@ export function TradeBuilder({
                 <div className="flex items-end gap-2 md:col-span-2">
                   <Button type="button" size="sm" variant="outline" disabled={locked} onClick={() => setLines((current) => [...current, { ...line, key: newKey() }])}>{tx("tradeCopyLine", "Copy line")}</Button>
                   <Button type="button" size="sm" variant="outline" disabled={locked || lines.length === 1} onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}>{tx("delete", "Delete")}</Button>
+                  <Button type="button" size="sm" variant="outline" disabled={locked || !line.description.trim()} onClick={() => void saveLineToCatalog(line).then(() => { notifySuccess(tx("tradePresetSaved", "Catalog item saved")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("tradeSaveLineCatalog", "Save to catalog")}</Button>
                 </div>
               </div>
             ))}
@@ -294,6 +311,8 @@ export function TradeBuilder({
         <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${invoiceId}/packing-pdf`, "packing-list.pdf").catch((error) => notifyError(error))}>{tx("tradeDownloadPacking", "Download packing list PDF")}</Button>
         <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${invoiceId}/customs-pdf`, "customs-bundle.pdf").catch((error) => notifyError(error))}>{tx("tradeDownloadCustoms", "Download combined customs PDF")}</Button>
       </div>
+      <CompanyDialog open={companyOpen} onClose={() => setCompanyOpen(false)} />
+      <CatalogDialog open={catalogOpen} onClose={() => setCatalogOpen(false)} />
     </section>
   );
 }

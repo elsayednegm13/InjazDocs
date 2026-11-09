@@ -6,6 +6,7 @@ import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requirePermission } from "./actor";
+import { ensureTradeDefaults } from "./trade-defaults";
 
 const EMPTY_IDENTITY: TradeIdentity = {
   nameEn: "",
@@ -162,7 +163,7 @@ async function commercialModel(db: D1Database, bucket: R2Bucket, invoiceId: stri
     ...chrome,
     date: String(row.invoice_date ?? ""),
     invoiceNumber: String(row.invoice_number ?? ""),
-    printReference: "",
+    printReference: String(row.print_reference ?? ""),
     origin: String(row.origin_of_goods ?? ""),
     portOfLoading: String(row.port_of_loading ?? ""),
     portOfDischarge: String(row.port_of_discharge ?? ""),
@@ -223,6 +224,7 @@ function itemFrom(row: { description: string; unit_label: string | null; quantit
 }
 
 async function chromeFor(db: D1Database, customerId: string, bankId: string | null, bucket?: R2Bucket) {
+  await ensureTradeDefaults(db);
   const identity = await one<Record<string, unknown>>(db, "SELECT * FROM exporter_identity WHERE id = 'default'");
   const marks = await one<{ logo_r2_key: string | null; stamp_r2_key: string | null; stamp_label_en: string | null; stamp_label_ar: string | null }>(
     db,
