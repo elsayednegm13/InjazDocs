@@ -21,6 +21,7 @@ import {
   type ProductPreset,
 } from "./trade-model";
 import { CatalogDialog, CompanyDialog, PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
+import { includesFreight, ShippingMethodField, StampPad, useShippingMethods } from "./TradeExtras";
 
 type SheetLine = {
   description: string;
@@ -54,6 +55,10 @@ type Sheet = {
     net_weight_grams: number;
     currency: string;
     print_reference: string | null;
+    is_stamped: number;
+    stamp_x: number | null;
+    stamp_y: number | null;
+    stamp_rotation: number | null;
   };
   lines: SheetLine[];
   packing: SheetPack[];
@@ -85,6 +90,7 @@ export function TradeBuilder({
   const [packing, setPacking] = useState<PackingDraftLine[]>([]);
   const [paymentLabel, setPaymentLabel] = useState("");
   const [reference, setReference] = useState("");
+  const [stamp, setStamp] = useState({ stamped: false, x: 470, y: 130, rotation: -4 });
   const [companyOpen, setCompanyOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [shippingLabel, setShippingLabel] = useState("CFR");
@@ -106,6 +112,12 @@ export function TradeBuilder({
     setPacking(data.packing.length ? data.packing.map(toPackingLine) : [blankPackingLine()]);
     setPaymentLabel(data.header.payment_term_label ?? "");
     setReference(data.header.print_reference || customerCode);
+    setStamp({
+      stamped: Number(data.header.is_stamped) === 1,
+      x: Number(data.header.stamp_x ?? 470),
+      y: Number(data.header.stamp_y ?? 130),
+      rotation: Number(data.header.stamp_rotation ?? -4),
+    });
     setShippingLabel(data.header.shipping_method_label ?? "CFR");
     setOrigin(data.header.origin_of_goods ?? "EGYPT");
     setBankId(data.header.exporter_bank_account_id ?? "");
@@ -127,7 +139,8 @@ export function TradeBuilder({
   } catch {
     freightMinor = 0;
   }
-  const chargesFreight = /c&f|cfr/i.test(shippingLabel);
+  const methods = useShippingMethods();
+  const chargesFreight = includesFreight(shippingLabel, methods.data ?? []);
 
   async function saveDraft() {
     setBusy(true);
@@ -141,6 +154,10 @@ export function TradeBuilder({
           exporterBankAccountId: bankId || null,
           seaFreightMinor: freightMinor,
           printReference: reference,
+          isStamped: stamp.stamped,
+          stampX: stamp.x,
+          stampY: stamp.y,
+          stampRotation: stamp.rotation,
         }),
       });
       await api(`/api/v1/invoices/${invoiceId}/lines`, { method: "PUT", body: JSON.stringify({ lines: lines.map(serializeInvoice) }) });
@@ -193,7 +210,7 @@ export function TradeBuilder({
   async function saveQuiet() {
     await api(`/api/v1/invoices/${invoiceId}/trade-header`, {
       method: "PUT",
-      body: JSON.stringify({ paymentTermLabel: paymentLabel, shippingMethodLabel: shippingLabel, originOfGoods: origin, exporterBankAccountId: bankId || null, seaFreightMinor: freightMinor, printReference: reference }),
+      body: JSON.stringify({ paymentTermLabel: paymentLabel, shippingMethodLabel: shippingLabel, originOfGoods: origin, exporterBankAccountId: bankId || null, seaFreightMinor: freightMinor, printReference: reference, isStamped: stamp.stamped, stampX: stamp.x, stampY: stamp.y, stampRotation: stamp.rotation }),
     });
     await api(`/api/v1/invoices/${invoiceId}/lines`, { method: "PUT", body: JSON.stringify({ lines: lines.map(serializeInvoice) }) });
     await api(`/api/v1/invoices/${invoiceId}/packing-lines`, { method: "PUT", body: JSON.stringify({ lines: packing.map(serializePacking) }) });
@@ -235,11 +252,7 @@ export function TradeBuilder({
             </Field>
             <Field label={tx("printReference", "Print reference")}><Input dir="ltr" value={reference} disabled={locked} placeholder="EX-116" onChange={(event) => setReference(event.target.value)} /></Field>
             <PaymentTermField value={paymentLabel} disabled={locked} onChange={setPaymentLabel} />
-            <Field label={tx("shippingMethod", "Shipping method")}>
-              <Select value={shippingLabel} disabled={locked} onChange={(event) => setShippingLabel(event.target.value)}>
-                <option>CFR</option><option>C&F</option><option>FOB</option>
-              </Select>
-            </Field>
+            <ShippingMethodField value={shippingLabel} disabled={locked} onChange={setShippingLabel} />
             <Field label={tx("originOfGoods", "Origin of goods")}><Input value={origin} disabled={locked} onChange={(event) => setOrigin(event.target.value)} /></Field>
             <Field label={tx("seaFreight", "Sea freight")}><Input value={freight} dir="ltr" disabled={locked} onChange={(event) => setFreight(event.target.value)} /></Field>
           </div>
@@ -264,13 +277,14 @@ export function TradeBuilder({
                 <Field label={tx("amount", "Amount")}><Input dir="ltr" readOnly value={moneyText(lineAmount(line, currency), currency)} /></Field>
                 <div className="flex items-end gap-2 md:col-span-2">
                   <Button type="button" size="sm" variant="outline" disabled={locked} onClick={() => setLines((current) => [...current, { ...line, key: newKey() }])}>{tx("tradeCopyLine", "Copy line")}</Button>
-                  <Button type="button" size="sm" variant="outline" disabled={locked || lines.length === 1} onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}>{tx("delete", "Delete")}</Button>
+                  <Button type="button" size="sm" variant="outline" disabled={locked} onClick={() => setLines((current) => current.length === 1 ? [blankInvoiceLine()] : current.filter((item) => item.key !== line.key))}>{tx("tradeRemoveLine", "Remove line")}</Button>
                   <Button type="button" size="sm" variant="outline" disabled={locked || !line.description.trim()} onClick={() => void saveLineToCatalog(line).then(() => { notifySuccess(tx("tradePresetSaved", "Catalog item saved")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("tradeSaveLineCatalog", "Save to catalog")}</Button>
                 </div>
               </div>
             ))}
           </div>
-          <p className="text-sm font-medium text-ink" dir="ltr">TOTAL FOB {moneyText(fob, currency)}{chargesFreight ? ` + SEA FREIGHT ${moneyText(freightMinor, currency)} = TOTAL CFR / C&F ${moneyText(fob + freightMinor, currency)}` : ""}</p>
+          <p className="text-sm font-medium text-ink" dir="ltr">TOTAL FOB {moneyText(fob, currency)}{chargesFreight ? ` + SEA FREIGHT ${moneyText(freightMinor, currency)} = TOTAL ${shippingLabel} ${moneyText(fob + freightMinor, currency)}` : ""}</p>
+          <StampPad stamped={stamp.stamped} x={stamp.x} y={stamp.y} rotation={stamp.rotation} disabled={locked} onChange={setStamp} />
         </div>
       ) : (
         <div className="space-y-2">
@@ -297,7 +311,7 @@ export function TradeBuilder({
                 <Field label={tx("pieces", "Pieces")}><Input dir="ltr" readOnly value={Number.isFinite(pieces) ? String(pieces) : "0"} /></Field>
                 <Field label={tx("grossKg", "Gross weight kg")}><Input dir="ltr" value={line.grossKg} disabled={locked} onChange={(event) => updateLine(setPacking, line.key, { grossKg: event.target.value })} /></Field>
                 <Field label={tx("netKg", "Net weight without bags kg")} error={heavy ? tx("netAboveGross", "Net weight cannot exceed gross weight.") : undefined}><Input dir="ltr" value={line.netKg} disabled={locked} className={heavy ? "border-danger" : ""} onChange={(event) => updateLine(setPacking, line.key, { netKg: event.target.value })} /></Field>
-                <div className="flex items-end"><Button type="button" size="sm" variant="outline" disabled={locked} onClick={() => setPacking((current) => current.filter((item) => item.key !== line.key))}>{tx("delete", "Delete")}</Button></div>
+                <div className="flex items-end"><Button type="button" size="sm" variant="outline" disabled={locked} onClick={() => setPacking((current) => current.length === 1 ? [blankPackingLine()] : current.filter((item) => item.key !== line.key))}>{tx("tradeRemoveLine", "Remove line")}</Button></div>
               </div>
             );
           })}

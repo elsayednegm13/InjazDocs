@@ -4,7 +4,7 @@ import { errors } from "../http/errors";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requireAny, requirePermission } from "./actor";
 import { assertSchemaReady } from "./schema";
-import { ensureTradeDefaults } from "./trade-defaults";
+import { ensureTradeDefaults, listShippingMethodRows, shippingIncludesFreight } from "./trade-defaults";
 import { storeIssuedProformaPdf, storeIssuedTradePdfs } from "./trade-document-files";
 
 const TERMS = new Set(["TT", "LC", "DP", "DA", "OTHER"]);
@@ -27,6 +27,10 @@ type InvoiceHead = {
   goods_value_minor: number;
   print_reference: string | null;
   incoterm: string;
+  is_stamped: number;
+  stamp_x: number | null;
+  stamp_y: number | null;
+  stamp_rotation: number | null;
 };
 
 type CommercialLineInput = {
@@ -81,12 +85,6 @@ function term(value: unknown) {
   return code;
 }
 
-function incoterm(value: unknown) {
-  const code = typeof value === "string" ? value.trim().toUpperCase() : "";
-  if (code !== "FOB" && code !== "CFR") throw errors.validation("Choose FOB or CFR.", { incoterm: "FOB or CFR." }, "TRADE_FIELD_REQUIRED");
-  return code;
-}
-
 function lineTotal(quantity: number, unitPriceMinor: number) {
   return quantity * unitPriceMinor;
 }
@@ -96,13 +94,36 @@ async function invoiceHead(db: D1Database, actor: Actor, invoiceId: string) {
     db,
     `SELECT id, case_id, customer_id, invoiced_freight_minor, packages_count, gross_weight_grams, net_weight_grams,
             trade_status, trade_revision, payment_term_code, payment_term_label, shipping_method_label, origin_of_goods,
-            exporter_bank_account_id, goods_value_minor, print_reference, incoterm
+            exporter_bank_account_id, goods_value_minor, print_reference, incoterm, is_stamped, stamp_x, stamp_y, stamp_rotation
      FROM export_invoices WHERE id = ?`,
     invoiceId,
   );
   if (!row) throw errors.notFound("Invoice not found");
   await assertCaseAccess(db, actor, row.case_id);
   return row;
+}
+
+function storedIncoterm(value: unknown, includeFreight: boolean) {
+  const code = typeof value === "string" ? value.trim().toUpperCase() : "";
+  if (code === "FOB" || code === "CFR") return code;
+  return includeFreight ? "CFR" : "FOB";
+}
+
+function stampFields(input: Record<string, unknown>) {
+  const stamped = input.isStamped === true || input.isStamped === 1 ? 1 : 0;
+  if (!stamped) return { stamped: 0, x: null, y: null, rotation: null };
+  return {
+    stamped,
+    x: clampNumber(input.stampX, 0, 595.28),
+    y: clampNumber(input.stampY, 0, 841.89),
+    rotation: clampNumber(input.stampRotation, -40, 40),
+  };
+}
+
+function clampNumber(value: unknown, min: number, max: number) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return (min + max) / 2;
+  return Math.min(max, Math.max(min, number));
 }
 
 function assertDraft(status: string) {
@@ -190,7 +211,7 @@ export async function saveExporterBank(db: D1Database, actor: Actor, input: Reco
 
 export async function uploadExporterMark(db: D1Database, bucket: R2Bucket, actor: Actor, kind: "logo" | "stamp", dataUrl: string) {
   await ready(db);
-  requirePermission(actor, "settings.manage");
+  requireAny(actor, ["settings.manage", "invoices.edit"]);
   const match = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/=\s]+)$/.exec(dataUrl.trim());
   if (!match) throw errors.validation("Choose a JPEG or PNG image.", { image: "JPEG or PNG." }, "TRADE_IMAGE_INVALID");
   const bytes = decodeBase64(match[2].replace(/\s/g, ""));
@@ -280,32 +301,112 @@ export async function saveProductPreset(db: D1Database, actor: Actor, input: Rec
   return one(db, "SELECT * FROM product_presets WHERE id = ?", id);
 }
 
+export async function deleteProductPreset(db: D1Database, actor: Actor, presetId: string) {
+  await ready(db);
+  requirePermission(actor, "invoices.edit");
+  const existing = await one(db, "SELECT id FROM product_presets WHERE id = ?", presetId);
+  if (!existing) throw errors.notFound("Preset not found");
+  await db.prepare("DELETE FROM product_presets WHERE id = ?").bind(presetId).run();
+  return { deleted: true };
+}
+
+export async function listShippingMethods(db: D1Database, actor: Actor) {
+  await ready(db);
+  requireAny(actor, ["settings.manage", "invoices.view"]);
+  return listShippingMethodRows(db);
+}
+
+export async function saveShippingMethod(db: D1Database, actor: Actor, input: Record<string, unknown>, methodId?: string) {
+  await ready(db);
+  requirePermission(actor, "invoices.edit");
+  const now = nowIso();
+  const code = (text(input.code, "code", 20, true) ?? "").toUpperCase();
+  const label = text(input.label, "label", 40, true) ?? code;
+  const includes = input.includesFreight === true || input.includesFreight === 1 ? 1 : 0;
+  const sort = input.sortOrder == null ? 0 : whole(input.sortOrder, "sortOrder");
+  const duplicate = await one<{ id: string }>(db, "SELECT id FROM shipping_methods WHERE code = ? AND id != ?", code, methodId ?? "");
+  if (duplicate) throw errors.validation("This shipping method already exists.", { code: "Already used." }, "TRADE_FIELD_REQUIRED");
+  if (methodId) {
+    const existing = await one(db, "SELECT id FROM shipping_methods WHERE id = ?", methodId);
+    if (!existing) throw errors.notFound("Shipping method not found");
+    await db
+      .prepare("UPDATE shipping_methods SET code = ?, label = ?, includes_freight = ?, sort_order = ?, updated_at = ? WHERE id = ?")
+      .bind(code, label, includes, sort, now, methodId)
+      .run();
+    return one(db, "SELECT * FROM shipping_methods WHERE id = ?", methodId);
+  }
+  const id = newId();
+  await db
+    .prepare(
+      `INSERT INTO shipping_methods (id, code, label, includes_freight, sort_order, active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+    )
+    .bind(id, code, label, includes, sort, now, now)
+    .run();
+  return one(db, "SELECT * FROM shipping_methods WHERE id = ?", id);
+}
+
+export async function deleteShippingMethod(db: D1Database, actor: Actor, methodId: string) {
+  await ready(db);
+  requirePermission(actor, "invoices.edit");
+  const existing = await one(db, "SELECT id FROM shipping_methods WHERE id = ?", methodId);
+  if (!existing) throw errors.notFound("Shipping method not found");
+  await db.prepare("DELETE FROM shipping_methods WHERE id = ?").bind(methodId).run();
+  return { deleted: true };
+}
+
+export async function readExporterMarkFile(db: D1Database, bucket: R2Bucket, actor: Actor, kind: "logo" | "stamp") {
+  await ready(db);
+  requireAny(actor, ["settings.manage", "invoices.view"]);
+  const row = await one<{ logo_r2_key: string | null; stamp_r2_key: string | null }>(
+    db,
+    "SELECT logo_r2_key, stamp_r2_key FROM exporter_marks WHERE id = 'default'",
+  );
+  const key = kind === "logo" ? row?.logo_r2_key : row?.stamp_r2_key;
+  if (!key) throw errors.notFound("Image not found");
+  const object = await bucket.get(key);
+  if (!object) throw errors.notFound("Image not found");
+  return new Response(await object.arrayBuffer(), {
+    headers: {
+      "Content-Type": object.httpMetadata?.contentType || (key.endsWith(".png") ? "image/png" : "image/jpeg"),
+      "Cache-Control": "private, max-age=60",
+    },
+  });
+}
+
 function commercialLines(raw: unknown): CommercialLineInput[] {
-  if (!Array.isArray(raw) || raw.length === 0) throw errors.validation("Add at least one line.", { lines: "Required." }, "TRADE_FIELD_REQUIRED");
-  return raw.map((item) => {
+  if (!Array.isArray(raw)) throw errors.validation("Add at least one line.", { lines: "Required." }, "TRADE_FIELD_REQUIRED");
+  const lines: CommercialLineInput[] = [];
+  for (const item of raw) {
     const row = item as Record<string, unknown>;
-    return {
-      description: text(row.description, "description", 4000, true) ?? "",
+    const description = text(row.description, "description", 4000);
+    if (!description) continue;
+    lines.push({
+      description,
       hsCode: text(row.hsCode, "hsCode", 32),
       barcode: text(row.barcode, "barcode", 40),
       unit: text(row.unit, "unit", 20),
       quantity: whole(row.quantity, "quantity"),
       unitPriceMinor: whole(row.unitPriceMinor, "unitPriceMinor"),
-    };
-  });
+    });
+  }
+  return lines;
 }
 
 function packingLines(raw: unknown): PackingLineInput[] {
   if (!Array.isArray(raw)) throw errors.validation("Packing lines are missing.", { lines: "Required." }, "TRADE_FIELD_REQUIRED");
-  return raw.map((item) => {
+  const lines: PackingLineInput[] = [];
+  for (const item of raw) {
     const row = item as Record<string, unknown>;
+    const description = text(row.description, "description", 4000);
+    if (!description) continue;
     const gross = whole(row.grossWeightGrams, "grossWeightGrams");
     const net = whole(row.netWeightGrams, "netWeightGrams");
     if (netAboveGross(net, gross)) {
       throw errors.validation("Net weight cannot exceed gross weight.", { netWeightGrams: "Net weight is above gross weight." }, "NET_ABOVE_GROSS");
     }
-    return {
-      description: text(row.description, "description", 4000, true) ?? "",
+    lines.push({
+      description,
       hsCode: text(row.hsCode, "hsCode", 32),
       barcode: text(row.barcode, "barcode", 40),
       containerId: text(row.containerId, "containerId", 80),
@@ -313,8 +414,9 @@ function packingLines(raw: unknown): PackingLineInput[] {
       packingPerPackage: whole(row.packingPerPackage, "packingPerPackage"),
       grossWeightGrams: gross,
       netWeightGrams: net,
-    };
-  });
+    });
+  }
+  return lines;
 }
 
 export async function reconciliationFor(db: D1Database, actor: Actor, invoiceId: string): Promise<ReconciliationSummary> {
@@ -354,6 +456,8 @@ export async function replaceInvoiceLines(db: D1Database, actor: Actor, invoiceI
   const lines = commercialLines(rawLines);
   const now = nowIso();
   const goods = sumNumbers(lines.map((line) => lineTotal(line.quantity, line.unitPriceMinor)));
+  const includeFreight = await shippingIncludesFreight(db, head.shipping_method_label ?? head.incoterm);
+  const freightPart = includeFreight ? Number(head.invoiced_freight_minor) : 0;
   const statements = [
     db.prepare("DELETE FROM invoice_lines WHERE invoice_id = ?").bind(invoiceId),
     ...lines.map((line, index) =>
@@ -367,10 +471,10 @@ export async function replaceInvoiceLines(db: D1Database, actor: Actor, invoiceI
     db
       .prepare(
         `UPDATE export_invoices
-         SET goods_value_minor = ?, invoice_total_minor = ? + invoiced_freight_minor, version = version + 1, updated_at = ?
+         SET goods_value_minor = ?, invoice_total_minor = ?, version = version + 1, updated_at = ?
          WHERE id = ?`,
       )
-      .bind(goods, goods, now, invoiceId),
+      .bind(goods, goods + freightPart, now, invoiceId),
   ];
   await db.batch(statements);
   return { reconciliation: await loadReconciliation(db, { ...head, packages_count: head.packages_count, gross_weight_grams: head.gross_weight_grams, net_weight_grams: head.net_weight_grams }) };
@@ -484,6 +588,9 @@ export async function createProforma(db: D1Database, actor: Actor, input: Record
   const lines = proformaLines(input.lines);
   const seaFreight = input.seaFreightMinor == null ? 0 : whole(input.seaFreightMinor, "seaFreightMinor");
   const fob = sumNumbers(lines.map((line) => lineTotal(line.quantity, line.unitPriceMinor)));
+  const shippingLabel = text(input.shippingMethodLabel, "shippingMethodLabel", 40);
+  const includeFreight = await shippingIncludesFreight(db, shippingLabel ?? "");
+  const stamp = stampFields(input);
   const now = nowIso();
   const id = newId();
   const number = text(input.invoiceNumber, "invoiceNumber", 40, true);
@@ -498,8 +605,8 @@ export async function createProforma(db: D1Database, actor: Actor, input: Record
         `INSERT INTO proforma_invoices
            (id, customer_id, case_id, invoice_number, print_reference, invoice_date, origin_of_goods, port_of_loading, port_of_discharge,
             payment_term_code, payment_term_label, incoterm, shipping_method_label, exporter_bank_account_id, currency, currency_decimals,
-            fob_total_minor, sea_freight_minor, total_minor, status, version, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, ?, 'DRAFT', 1, ?, ?)`,
+            fob_total_minor, sea_freight_minor, total_minor, is_stamped, stamp_x, stamp_y, stamp_rotation, status, version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', 1, ?, ?)`,
       )
       .bind(
         id,
@@ -513,13 +620,17 @@ export async function createProforma(db: D1Database, actor: Actor, input: Record
         text(input.portOfDischarge, "portOfDischarge", 80),
         term(input.paymentTermCode),
         text(input.paymentTermLabel, "paymentTermLabel", 200),
-        incoterm(input.incoterm),
-        text(input.shippingMethodLabel, "shippingMethodLabel", 40),
+        storedIncoterm(input.incoterm, includeFreight),
+        shippingLabel,
         text(input.exporterBankAccountId, "exporterBankAccountId", 80),
         (text(input.currency, "currency", 3) ?? "USD").toUpperCase(),
         fob,
         seaFreight,
-        fob + seaFreight,
+        includeFreight ? fob + seaFreight : fob,
+        stamp.stamped,
+        stamp.x,
+        stamp.y,
+        stamp.rotation,
         now,
         now,
       ),
@@ -557,13 +668,17 @@ export async function updateProforma(db: D1Database, actor: Actor, id: string, i
   const lines = proformaLines(input.lines);
   const seaFreight = input.seaFreightMinor == null ? 0 : whole(input.seaFreightMinor, "seaFreightMinor");
   const fob = sumNumbers(lines.map((line) => lineTotal(line.quantity, line.unitPriceMinor)));
+  const shippingLabel = text(input.shippingMethodLabel, "shippingMethodLabel", 40);
+  const includeFreight = await shippingIncludesFreight(db, shippingLabel ?? "");
+  const stamp = stampFields(input);
   const now = nowIso();
   await db.batch([
     db
       .prepare(
         `UPDATE proforma_invoices SET case_id=?, invoice_number=?, print_reference=?, invoice_date=?, origin_of_goods=?,
            port_of_loading=?, port_of_discharge=?, payment_term_code=?, payment_term_label=?, incoterm=?, shipping_method_label=?,
-           exporter_bank_account_id=?, currency=?, fob_total_minor=?, sea_freight_minor=?, total_minor=?, version=version+1, updated_at=?
+           exporter_bank_account_id=?, currency=?, fob_total_minor=?, sea_freight_minor=?, total_minor=?,
+           is_stamped=?, stamp_x=?, stamp_y=?, stamp_rotation=?, version=version+1, updated_at=?
          WHERE id=? AND status='DRAFT'`,
       )
       .bind(
@@ -576,13 +691,17 @@ export async function updateProforma(db: D1Database, actor: Actor, id: string, i
         text(input.portOfDischarge, "portOfDischarge", 80),
         term(input.paymentTermCode),
         text(input.paymentTermLabel, "paymentTermLabel", 200),
-        incoterm(input.incoterm),
-        text(input.shippingMethodLabel, "shippingMethodLabel", 40),
+        storedIncoterm(input.incoterm, includeFreight),
+        shippingLabel,
         text(input.exporterBankAccountId, "exporterBankAccountId", 80),
         (text(input.currency, "currency", 3) ?? "USD").toUpperCase(),
         fob,
         seaFreight,
-        fob + seaFreight,
+        includeFreight ? fob + seaFreight : fob,
+        stamp.stamped,
+        stamp.x,
+        stamp.y,
+        stamp.rotation,
         now,
         id,
       ),
@@ -729,11 +848,25 @@ export async function listProformas(db: D1Database, actor: Actor, caseId?: strin
   if (caseId) await assertCaseAccess(db, actor, caseId);
   return all(
     db,
-    caseId
-      ? "SELECT * FROM proforma_invoices WHERE case_id = ? ORDER BY created_at DESC"
-      : "SELECT * FROM proforma_invoices ORDER BY created_at DESC LIMIT 100",
+    `SELECT p.*, c.legal_name AS customer_name, c.customer_code
+     FROM proforma_invoices p
+     JOIN customers c ON c.id = p.customer_id
+     ${caseId ? "WHERE p.case_id = ?" : ""}
+     ORDER BY p.created_at DESC
+     ${caseId ? "" : "LIMIT 100"}`,
     ...(caseId ? [caseId] : []),
   );
+}
+
+export async function deleteProforma(db: D1Database, actor: Actor, id: string) {
+  await ready(db);
+  requirePermission(actor, "invoices.edit");
+  const current = await one<{ status: string; case_id: string | null }>(db, "SELECT status, case_id FROM proforma_invoices WHERE id = ?", id);
+  if (!current) throw errors.notFound("Proforma not found");
+  if (current.case_id) await assertCaseAccess(db, actor, current.case_id);
+  if (current.status !== "DRAFT") throw errors.conflict("Only a draft proforma can be deleted.", "TRADE_ISSUED");
+  await db.prepare("DELETE FROM proforma_invoices WHERE id = ? AND status = 'DRAFT'").bind(id).run();
+  return { deleted: true };
 }
 
 export async function tradeSheet(db: D1Database, actor: Actor, invoiceId: string) {
@@ -751,22 +884,30 @@ export async function saveTradeHeader(db: D1Database, actor: Actor, invoiceId: s
   const head = await invoiceHead(db, actor, invoiceId);
   assertDraft(head.trade_status);
   const freight = input.seaFreightMinor == null ? Number(head.invoiced_freight_minor) : whole(input.seaFreightMinor, "seaFreightMinor");
+  const shippingLabel = text(input.shippingMethodLabel, "shippingMethodLabel", 40);
+  const includeFreight = await shippingIncludesFreight(db, shippingLabel ?? head.incoterm);
+  const stamp = stampFields(input);
   const goods = await one<{ goods_value_minor: number }>(db, "SELECT goods_value_minor FROM export_invoices WHERE id = ?", invoiceId);
   await db
     .prepare(
       `UPDATE export_invoices
        SET payment_term_label = ?, shipping_method_label = ?, origin_of_goods = ?, exporter_bank_account_id = ?,
-           print_reference = ?, invoiced_freight_minor = ?, invoice_total_minor = ?, version = version + 1, updated_at = ?
+           print_reference = ?, invoiced_freight_minor = ?, invoice_total_minor = ?,
+           is_stamped = ?, stamp_x = ?, stamp_y = ?, stamp_rotation = ?, version = version + 1, updated_at = ?
        WHERE id = ?`,
     )
     .bind(
       text(input.paymentTermLabel, "paymentTermLabel", 200),
-      text(input.shippingMethodLabel, "shippingMethodLabel", 40),
+      shippingLabel,
       text(input.originOfGoods, "originOfGoods", 80),
       text(input.exporterBankAccountId, "exporterBankAccountId", 80),
       text(input.printReference, "printReference", 40),
       freight,
-      Number(goods?.goods_value_minor ?? 0) + freight,
+      Number(goods?.goods_value_minor ?? 0) + (includeFreight ? freight : 0),
+      stamp.stamped,
+      stamp.x,
+      stamp.y,
+      stamp.rotation,
       nowIso(),
       invoiceId,
     )

@@ -255,4 +255,67 @@ describe("trade document rules", () => {
     const sheet = await harness.request({ path: "/api/v1/invoices/invoice-trade/trade-sheet" });
     expect(sheet.json?.data?.header).toMatchObject({ print_reference: "EX-01", payment_term_label: "30% ADVANCE, 70% AGAINST DOCUMENTS" });
   });
+
+  it("edits shipping methods, deletes a catalog item, and clears a draft invoice line", async () => {
+    const audit = fresh();
+    const harness = createTestHarness(audit);
+    seedCaseInvoice(audit);
+    const methods = await harness.request({ path: "/api/v1/shipping-methods" });
+    expect(methods.status).toBe(200);
+    expect((methods.json?.data as Array<{ code: string }>).map((row) => row.code)).toEqual(expect.arrayContaining(["FOB", "CFR", "C&F", "CIF", "EXW"]));
+    const created = await harness.request({
+      method: "POST",
+      path: "/api/v1/shipping-methods",
+      body: { code: "AIR", label: "AIR", includesFreight: false },
+    });
+    expect(created.status).toBe(201);
+    const methodId = (created.json?.data as { id: string }).id;
+    expect((await harness.request({
+      method: "PATCH",
+      path: `/api/v1/shipping-methods/${methodId}`,
+      body: { code: "AIR", label: "AIR FREIGHT", includesFreight: true },
+    })).status).toBe(200);
+    expect((await harness.request({ method: "DELETE", path: `/api/v1/shipping-methods/${methodId}` })).status).toBe(200);
+    const preset = await harness.request({
+      method: "POST",
+      path: "/api/v1/product-presets",
+      body: { name: "Temp blanket", descriptionTemplate: "Temp", unit: "Piece" },
+    });
+    expect(preset.status).toBe(201);
+    const presetId = (preset.json?.data as { id: string }).id;
+    expect((await harness.request({ method: "PATCH", path: `/api/v1/product-presets/${presetId}`, body: { name: "Temp blanket edited", unit: "Piece" } })).status).toBe(200);
+    expect((await harness.request({ method: "DELETE", path: `/api/v1/product-presets/${presetId}` })).status).toBe(200);
+    expect((await harness.request({
+      method: "PUT",
+      path: "/api/v1/invoices/invoice-trade/lines",
+      body: { lines: [{ description: "Keep", quantity: 2, unitPriceMinor: 100, unit: "PCS", hsCode: "1" }, { description: "Drop", quantity: 1, unitPriceMinor: 50, unit: "PCS", hsCode: "1" }] },
+    })).status).toBe(200);
+    expect((await harness.request({
+      method: "PUT",
+      path: "/api/v1/invoices/invoice-trade/lines",
+      body: { lines: [{ description: "", quantity: 1, unitPriceMinor: 0 }] },
+    })).status).toBe(200);
+    const sheet = await harness.request({ path: "/api/v1/invoices/invoice-trade/trade-sheet" });
+    expect(sheet.json?.data?.lines).toEqual([]);
+    expect(sheet.json?.data?.header?.goods_value_minor).toBe(0);
+    const proforma = await harness.request({
+      method: "POST",
+      path: "/api/v1/proformas",
+      body: {
+        customerId: "customer-1",
+        invoiceNumber: "PI-DEL",
+        invoiceDate: "2026-11-09",
+        paymentTermCode: "TT",
+        shippingMethodLabel: "FOB",
+        lines: [{ description: "Draft line", quantity: 1, unitPriceMinor: 10, unit: "PCS" }],
+      },
+    });
+    expect(proforma.status).toBe(201);
+    const proformaId = (proforma.json?.data as { id: string }).id;
+    expect((await harness.request({ method: "DELETE", path: `/api/v1/proformas/${proformaId}` })).status).toBe(200);
+    const pdf = await harness.request({ path: "/api/v1/invoices/invoice-trade/commercial-pdf" });
+    expect(pdf.status).toBe(200);
+    expect(pdf.text).not.toContain("APPROVED");
+    expect(pdf.text).not.toContain("/ImStamp");
+  });
 });

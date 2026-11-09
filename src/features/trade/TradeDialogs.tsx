@@ -171,10 +171,11 @@ export function CatalogDialog({ open, onClose }: { open: boolean; onClose: () =>
         <DialogTitle className="text-base font-semibold text-ink">{tx("tradeManageCatalog", "Manage catalog")}</DialogTitle>
         <ul className="mt-3 max-h-40 space-y-1 overflow-auto text-sm">
           {(presets.data ?? []).map((preset) => (
-            <li key={preset.id}>
-              <button type="button" className="w-full rounded-control border border-line px-2 py-1 text-start" onClick={() => editPreset(preset)}>
+            <li key={preset.id} className="flex items-center gap-2">
+              <button type="button" className="min-w-0 flex-1 rounded-control border border-line px-2 py-1 text-start" onClick={() => editPreset(preset)}>
                 {preset.name} · <span dir="ltr">{preset.hs_code}</span>
               </button>
+              <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/product-presets/${preset.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradePresetDeleted", "Catalog item deleted")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("delete", "Delete")}</Button>
             </li>
           ))}
         </ul>

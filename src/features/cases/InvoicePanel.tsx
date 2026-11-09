@@ -10,16 +10,17 @@ import { can, useSession } from "@/app/access";
 import { CustomFieldsPanel } from "@/features/fields/CustomFieldsPanel";
 import { api } from "@/lib/api";
 import { isDefinitiveFailure, useIdempotencyKey } from "@/lib/idempotency";
-import { notifySuccess } from "@/lib/notify";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
 import { cn, formatMoney, gramsLabel } from "@/lib/utils";
 import { commercialInvoiceTotal, minorToDecimalString } from "@shared/money";
 
 import { formatWhen } from "./case-format";
 import { TradeBuilder } from "@/features/trade/TradeBuilder";
+import { downloadPdf } from "@/features/trade/trade-model";
 import { Link } from "react-router";
 
-export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], customerCode = "", onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; customerCode?: string; onDone?: () => void }) {
+export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], customerName = "", customerCode = "", onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; customerName?: string; customerCode?: string; onDone?: () => void }) {
   const { tx } = useCopy();
   const user = useSession();
   const locked = caseStatus === "COMPLETED";
@@ -79,6 +80,34 @@ export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], cu
                 {locked && Number(inv.edit_open) !== 1 ? (
                   <span className="rounded-full bg-warn/15 px-2 py-0.5 text-[11px] font-semibold text-warn">{tx("invoiceLockedBadge", "Locked")}</span>
                 ) : null}
+              </div>
+            </div>
+            <div className="grid gap-3 border-b border-line px-4 py-3 text-sm md:grid-cols-6">
+              <div>
+                <p className="text-[11px] text-ink-muted">{tx("customer", "Customer")}</p>
+                <p className="font-medium text-ink">{customerName || "—"} {customerCode ? <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[11px] font-semibold text-accent" dir="ltr">{customerCode}</span> : null}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-muted">{tx("invoiceNumber", "Invoice")}</p>
+                <p className="font-medium text-ink"><Ltr>{String(inv.invoice_number)}</Ltr></p>
+                <p className="text-[11px] text-ink-muted"><Ltr>{String(inv.invoice_date ?? "")}</Ltr></p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-muted">{tx("shippingMethod", "Shipping")}</p>
+                <p><span className="rounded-full border border-line px-1.5 py-0.5 text-[11px] font-semibold" dir="ltr">{String(inv.shipping_method_label || inv.incoterm || "—")}</span></p>
+                <p className="text-[11px] text-ink-muted"><Ltr>{money(inv.invoiced_freight_minor)}</Ltr></p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-muted">{tx("tradeBeforeFreight", "Before freight")}</p>
+                <p className="tabular-nums text-ink"><Ltr>{money(inv.goods_value_minor)}</Ltr></p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-muted">{tx("tradeAfterFreight", "After freight")}</p>
+                <p className="text-base font-semibold tabular-nums text-ink"><Ltr>{money(inv.invoice_total_minor)}</Ltr></p>
+              </div>
+              <div className="flex flex-wrap items-end gap-1">
+                <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] font-semibold text-ink">{String(inv.trade_status || "DRAFT")}{Number(inv.is_stamped) === 1 ? ` · ${tx("tradeStamped", "Stamped")}` : ""}</span>
+                <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${String(inv.id)}/commercial-pdf`, `${String(inv.invoice_number)}.pdf`).catch(notifyError)}>{tx("pdf", "PDF")}</Button>
               </div>
             </div>
             <dl className="grid gap-2 px-4 py-3 sm:grid-cols-2 xl:grid-cols-4">

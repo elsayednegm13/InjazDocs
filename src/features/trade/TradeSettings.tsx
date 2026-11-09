@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
 import { moneyMinor, moneyText, type BankAccount, type ProductPreset } from "./trade-model";
+import { ShippingMethodsDialog, stampPngDataUrl } from "./TradeExtras";
 
 type Identity = {
   name_en: string;
@@ -32,6 +33,7 @@ export function TradeSettings() {
     <div className="space-y-4">
       <IdentityCard />
       <BankCard />
+      <ShippingCard />
       <PresetCard />
     </div>
   );
@@ -86,7 +88,7 @@ function IdentityCard() {
 
   async function upload(kind: "logo" | "stamp", file: File | undefined) {
     if (!file) return;
-    const dataUrl = await readDataUrl(file);
+    const dataUrl = kind === "stamp" ? await stampPngDataUrl(file) : await readDataUrl(file);
     try {
       await api(`/api/v1/settings/exporter-marks/${kind}`, { method: "POST", body: JSON.stringify({ dataUrl }) });
       notifySuccess(tx(kind === "logo" ? "tradeLogoSaved" : "tradeStampSaved", kind === "logo" ? "Logo saved" : "Stamp saved"));
@@ -180,31 +182,43 @@ function BankCard() {
   );
 }
 
+function ShippingCard() {
+  const { tx } = useCopy();
+  const [open, setOpen] = useState(false);
+  return (
+    <SectionCard title={tx("tradeShippingCatalog", "Shipping methods")} icon={<Package className="h-4 w-4" />}>
+      <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>{tx("tradeManageShipping", "Manage shipping methods")}</Button>
+      <ShippingMethodsDialog open={open} onClose={() => setOpen(false)} />
+    </SectionCard>
+  );
+}
+
 function PresetCard() {
   const { tx } = useCopy();
   const client = useQueryClient();
   const presets = useQuery({ queryKey: ["product-presets"], queryFn: async () => (await api<ProductPreset[]>("/api/v1/product-presets")).data });
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<ProductPreset | null>(null);
 
-  async function add(form: HTMLFormElement) {
+  async function save(form: HTMLFormElement) {
     const data = new FormData(form);
+    const body = {
+      name: data.get("name"),
+      descriptionTemplate: data.get("descriptionTemplate"),
+      ply: data.get("ply"),
+      material: data.get("material"),
+      sizeLabel: data.get("sizeLabel"),
+      barcode: data.get("barcode"),
+      hsCode: data.get("hsCode"),
+      unit: data.get("unit"),
+      defaultPriceMinor: moneyMinor(String(data.get("price") || "0")),
+      defaultPackingPerPackage: data.get("packing") ? Number(data.get("packing")) : null,
+    };
     setBusy(true);
     try {
-      await api("/api/v1/product-presets", {
-        method: "POST",
-        body: JSON.stringify({
-          name: data.get("name"),
-          descriptionTemplate: data.get("descriptionTemplate"),
-          ply: data.get("ply"),
-          material: data.get("material"),
-          sizeLabel: data.get("sizeLabel"),
-          barcode: data.get("barcode"),
-          hsCode: data.get("hsCode"),
-          unit: data.get("unit"),
-          defaultPriceMinor: moneyMinor(String(data.get("price") || "0")),
-          defaultPackingPerPackage: data.get("packing") ? Number(data.get("packing")) : null,
-        }),
-      });
+      if (editing) await api(`/api/v1/product-presets/${editing.id}`, { method: "PATCH", body: JSON.stringify(body) });
+      else await api("/api/v1/product-presets", { method: "POST", body: JSON.stringify(body) });
+      setEditing(null);
       form.reset();
       notifySuccess(tx("tradePresetSaved", "Catalog item saved"));
       await client.invalidateQueries({ queryKey: ["product-presets"] });
@@ -219,22 +233,28 @@ function PresetCard() {
     <SectionCard title={tx("tradePresets", "Product catalog")} icon={<Package className="h-4 w-4" />}>
       <ul className="mb-3 space-y-2 text-sm">
         {(presets.data ?? []).map((preset) => (
-          <li key={preset.id} className="rounded-control border border-line px-3 py-2">
-            <span className="font-medium text-ink">{preset.name}</span>
-            <span className="mt-0.5 block text-xs text-ink-muted" dir="ltr">{preset.hs_code || "—"} · {preset.unit_label || "—"} · {moneyText(preset.default_price_minor)}</span>
+          <li key={preset.id} className="flex items-center justify-between gap-2 rounded-control border border-line px-3 py-2">
+            <div>
+              <span className="font-medium text-ink">{preset.name}</span>
+              <span className="mt-0.5 block text-xs text-ink-muted" dir="ltr">{preset.hs_code || "—"} · {preset.unit_label || "—"} · {moneyText(preset.default_price_minor)}</span>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => setEditing(preset)}>{tx("edit", "Edit")}</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/product-presets/${preset.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradePresetDeleted", "Catalog item deleted")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("delete", "Delete")}</Button>
+            </div>
           </li>
         ))}
       </ul>
-      <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void add(event.currentTarget); }}>
-        <Field label={tx("name", "Name")}><Input name="name" required /></Field>
-        <Field label={tx("unit", "Unit")}><Input name="unit" defaultValue="PCS" dir="ltr" /></Field>
-        <div className="md:col-span-2"><Field label={tx("tradeDescription", "Description template")}><Textarea name="descriptionTemplate" className="min-h-20" /></Field></div>
-        <Field label={tx("ply", "Ply")}><Input name="ply" dir="ltr" /></Field>
-        <Field label={tx("material", "Material")}><Input name="material" /></Field>
-        <Field label={tx("size", "Size")}><Input name="sizeLabel" dir="ltr" /></Field>
-        <Field label={tx("barcode", "Barcode")}><Input name="barcode" dir="ltr" /></Field>
-        <Field label={tx("hsCode", "HS code")}><Input name="hsCode" dir="ltr" /></Field>
-        <Field label={tx("price", "Default price")}><Input name="price" dir="ltr" defaultValue="0" /></Field>
+      <form key={editing?.id ?? "new"} className="grid gap-3 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void save(event.currentTarget); }}>
+        <Field label={tx("name", "Name")}><Input name="name" required defaultValue={editing?.name ?? ""} /></Field>
+        <Field label={tx("unit", "Unit")}><Input name="unit" defaultValue={editing?.unit_label ?? "PCS"} dir="ltr" /></Field>
+        <div className="md:col-span-2"><Field label={tx("tradeDescription", "Description template")}><Textarea name="descriptionTemplate" className="min-h-20" defaultValue={editing?.description_template ?? ""} /></Field></div>
+        <Field label={tx("ply", "Ply")}><Input name="ply" dir="ltr" defaultValue={editing?.ply ?? ""} /></Field>
+        <Field label={tx("material", "Material")}><Input name="material" defaultValue={editing?.material ?? ""} /></Field>
+        <Field label={tx("size", "Size")}><Input name="sizeLabel" dir="ltr" defaultValue={editing?.size_label ?? ""} /></Field>
+        <Field label={tx("barcode", "Barcode")}><Input name="barcode" dir="ltr" defaultValue={editing?.barcode ?? ""} /></Field>
+        <Field label={tx("hsCode", "HS code")}><Input name="hsCode" dir="ltr" defaultValue={editing?.hs_code ?? ""} /></Field>
+        <Field label={tx("price", "Default price")}><Input name="price" dir="ltr" defaultValue={editing ? moneyText(editing.default_price_minor) : "0"} /></Field>
         <Field label={tx("packingPerPackage", "Default packing per package")}><Input name="packing" dir="ltr" inputMode="numeric" /></Field>
         <div><Button type="submit" disabled={busy}>{tx("tradeAddPreset", "Add catalog item")}</Button></div>
       </form>

@@ -53,7 +53,7 @@ export function createApp(deps: AppDependencies = {}) {
       // W2 independent quotations (D-10): literal path verbs of the quotations
       // routes. Any other segment (an id) keeps mapping to ":id".
       "quotations", "items", "issue", "response", "revise", "link", "unlink", "copy-items", "archive", "pdf",
-      "proformas", "convert", "product-presets", "exporter-identity", "exporter-bank-accounts", "exporter-marks",
+      "proformas", "convert", "product-presets", "shipping-methods", "exporter-identity", "exporter-bank-accounts", "exporter-marks", "file",
       "packing-lines", "sync-totals", "reconciliation", "issue-trade", "lines", "trade-sheet", "trade-header",
       "commercial-pdf", "packing-pdf", "customs-pdf",
       "bank", "presentation-check",

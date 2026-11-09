@@ -33,7 +33,9 @@ const PROBE_GROUPS = {
     { key: "proforma_invoices", sql: "SELECT print_reference, issued_snapshot_json, converted_invoice_id FROM proforma_invoices LIMIT 1" },
     { key: "invoice_lines", sql: "SELECT hs_code, line_total_minor FROM invoice_lines LIMIT 1" },
     { key: "packing_lines", sql: "SELECT pieces_count, net_weight_grams, gross_weight_grams FROM packing_lines LIMIT 1" },
-    { key: "export_invoice_trade", sql: "SELECT packages_count, trade_status, trade_revision, shipping_method_label, print_reference FROM export_invoices LIMIT 1" },
+    { key: "export_invoice_trade", sql: "SELECT packages_count, trade_status, trade_revision, shipping_method_label, print_reference, is_stamped, stamp_x FROM export_invoices LIMIT 1" },
+    { key: "shipping_methods", sql: "SELECT code, label, includes_freight FROM shipping_methods LIMIT 1" },
+    { key: "proforma_stamp", sql: "SELECT is_stamped, stamp_x, stamp_y, stamp_rotation FROM proforma_invoices LIMIT 1" },
   ],
 } as const;
 

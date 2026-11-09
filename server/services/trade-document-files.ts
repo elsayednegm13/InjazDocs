@@ -6,7 +6,7 @@ import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requirePermission } from "./actor";
-import { ensureTradeDefaults } from "./trade-defaults";
+import { ensureTradeDefaults, shippingIncludesFreight } from "./trade-defaults";
 
 const EMPTY_IDENTITY: TradeIdentity = {
   nameEn: "",
@@ -129,17 +129,25 @@ async function proformaModel(db: D1Database, bucket: R2Bucket, id: string, draft
     id,
   );
   const chrome = await chromeFor(db, String(row.customer_id), row.exporter_bank_account_id ? String(row.exporter_bank_account_id) : null, bucket);
+  const shippingMethod = String(row.shipping_method_label ?? row.incoterm ?? "");
+  const stamped = Number(row.is_stamped) === 1;
   return {
     kind: "proforma",
     draft,
     ...chrome,
+    stamp: stamped ? chrome.stamp : null,
+    stamped,
+    stampX: Number(row.stamp_x ?? 460),
+    stampY: Number(row.stamp_y ?? 130),
+    stampRotation: Number(row.stamp_rotation ?? 0),
+    includeFreight: await shippingIncludesFreight(db, shippingMethod),
     date: String(row.invoice_date ?? ""),
     invoiceNumber: String(row.invoice_number ?? ""),
     printReference: String(row.print_reference ?? ""),
     origin: String(row.origin_of_goods ?? "EGYPT"),
     portOfLoading: String(row.port_of_loading ?? ""),
     portOfDischarge: String(row.port_of_discharge ?? ""),
-    shippingMethod: String(row.shipping_method_label ?? row.incoterm ?? ""),
+    shippingMethod,
     paymentTerm: String(row.payment_term_label ?? row.payment_term_code ?? ""),
     incoterm: String(row.incoterm ?? "FOB"),
     fobMinor: Number(row.fob_total_minor ?? 0),
@@ -157,17 +165,25 @@ async function commercialModel(db: D1Database, bucket: R2Bucket, invoiceId: stri
     invoiceId,
   );
   const chrome = await chromeFor(db, String(row.customer_id), row.exporter_bank_account_id ? String(row.exporter_bank_account_id) : null, bucket);
+  const shippingMethod = String(row.shipping_method_label ?? row.incoterm ?? "");
+  const stamped = Number(row.is_stamped) === 1;
   return {
     kind: "commercial",
     draft,
     ...chrome,
+    stamp: stamped ? chrome.stamp : null,
+    stamped,
+    stampX: Number(row.stamp_x ?? 460),
+    stampY: Number(row.stamp_y ?? 130),
+    stampRotation: Number(row.stamp_rotation ?? 0),
+    includeFreight: await shippingIncludesFreight(db, shippingMethod),
     date: String(row.invoice_date ?? ""),
     invoiceNumber: String(row.invoice_number ?? ""),
     printReference: String(row.print_reference ?? ""),
     origin: String(row.origin_of_goods ?? ""),
     portOfLoading: String(row.port_of_loading ?? ""),
     portOfDischarge: String(row.port_of_discharge ?? ""),
-    shippingMethod: String(row.shipping_method_label ?? row.incoterm ?? ""),
+    shippingMethod,
     paymentTerm: String(row.payment_term_label ?? row.payment_term_code ?? ""),
     incoterm: String(row.incoterm ?? "FOB"),
     fobMinor: Number(row.goods_value_minor ?? 0),

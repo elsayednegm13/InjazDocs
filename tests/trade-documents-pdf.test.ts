@@ -39,6 +39,11 @@ function base(draft: boolean) {
     bank,
     logo: null,
     stamp: null,
+    stamped: false,
+    stampX: 480,
+    stampY: 140,
+    stampRotation: -6,
+    includeFreight: true,
   };
 }
 
@@ -51,7 +56,7 @@ afterEach(() => {
 });
 
 describe("trade document pdf", () => {
-  it("renders the four pdf modes, a draft watermark, a vector stamp, and a second page", async () => {
+  it("renders the four pdf modes, a draft watermark, and a stamp image only when placed", async () => {
     const proforma: ProformaPdf = { ...base(true), kind: "proforma", incoterm: "CFR", fobMinor: 10000, freightMinor: 500, lines: [item(1)] };
     const commercial: CommercialPdf = { ...base(false), kind: "commercial", incoterm: "CFR", fobMinor: 10000, freightMinor: 500, packages: 25, grossGrams: 9000, netGrams: 7000, lines: [item(1)] };
     const packing: PackingPdf = {
@@ -66,14 +71,17 @@ describe("trade document pdf", () => {
       renderTradePdf(commercial),
       renderTradePdf(packing),
       renderCustomsBundle(commercial, packing),
-      renderTradePdf({ ...commercial, stamp: jpeg }),
+      renderTradePdf({ ...commercial, stamped: true, stamp: jpeg }),
       renderTradePdf(longCommercial),
     ]);
     for (const file of files) expect(textOf(file).startsWith("%PDF-")).toBe(true);
     expect(textOf(files[0])).toContain("DRAFT");
     expect(textOf(files[1])).not.toContain("DRAFT");
-    expect(textOf(files[1])).toContain("APPROVED");
+    expect(textOf(files[1])).not.toContain("APPROVED");
+    expect(textOf(files[1])).not.toContain("/ImStamp");
     expect(textOf(files[4])).toContain("DCTDecode");
+    expect(textOf(files[4])).toContain("/ImStamp");
+    expect(textOf(files[4])).not.toContain("APPROVED");
     expect(textOf(files[5])).toMatch(/\/Count [2-9]/);
   });
 

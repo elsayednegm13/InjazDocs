@@ -1,4 +1,4 @@
-import { newId, nowIso, one } from "../db/sql";
+import { all, newId, nowIso, one } from "../db/sql";
 
 const PRESETS = [
   ["Blanket 2.4KG (1 ply)", "1 ply"],
@@ -53,6 +53,25 @@ export async function ensureTradeDefaults(db: D1Database) {
       )
       .run();
   }
+  const methods = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM shipping_methods");
+  if (!methods || Number(methods.n) === 0) {
+    const seed: Array<[string, number]> = [
+      ["FOB", 0],
+      ["CFR", 1],
+      ["C&F", 1],
+      ["CIF", 1],
+      ["EXW", 0],
+    ];
+    for (const [index, [code, freight]] of seed.entries()) {
+      await db
+        .prepare(
+          `INSERT INTO shipping_methods (id, code, label, includes_freight, sort_order, active, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+        )
+        .bind(newId(), code, code, freight, index + 1, now, now)
+        .run();
+    }
+  }
   const presets = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM product_presets");
   if (!presets || Number(presets.n) === 0) {
     for (const [name, ply] of PRESETS) {
@@ -66,4 +85,24 @@ export async function ensureTradeDefaults(db: D1Database) {
         .run();
     }
   }
+}
+
+export async function shippingIncludesFreight(db: D1Database, label: string) {
+  const key = label.trim();
+  if (!key) return false;
+  const row = await one<{ includes_freight: number }>(
+    db,
+    `SELECT includes_freight FROM shipping_methods
+     WHERE active = 1 AND (code = ? COLLATE NOCASE OR label = ? COLLATE NOCASE)
+     LIMIT 1`,
+    key,
+    key,
+  );
+  if (row) return Number(row.includes_freight) === 1;
+  const upper = key.toUpperCase();
+  return upper.includes("CFR") || upper.includes("C&F") || upper.includes("CIF");
+}
+
+export async function listShippingMethodRows(db: D1Database) {
+  return all(db, "SELECT * FROM shipping_methods WHERE active = 1 ORDER BY sort_order, code");
 }

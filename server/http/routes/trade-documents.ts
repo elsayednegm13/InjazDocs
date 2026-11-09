@@ -2,6 +2,9 @@ import type { Hono } from "hono";
 import {
   convertProforma,
   createProforma,
+  deleteProductPreset,
+  deleteProforma,
+  deleteShippingMethod,
   getExporterIdentity,
   getExporterMarks,
   getProforma,
@@ -11,6 +14,8 @@ import {
   listProformas,
   uploadExporterMark,
   listProductPresets,
+  listShippingMethods,
+  readExporterMarkFile,
   reconciliationFor,
   replaceInvoiceLines,
   replacePackingLines,
@@ -18,6 +23,7 @@ import {
   saveExporterIdentity,
   saveExporterMarks,
   saveProductPreset,
+  saveShippingMethod,
   saveTradeHeader,
   syncPackingTotals,
   tradeSheet,
@@ -35,6 +41,11 @@ export function mountTradeRoutes(api: Hono<AppEnv>) {
   api.patch("/settings/exporter-bank-accounts/:id", async (c) => jsonSuccess(await saveExporterBank(c.env.DB, c.get("actor"), await c.req.json(), c.req.param("id")), c.get("requestId")));
   api.get("/settings/exporter-marks", async (c) => jsonSuccess(await getExporterMarks(c.env.DB, c.get("actor")), c.get("requestId")));
   api.put("/settings/exporter-marks", async (c) => jsonSuccess(await saveExporterMarks(c.env.DB, c.get("actor"), await c.req.json()), c.get("requestId")));
+  api.get("/settings/exporter-marks/file/:kind", async (c) => {
+    const kind = c.req.param("kind");
+    if (kind !== "logo" && kind !== "stamp") throw errors.notFound("Image kind not found");
+    return readExporterMarkFile(c.env.DB, c.env.DOCUMENTS, c.get("actor"), kind);
+  });
   api.post("/settings/exporter-marks/:kind", async (c) => {
     const kind = c.req.param("kind");
     if (kind !== "logo" && kind !== "stamp") throw errors.notFound("Image kind not found");
@@ -45,6 +56,12 @@ export function mountTradeRoutes(api: Hono<AppEnv>) {
   api.get("/product-presets", async (c) => jsonSuccess(await listProductPresets(c.env.DB, c.get("actor")), c.get("requestId")));
   api.post("/product-presets", async (c) => jsonSuccess(await saveProductPreset(c.env.DB, c.get("actor"), await c.req.json()), c.get("requestId"), {}, 201));
   api.patch("/product-presets/:id", async (c) => jsonSuccess(await saveProductPreset(c.env.DB, c.get("actor"), await c.req.json(), c.req.param("id")), c.get("requestId")));
+  api.delete("/product-presets/:id", async (c) => jsonSuccess(await deleteProductPreset(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
+
+  api.get("/shipping-methods", async (c) => jsonSuccess(await listShippingMethods(c.env.DB, c.get("actor")), c.get("requestId")));
+  api.post("/shipping-methods", async (c) => jsonSuccess(await saveShippingMethod(c.env.DB, c.get("actor"), await c.req.json()), c.get("requestId"), {}, 201));
+  api.patch("/shipping-methods/:id", async (c) => jsonSuccess(await saveShippingMethod(c.env.DB, c.get("actor"), await c.req.json(), c.req.param("id")), c.get("requestId")));
+  api.delete("/shipping-methods/:id", async (c) => jsonSuccess(await deleteShippingMethod(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
 
   api.get("/proformas", async (c) => jsonSuccess(await listProformas(c.env.DB, c.get("actor"), c.req.query("caseId") || undefined), c.get("requestId")));
   api.post("/proformas", async (c) => jsonSuccess(await createProforma(c.env.DB, c.get("actor"), await c.req.json()), c.get("requestId"), {}, 201));
@@ -53,6 +70,7 @@ export function mountTradeRoutes(api: Hono<AppEnv>) {
   api.post("/proformas/:id/issue", async (c) => jsonSuccess(await issueProforma(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id")), c.get("requestId")));
   api.get("/proformas/:id/pdf", async (c) => pdfResponse(await proformaPdfBytes(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id")), "proforma.pdf"));
   api.post("/proformas/:id/convert", async (c) => jsonSuccess(await convertProforma(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
+  api.delete("/proformas/:id", async (c) => jsonSuccess(await deleteProforma(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
 
   api.get("/invoices/:id/trade-sheet", async (c) => jsonSuccess(await tradeSheet(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
   api.put("/invoices/:id/trade-header", async (c) => jsonSuccess(await saveTradeHeader(c.env.DB, c.get("actor"), c.req.param("id"), await c.req.json()), c.get("requestId")));

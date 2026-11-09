@@ -59,6 +59,11 @@ type Common = {
   bank: TradeBank | null;
   logo: TradeImage;
   stamp: TradeImage;
+  stamped: boolean;
+  stampX: number;
+  stampY: number;
+  stampRotation: number;
+  includeFreight: boolean;
 };
 
 export type ProformaPdf = Common & { kind: "proforma"; incoterm: string; lines: TradeItem[]; fobMinor: number; freightMinor: number };
@@ -84,17 +89,17 @@ const BOTTOM = 46;
 const INK = "0.06 0.09 0.16";
 const HEAD = "0.12 0.16 0.23";
 
-type ImageObj = { name: string; bytes: Uint8Array; w: number; h: number; kind: "jpeg" | "png"; png?: { data: Uint8Array; colors: number } };
+type ImageObj = { name: string; bytes: Uint8Array; w: number; h: number; kind: "jpeg" | "png"; png?: { data: Uint8Array; colors: number; mask?: Uint8Array } };
 
 export async function renderTradePdf(model: TradePdfModel): Promise<Uint8Array> {
-  const images = await collectImages(model.logo, model.stamp);
+  const images = await collectImages(model.logo, placedStamp(model));
   const pages = layout(model, images);
   stampPages(pages, model.draft);
   return assemble(pages, images);
 }
 
 export async function renderCustomsBundle(commercial: CommercialPdf, packing: PackingPdf): Promise<Uint8Array> {
-  const images = await collectImages(commercial.logo ?? packing.logo, commercial.stamp ?? packing.stamp);
+  const images = await collectImages(commercial.logo ?? packing.logo, placedStamp(commercial));
   const pages = [...layout({ ...commercial, logo: commercial.logo, stamp: commercial.stamp }, images), ...layout(packing, images)];
   stampPages(pages, commercial.draft || packing.draft);
   return assemble(pages, images);
@@ -181,7 +186,7 @@ function paintItems(cursor: { page: Page }, model: ProformaPdf | CommercialPdf, 
     page.y = top - height;
   });
   let page = cursor.page;
-  const showFreight = chargesFreight(model.incoterm, model.shippingMethod);
+  const showFreight = model.includeFreight;
   const totals: [string, number][] = [["TOTAL F.O.B", model.fobMinor]];
   if (showFreight) {
     totals.push(["SEA FREIGHT", model.freightMinor]);
@@ -284,19 +289,11 @@ function paintFooter(cursor: { page: Page }, model: TradePdfModel, images: Image
     }
   }
   const stamp = images.find((image) => image.name === "ImStamp");
-  const boxX = PAGE_W - MARGIN - 150;
-  const boxY = Math.max(BOTTOM + 8, page.y - 78);
-  if (stamp) drawImage(page.ops, stamp.name, boxX, boxY, 140, 70);
-  else paintVectorStamp(page.ops, model.identity, boxX, boxY);
-}
-
-function paintVectorStamp(ops: string[], identity: TradeIdentity, x: number, y: number) {
-  ops.push(`${INK} RG`, `1.4 w ${n(x)} ${n(y)} 148 72 re S`);
-  text(ops, "APPROVED", x + 74, y + 58, 9, "center");
-  text(ops, identity.stampLabelEn || identity.nameEn || "Exporter", x + 74, y + 46, 7, "center");
-  if (identity.stampLabelAr || identity.nameAr) text(ops, identity.stampLabelAr || identity.nameAr, x + 74, y + 34, 8, "center");
-  text(ops, "Financial Management / الإدارة المالية", x + 74, y + 22, 6.5, "center");
-  text(ops, `CR ${dash(identity.commercialRegistry)}  TAX ${dash(identity.taxCard)}`, x + 74, y + 10, 6, "center");
+  if (model.kind !== "packing" && model.stamped && stamp) {
+    const width = 118;
+    const height = Math.max(36, (stamp.h / Math.max(stamp.w, 1)) * width);
+    drawStamp(page.ops, stamp.name, model.stampX, model.stampY, width, height, model.stampRotation);
+  }
 }
 
 function paintTableHeader(page: Page, labels: string[]) {
@@ -345,9 +342,8 @@ function stampPages(pages: Page[], draft: boolean) {
   });
 }
 
-function chargesFreight(incoterm: string, shipping: string) {
-  const text = `${incoterm} ${shipping}`.toUpperCase();
-  return text.includes("CFR") || text.includes("C&F");
+function placedStamp(model: TradePdfModel) {
+  return model.kind === "packing" || !model.stamped ? null : model.stamp;
 }
 
 function money(minor: number) {
@@ -390,6 +386,21 @@ function boxRow(ops: string[], top: number, height: number, widths: number[]) {
 
 function drawImage(ops: string[], name: string, x: number, y: number, w: number, h: number) {
   ops.push("q", `${n(w)} 0 0 ${n(h)} ${n(x)} ${n(y)} cm`, `/${name} Do`, "Q");
+}
+
+function drawStamp(ops: string[], name: string, centerX: number, centerY: number, w: number, h: number, rotation: number) {
+  const radians = (rotation * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  ops.push(
+    "q",
+    `${n(w)} 0 0 ${n(h)} 0 0 cm`,
+    `1 0 0 1 ${n(-w / 2)} ${n(-h / 2)} cm`,
+    `${n(cos)} ${n(sin)} ${n(-sin)} ${n(cos)} 0 0 cm`,
+    `1 0 0 1 ${n(centerX)} ${n(centerY)} cm`,
+    `/${name} Do`,
+    "Q",
+  );
 }
 
 function n(value: number) {
@@ -442,8 +453,11 @@ async function pngImage(bytes: Uint8Array): Promise<Omit<ImageObj, "name"> | nul
   if (!inflated) return null;
   const raw = unfilterPng(inflated, w, h, colors);
   if (!raw) return null;
-  const rgb = colors === 4 ? dropAlpha(raw, w, h) : raw;
-  return { bytes: rgb, w, h, kind: "png", png: { data: rgb, colors: colors === 4 ? 3 : colors } };
+  if (colors === 4) {
+    const split = splitRgba(raw, w, h);
+    return { bytes: split.rgb, w, h, kind: "png", png: { data: split.rgb, colors: 3, mask: split.alpha } };
+  }
+  return { bytes: raw, w, h, kind: "png", png: { data: raw, colors } };
 }
 
 function pngIdat(bytes: Uint8Array) {
@@ -497,14 +511,16 @@ function paeth(a: number, b: number, c: number) {
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
 }
 
-function dropAlpha(data: Uint8Array, w: number, h: number) {
-  const out = new Uint8Array(w * h * 3);
-  for (let i = 0, j = 0; i < data.length; i += 4, j += 3) {
-    out[j] = data[i];
-    out[j + 1] = data[i + 1];
-    out[j + 2] = data[i + 2];
+function splitRgba(data: Uint8Array, w: number, h: number) {
+  const rgb = new Uint8Array(w * h * 3);
+  const alpha = new Uint8Array(w * h);
+  for (let i = 0, pixel = 0; i < data.length; i += 4, pixel += 1) {
+    rgb[pixel * 3] = data[i];
+    rgb[pixel * 3 + 1] = data[i + 1];
+    rgb[pixel * 3 + 2] = data[i + 2];
+    alpha[pixel] = data[i + 3];
   }
-  return out;
+  return { rgb, alpha };
 }
 
 async function inflate(bytes: Uint8Array) {
@@ -540,8 +556,14 @@ function assemble(pages: Page[], images: ImageObj[]): Uint8Array {
   };
   const objEnd = () => pushText("\nendobj\n");
   pushText("%PDF-1.4\n%\xE2\xE3\xCB\xD3\n");
-  const imageStart = 4;
-  const pageStart = imageStart + images.length;
+  const slots: Array<{ image: ImageObj; id: number; maskId?: number }> = [];
+  let nextId = 4;
+  for (const image of images) {
+    const mask = image.png?.mask;
+    const maskId = mask ? nextId++ : undefined;
+    slots.push({ image, id: nextId++, maskId });
+  }
+  const pageStart = nextId;
   objStart(1);
   pushText("<< /Type /Catalog /Pages 2 0 R >>");
   objEnd();
@@ -552,8 +574,16 @@ function assemble(pages: Page[], images: ImageObj[]): Uint8Array {
   objStart(3);
   pushText("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
   objEnd();
-  images.forEach((image, index) => {
-    objStart(imageStart + index);
+  for (const slot of slots) {
+    const image = slot.image;
+    if (slot.maskId && image.png?.mask) {
+      objStart(slot.maskId);
+      pushText(`<< /Type /XObject /Subtype /Image /Width ${image.w} /Height ${image.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Length ${image.png.mask.length} >>\nstream\n`);
+      pushBytes(image.png.mask);
+      pushText("\nendstream");
+      objEnd();
+    }
+    objStart(slot.id);
     if (image.kind === "jpeg") {
       pushText(`<< /Type /XObject /Subtype /Image /Width ${image.w} /Height ${image.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.bytes.length} >>\nstream\n`);
       pushBytes(image.bytes);
@@ -561,13 +591,14 @@ function assemble(pages: Page[], images: ImageObj[]): Uint8Array {
     } else {
       const data = image.png?.data ?? image.bytes;
       const space = (image.png?.colors ?? 3) === 1 ? "/DeviceGray" : "/DeviceRGB";
-      pushText(`<< /Type /XObject /Subtype /Image /Width ${image.w} /Height ${image.h} /ColorSpace ${space} /BitsPerComponent 8 /Length ${data.length} >>\nstream\n`);
+      const mask = slot.maskId ? ` /SMask ${slot.maskId} 0 R` : "";
+      pushText(`<< /Type /XObject /Subtype /Image /Width ${image.w} /Height ${image.h} /ColorSpace ${space} /BitsPerComponent 8${mask} /Length ${data.length} >>\nstream\n`);
       pushBytes(data);
       pushText("\nendstream");
     }
     objEnd();
-  });
-  const xobjects = images.map((image, index) => `/${image.name} ${imageStart + index} 0 R`).join(" ");
+  }
+  const xobjects = slots.map((slot) => `/${slot.image.name} ${slot.id} 0 R`).join(" ");
   pages.forEach((page, index) => {
     const pageId = pageStart + index * 2;
     const contentId = pageId + 1;

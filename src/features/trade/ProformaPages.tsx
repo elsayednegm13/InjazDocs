@@ -9,6 +9,7 @@ import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
 import { downloadPdf, lineAmount, moneyMinor, moneyText, newKey, type BankAccount, type InvoiceDraftLine, type ProductPreset } from "./trade-model";
 import { CatalogDialog, CompanyDialog, PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
+import { includesFreight, ShippingMethodField, StampPad, useShippingMethods } from "./TradeExtras";
 
 type Proforma = {
   id: string;
@@ -27,12 +28,20 @@ type Proforma = {
   sea_freight_minor: number;
   fob_total_minor: number;
   total_minor: number;
+  customer_name?: string;
+  customer_code?: string | null;
+  is_stamped?: number;
+  stamp_x?: number | null;
+  stamp_y?: number | null;
+  stamp_rotation?: number | null;
   lines?: Array<{ description: string; unit_label: string | null; quantity: number; unit_price_minor: number }>;
 };
 
 export function ProformaListPage() {
   const { tx } = useCopy();
+  const client = useQueryClient();
   const list = useQuery({ queryKey: ["proformas"], queryFn: async () => (await api<Proforma[]>("/api/v1/proformas")).data });
+  const rows = list.data ?? [];
   return (
     <div className="space-y-4">
       <PageHeader
@@ -40,17 +49,45 @@ export function ProformaListPage() {
         subtitle={tx("proformasHint", "A proforma can stand alone, then be linked to an export operation and converted.")}
         actions={<Button asChild size="sm"><Link to="/proformas/new">{tx("proformaNew", "New proforma")}</Link></Button>}
       />
-      {(list.data ?? []).length === 0 ? <EmptyState>{tx("proformaEmpty", "No proforma invoices yet.")}</EmptyState> : (
-        <ul className="space-y-2">
-          {(list.data ?? []).map((row) => (
-            <li key={row.id}>
-              <Link to={`/proformas/${row.id}`} className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-line bg-card px-3 py-2 text-sm shadow-card">
-                <span className="font-medium text-ink"><Ltr>{row.invoice_number}</Ltr> {row.print_reference ? <span className="text-ink-muted">· {row.print_reference}</span> : null}</span>
-                <span className="text-xs text-ink-muted">{row.status} · {moneyText(row.total_minor)}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+      {rows.length === 0 ? <EmptyState>{tx("proformaEmpty", "No proforma invoices yet.")}</EmptyState> : (
+        <div className="overflow-x-auto rounded-card border border-line bg-card shadow-card">
+          <table className="w-full min-w-[920px] border-collapse text-start text-sm">
+            <thead className="bg-paper text-[11px] uppercase tracking-wide text-ink-muted">
+              <tr>
+                <th className="px-3 py-2 font-medium">{tx("customer", "Customer")}</th>
+                <th className="px-3 py-2 font-medium">{tx("invoiceNumber", "Invoice")}</th>
+                <th className="px-3 py-2 font-medium">{tx("shippingMethod", "Shipping")}</th>
+                <th className="px-3 py-2 font-medium">{tx("tradeBeforeFreight", "Before freight")}</th>
+                <th className="px-3 py-2 font-medium">{tx("tradeAfterFreight", "After freight")}</th>
+                <th className="px-3 py-2 font-medium">{tx("status", "Status")}</th>
+                <th className="px-3 py-2 font-medium">{tx("actions", "Actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-t border-line">
+                  <td className="px-3 py-2">
+                    <span className="font-medium text-ink">{row.customer_name}</span>
+                    {row.customer_code ? <span className="ms-2 rounded-full bg-accent/10 px-1.5 py-0.5 text-[11px] font-semibold text-accent" dir="ltr">{row.customer_code}</span> : null}
+                  </td>
+                  <td className="px-3 py-2"><Ltr>{row.invoice_number}</Ltr><span className="mt-0.5 block text-[11px] text-ink-muted"><Ltr>{row.invoice_date}</Ltr></span></td>
+                  <td className="px-3 py-2"><span className="rounded-full border border-line px-1.5 py-0.5 text-[11px] font-semibold" dir="ltr">{row.shipping_method_label || "—"}</span><span className="mt-0.5 block text-[11px] text-ink-muted"><Ltr>{moneyText(row.sea_freight_minor)}</Ltr></span></td>
+                  <td className="px-3 py-2 tabular-nums"><Ltr>{moneyText(row.fob_total_minor)}</Ltr></td>
+                  <td className="px-3 py-2 text-base font-semibold tabular-nums text-ink"><Ltr>{moneyText(row.total_minor)}</Ltr></td>
+                  <td className="px-3 py-2 text-xs">{row.status}{row.is_stamped ? ` · ${tx("tradeStamped", "Stamped")}` : ""}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      <Button asChild size="sm" variant="outline"><Link to={`/proformas/${row.id}`}>{tx("tradeOpen", "Open")}</Link></Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/proformas/${row.id}/pdf`, `${row.invoice_number}.pdf`).catch(notifyError)}>{tx("pdf", "PDF")}</Button>
+                      <Button type="button" size="sm" variant="outline" disabled={!row.case_id} onClick={() => void api<{ invoiceId: string }>(`/api/v1/proformas/${row.id}/convert`, { method: "POST", body: "{}" }).then(() => { notifySuccess(tx("proformaConverted", "Converted")); return client.invalidateQueries({ queryKey: ["proformas"] }); }).catch(notifyError)}>{tx("proformaConvert", "Convert")}</Button>
+                      {row.status === "DRAFT" ? <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/proformas/${row.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradeDraftDeleted", "Draft deleted")); return client.invalidateQueries({ queryKey: ["proformas"] }); }).catch(notifyError)}>{tx("tradeDeleteDraft", "Delete draft")}</Button> : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
@@ -89,8 +126,11 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
   const [origin, setOrigin] = useState(initial?.origin_of_goods ?? "EGYPT");
   const [bankId, setBankId] = useState(initial?.exporter_bank_account_id ?? "");
   const [freight, setFreight] = useState(moneyText(initial?.sea_freight_minor ?? 0));
+  const [stamp, setStamp] = useState({ stamped: initial?.is_stamped === 1, x: initial?.stamp_x ?? 470, y: initial?.stamp_y ?? 130, rotation: initial?.stamp_rotation ?? -4 });
   const [lines, setLines] = useState<InvoiceDraftLine[]>(initial?.lines?.length ? initial.lines.map((line) => ({ key: newKey(), description: line.description, hsCode: "", barcode: "", unit: line.unit_label ?? "PCS", quantity: String(line.quantity), price: moneyText(line.unit_price_minor) })) : [{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "PCS", quantity: "1", price: "0.00" }]);
   const [busy, setBusy] = useState(false);
+  const methods = useShippingMethods();
+  const freightOn = includesFreight(shipping, methods.data ?? []);
   const issued = initial?.status === "ISSUED";
   const fob = lines.reduce((sum, line) => sum + lineAmount(line, "USD"), 0);
   const freightMinor = safeMinor(freight);
@@ -105,10 +145,14 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
       originOfGoods: origin,
       paymentTermCode: paymentCode,
       paymentTermLabel: paymentLabel,
-      incoterm: shipping === "FOB" ? "FOB" : "CFR",
+      incoterm: freightOn ? "CFR" : "FOB",
       shippingMethodLabel: shipping,
       exporterBankAccountId: bankId || null,
       seaFreightMinor: freightMinor,
+      isStamped: stamp.stamped,
+      stampX: stamp.x,
+      stampY: stamp.y,
+      stampRotation: stamp.rotation,
       lines: lines.map((line) => ({ description: line.description, unit: line.unit, quantity: Number(line.quantity), unitPriceMinor: moneyMinor(line.price) })),
     };
   }
@@ -187,9 +231,7 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
           </Select>
         </Field>
         <PaymentTermField value={paymentLabel} disabled={issued} onChange={setPaymentLabel} />
-        <Field label={tx("shippingMethod", "Shipping method")}>
-          <Select value={shipping} disabled={issued} onChange={(event) => setShipping(event.target.value)}><option>CFR</option><option>C&F</option><option>FOB</option></Select>
-        </Field>
+        <ShippingMethodField value={shipping} disabled={issued} onChange={setShipping} />
         <Field label={tx("seaFreight", "Sea freight")}><Input dir="ltr" value={freight} disabled={issued} onChange={(event) => setFreight(event.target.value)} /></Field>
         <Field label={tx("tradeBank", "Bank account")}>
           <Select value={bankId} disabled={issued} onChange={(event) => setBankId(event.target.value)}>
@@ -218,10 +260,14 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
             <Field label={tx("quantity", "Quantity")}><Input dir="ltr" value={line.quantity} disabled={issued} onChange={(event) => setLines((current) => current.map((item) => item.key === line.key ? { ...item, quantity: event.target.value } : item))} /></Field>
             <Field label={tx("price", "Price")}><Input dir="ltr" value={line.price} disabled={issued} onChange={(event) => setLines((current) => current.map((item) => item.key === line.key ? { ...item, price: event.target.value } : item))} /></Field>
             <Field label={tx("amount", "Amount")}><Input dir="ltr" readOnly value={moneyText(lineAmount(line, "USD"))} /></Field>
-            <div className="flex items-end"><Button type="button" size="sm" variant="outline" disabled={issued || !line.description.trim()} onClick={() => void saveLineToCatalog(line).then(() => { notifySuccess(tx("tradePresetSaved", "Catalog item saved")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("tradeSaveLineCatalog", "Save to catalog")}</Button></div>
+            <div className="flex items-end gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={issued} onClick={() => setLines((current) => current.length === 1 ? [{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "PCS", quantity: "1", price: "0.00" }] : current.filter((item) => item.key !== line.key))}>{tx("tradeRemoveLine", "Remove line")}</Button>
+              <Button type="button" size="sm" variant="outline" disabled={issued || !line.description.trim()} onClick={() => void saveLineToCatalog(line).then(() => { notifySuccess(tx("tradePresetSaved", "Catalog item saved")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("tradeSaveLineCatalog", "Save to catalog")}</Button>
+            </div>
           </div>
         ))}
-        <p className="text-sm font-medium text-ink md:col-span-2" dir="ltr">TOTAL FOB {moneyText(fob)} + SEA FREIGHT {moneyText(freightMinor)} = {shipping === "FOB" ? "TOTAL FOB" : "TOTAL CFR / C&F"} {moneyText(shipping === "FOB" ? fob : fob + freightMinor)}</p>
+        <p className="text-sm font-medium text-ink md:col-span-2" dir="ltr">TOTAL FOB {moneyText(fob)}{freightOn ? ` + SEA FREIGHT ${moneyText(freightMinor)} = TOTAL ${shipping} ${moneyText(fob + freightMinor)}` : ""}</p>
+        <div className="md:col-span-2"><StampPad stamped={stamp.stamped} x={stamp.x} y={stamp.y} rotation={stamp.rotation} disabled={issued} onChange={setStamp} /></div>
         <div className="flex flex-wrap gap-2 md:col-span-2">
           <Button type="button" disabled={issued || busy} onClick={() => void save()}>{tx("tradeSaveDraft", "Save draft")}</Button>
           {initial?.id ? <Button type="button" variant="outline" disabled={issued || busy} onClick={() => void issue()}>{tx("proformaIssue", "Issue proforma")}</Button> : null}
