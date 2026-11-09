@@ -162,7 +162,19 @@ export async function createCustomer(
       requestId,
     }),
   );
-  await db.batch(statements);
+  try {
+    await db.batch(statements);
+  } catch (error) {
+    if (!isMissingCustomerCode(error)) throw error;
+    // A store that passed the 0008 readiness gate may still predate migration 0016.
+    statements[0] = db
+      .prepare(
+        `INSERT INTO customers (id, legal_name, trade_name, country_code, notes, tax_id, version, created_at, updated_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+      )
+      .bind(id, input.legalName.trim(), input.tradeName ?? null, input.countryCode ?? null, input.notes ?? null, input.taxId ?? null, now, now, actor.id);
+    await db.batch(statements);
+  }
   return { id };
 }
 
@@ -435,6 +447,11 @@ function onePrimary<T extends { isPrimary: boolean }>(rows: T[]): T[] {
   if (!rows.length) return rows;
   const chosen = Math.max(0, rows.findIndex((row) => row.isPrimary));
   return rows.map((row, index) => ({ ...row, isPrimary: index === chosen }));
+}
+
+function isMissingCustomerCode(error: unknown) {
+  const text = error instanceof Error ? error.message : String(error);
+  return /customer_code/i.test(text) && /no (such )?column/i.test(text);
 }
 
 function normalizeCustomerCode(value: string | undefined | null, current: string | null): string | null {
