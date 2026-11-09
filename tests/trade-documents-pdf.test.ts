@@ -16,7 +16,7 @@ const identity: TradeIdentity = {
   stampLabelEn: "NANA SECRET COMPANY",
   stampLabelAr: "نانا سيكريت",
 };
-const buyer = { name: "Buyer", address: "Jeddah", vat: "VAT-1", phone: "050", email: "buyer@example.invalid" };
+const buyer = { name: "Buyer", address: "Jeddah", vat: "VAT-1", phone: "050", email: "buyer@example.invalid", code: "EX-116", country: "SA" };
 const bank = { accountName: "NANA SECRET", iban: "EG00TEST", bankName: "Bank", bankAddress: "Cairo", swift: "NANSXXXX" };
 
 function item(index: number): TradeItem {
@@ -77,6 +77,8 @@ describe("trade document pdf", () => {
     ]);
     for (const file of files) expect(textOf(file).startsWith("%PDF-")).toBe(true);
     expect(textOf(files[0])).toContain("DRAFT");
+    expect(textOf(files[0])).toContain("(EX-116)");
+    expect(textOf(files[0])).toContain("(CLIENT)");
     expect(textOf(files[1])).not.toContain("DRAFT");
     expect(textOf(files[1])).not.toContain("APPROVED");
     expect(textOf(files[1])).not.toContain("/ImStamp");
@@ -85,6 +87,7 @@ describe("trade document pdf", () => {
     expect(textOf(files[4])).toContain("1 0 0 1 297.64 210.47 cm");
     expect(textOf(files[4])).not.toContain("APPROVED");
     expect(textOf(files[5])).toMatch(/\/Count [2-9]/);
+    expect(textOf(files[5]).split("(COMMERCIAL)").length - 1).toBe(1);
   });
 
   it("stores issued invoice and packing pdfs as new document versions without removing the previous one", async () => {
@@ -161,7 +164,7 @@ describe("trade document pdf", () => {
       incoterm: "FOB",
       fobMinor: 300,
       freightMinor: 0,
-      buyer: { name: "عميل التصدير", address: "جدة", vat: "", phone: "", email: "" },
+      buyer: { name: "عميل التصدير", address: "جدة", vat: "", phone: "", email: "", code: "EX-01", country: "SA" },
       lines: [{ description: "بطانية تصدير\n100% POLYESTER", unit: "Piece", quantity: 2, unitPriceMinor: 150, lineTotalMinor: 300 }],
     };
     const pdf = textOf(await renderTradePdf(arabic));

@@ -6,7 +6,7 @@ import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requirePermission } from "./actor";
-import { TRADE_PAGE_H, TRADE_PAGE_W } from "../../shared/trade-sheet";
+import { TRADE_PAGE_H, TRADE_PAGE_W, tradePdfFilename } from "../../shared/trade-sheet";
 import { ensureTradeDefaults, shippingIncludesFreight } from "./trade-defaults";
 
 const EMPTY_IDENTITY: TradeIdentity = {
@@ -264,6 +264,24 @@ function numberOrNull(value: unknown) {
   return Number.isFinite(number) ? number : null;
 }
 
+export async function tradePdfFilenameFor(db: D1Database, source: "proforma" | "invoice", id: string) {
+  const row = await one<{ invoice_number: string; legal_name: string; customer_code: string | null; country_code: string | null }>(
+    db,
+    source === "proforma"
+      ? `SELECT p.invoice_number, c.legal_name, c.customer_code, c.country_code
+         FROM proforma_invoices p JOIN customers c ON c.id = p.customer_id WHERE p.id = ?`
+      : `SELECT i.invoice_number, c.legal_name, c.customer_code, c.country_code
+         FROM export_invoices i JOIN customers c ON c.id = i.customer_id WHERE i.id = ?`,
+    id,
+  );
+  return tradePdfFilename({
+    invoiceNumber: row?.invoice_number ?? id,
+    clientName: row?.legal_name ?? "CLIENT",
+    clientCode: row?.customer_code ?? "NA",
+    country: row?.country_code ?? "NA",
+  });
+}
+
 function itemFrom(row: { description: string; unit_label: string | null; quantity: number; unit_price_minor: number; line_total_minor: number }): TradeItem {
   return {
     description: row.description,
@@ -281,7 +299,11 @@ async function chromeFor(db: D1Database, customerId: string, bankId: string | nu
     db,
     "SELECT logo_r2_key, stamp_r2_key, stamp_label_en, stamp_label_ar FROM exporter_marks WHERE id = 'default'",
   );
-  const customer = await one<{ legal_name: string; tax_id: string | null }>(db, "SELECT legal_name, tax_id FROM customers WHERE id = ?", customerId);
+  const customer = await one<{ legal_name: string; tax_id: string | null; customer_code: string | null; country_code: string | null }>(
+    db,
+    "SELECT legal_name, tax_id, customer_code, country_code FROM customers WHERE id = ?",
+    customerId,
+  );
   const address = await one<{ line1: string; city: string | null; country_code: string | null }>(
     db,
     "SELECT line1, city, country_code FROM customer_addresses WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1",
@@ -301,6 +323,8 @@ async function chromeFor(db: D1Database, customerId: string, bankId: string | nu
     vat: customer?.tax_id ?? "",
     phone: contact?.phone ?? "",
     email: contact?.email ?? "",
+    code: customer?.customer_code ?? "",
+    country: customer?.country_code ?? address?.country_code ?? "",
   };
   const bank: TradeBank | null = bankRow
     ? {

@@ -5,6 +5,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { tradePdfFilename } from "@shared/trade-sheet";
 import { cn } from "@/lib/utils";
 import {
   downloadPdf,
@@ -49,6 +50,8 @@ type Sheet = {
     payment_term_label: string | null;
     shipping_method_label: string | null;
     origin_of_goods: string | null;
+    port_of_loading: string | null;
+    port_of_discharge: string | null;
     exporter_bank_account_id: string | null;
     invoiced_freight_minor: number;
     packages_count: number;
@@ -80,6 +83,8 @@ export function TradeBuilder({
   canEdit,
   customerCode = "",
   customerName = "",
+  customerCountry = "",
+  invoiceNumber = "",
 }: {
   invoiceId: string;
   currency: string;
@@ -87,6 +92,8 @@ export function TradeBuilder({
   canEdit: boolean;
   customerCode?: string;
   customerName?: string;
+  customerCountry?: string;
+  invoiceNumber?: string;
 }) {
   const { tx } = useCopy();
   const client = useQueryClient();
@@ -109,6 +116,8 @@ export function TradeBuilder({
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [shippingLabel, setShippingLabel] = useState("CFR");
   const [origin, setOrigin] = useState("EGYPT");
+  const [portLoading, setPortLoading] = useState("");
+  const [portDischarge, setPortDischarge] = useState("");
   const [bankId, setBankId] = useState("");
   const [freight, setFreight] = useState("0.00");
   const [packages, setPackages] = useState(0);
@@ -136,6 +145,8 @@ export function TradeBuilder({
     }));
     setShippingLabel(data.header.shipping_method_label ?? "CFR");
     setOrigin(data.header.origin_of_goods ?? "EGYPT");
+    setPortLoading(data.header.port_of_loading ?? "");
+    setPortDischarge(data.header.port_of_discharge ?? "");
     setBankId(data.header.exporter_bank_account_id ?? "");
     setFreight(moneyText(Number(data.header.invoiced_freight_minor ?? 0), currency));
     setPackages(Number(data.header.packages_count ?? 0));
@@ -167,6 +178,8 @@ export function TradeBuilder({
           paymentTermLabel: paymentLabel,
           shippingMethodLabel: shippingLabel,
           originOfGoods: origin,
+          portOfLoading: portLoading,
+          portOfDischarge: portDischarge,
           exporterBankAccountId: bankId || null,
           seaFreightMinor: freightMinor,
           printReference: reference,
@@ -232,7 +245,7 @@ export function TradeBuilder({
   async function saveQuiet() {
     await api(`/api/v1/invoices/${invoiceId}/trade-header`, {
       method: "PUT",
-      body: JSON.stringify({ paymentTermLabel: paymentLabel, shippingMethodLabel: shippingLabel, originOfGoods: origin, exporterBankAccountId: bankId || null, seaFreightMinor: freightMinor, printReference: reference, isStamped: stamp.stamped, stampXRatio: stamp.xRatio, stampYRatio: stamp.yRatio, stampScale: stamp.scale, stampRotation: stamp.rotation, packingIsStamped: packingStamp.stamped, packingStampXRatio: packingStamp.xRatio, packingStampYRatio: packingStamp.yRatio, packingStampScale: packingStamp.scale, packingStampRotation: packingStamp.rotation }),
+      body: JSON.stringify({ paymentTermLabel: paymentLabel, shippingMethodLabel: shippingLabel, originOfGoods: origin, portOfLoading: portLoading, portOfDischarge: portDischarge, exporterBankAccountId: bankId || null, seaFreightMinor: freightMinor, printReference: reference, isStamped: stamp.stamped, stampXRatio: stamp.xRatio, stampYRatio: stamp.yRatio, stampScale: stamp.scale, stampRotation: stamp.rotation, packingIsStamped: packingStamp.stamped, packingStampXRatio: packingStamp.xRatio, packingStampYRatio: packingStamp.yRatio, packingStampScale: packingStamp.scale, packingStampRotation: packingStamp.rotation }),
     });
     await api(`/api/v1/invoices/${invoiceId}/lines`, { method: "PUT", body: JSON.stringify({ lines: lines.map(serializeInvoice) }) });
     await api(`/api/v1/invoices/${invoiceId}/packing-lines`, { method: "PUT", body: JSON.stringify({ lines: packing.map(serializePacking) }) });
@@ -267,6 +280,8 @@ export function TradeBuilder({
     };
     const facts = [
       { label: "ORIGIN OF GOODS", value: origin },
+      { label: "PORT OF LOADING", value: portLoading },
+      { label: "PORT OF DISCHARGE", value: portDischarge },
       { label: "SHIPPING METHOD", value: shippingLabel },
       { label: "PAYMENT TERM", value: paymentLabel },
     ];
@@ -283,12 +298,13 @@ export function TradeBuilder({
         draft: !issued,
         identity: identityBlock,
         meta: [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceId }, { label: "REFERENCE", value: reference }],
-        buyer: [{ label: "CUSTOMER", value: customerName }, { label: "CODE", value: customerCode }, { label: "ADDRESS", value: "" }],
+        buyer: [{ label: "NAME", value: customerName }, { label: "ADDRESS", value: "" }],
         columns: ["NO", "CONTAINER", "ITEM", "PKG", "PER", "PCS", "GROSS", "NET"],
         lines: packing.map((line, index) => ({ cells: [String(index + 1), line.containerId || "—", line.description || "—", line.packages, line.perPackage, String(Number(line.packages) * Number(line.perPackage) || 0), line.grossKg, line.netKg] })),
         totals: [],
         facts,
         bank: [],
+        clientCode: customerCode,
       };
     }
     return {
@@ -296,12 +312,13 @@ export function TradeBuilder({
       draft: !issued,
       identity: identityBlock,
       meta: [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceId }, { label: "REFERENCE", value: reference }],
-      buyer: [{ label: "CUSTOMER", value: customerName }, { label: "CODE", value: customerCode }, { label: "ADDRESS", value: "" }],
+      buyer: [{ label: "NAME", value: customerName }, { label: "ADDRESS", value: "" }],
       columns: ["NO", "DESCRIPTION", "UNIT", "QTY", "PRICE", "AMOUNT"],
       lines: lines.map((line, index) => ({ cells: [String(index + 1), line.description || "—", line.unit, line.quantity, line.price, moneyText(lineAmount(line, currency), currency)] })),
       totals: [{ label: "TOTAL F.O.B", value: moneyText(fob, currency) }, ...(chargesFreight ? [{ label: "SEA FREIGHT", value: moneyText(freightMinor, currency) }, { label: `TOTAL ${shippingLabel}`, value: moneyText(fob + freightMinor, currency) }] : [])],
       facts,
       bank: bankRows,
+      clientCode: customerCode,
     };
   }
 
@@ -328,7 +345,9 @@ export function TradeBuilder({
             <Field label={tx("printReference", "Print reference")}><Input dir="ltr" value={reference} disabled={locked} placeholder="EX-116" onChange={(event) => setReference(event.target.value)} /></Field>
             <PaymentTermField value={paymentLabel} disabled={locked} onChange={setPaymentLabel} />
             <ShippingMethodField value={shippingLabel} disabled={locked} onChange={setShippingLabel} />
-            <Field label={tx("originOfGoods", "Origin of goods")}><Input value={origin} disabled={locked} onChange={(event) => setOrigin(event.target.value)} /></Field>
+            <Field label={tx("originOfGoods", "Origin of goods")}><Input dir="ltr" value={origin} disabled={locked} onChange={(event) => setOrigin(event.target.value)} /></Field>
+            <Field label={tx("portOfLoading", "Port of loading")}><Input dir="ltr" value={portLoading} disabled={locked} onChange={(event) => setPortLoading(event.target.value)} /></Field>
+            <Field label={tx("portOfDischarge", "Port of discharge")}><Input dir="ltr" value={portDischarge} disabled={locked} onChange={(event) => setPortDischarge(event.target.value)} /></Field>
             <Field label={tx("seaFreight", "Sea freight")}><Input value={freight} dir="ltr" disabled={locked} onChange={(event) => setFreight(event.target.value)} /></Field>
           </div>
           <div className="flex flex-wrap items-end gap-2 rounded-control border border-line bg-paper p-2">
@@ -403,9 +422,9 @@ export function TradeBuilder({
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={locked || busy} onClick={() => void saveDraft()}>{tx("tradeSaveDraft", "Save draft")}</Button>
         <Button type="button" disabled={locked || busy} onClick={() => void issue()}>{tx("tradeIssue", "Issue and attach to the operation")}</Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${invoiceId}/commercial-pdf`, "commercial-invoice.pdf").catch((error) => notifyError(error))}>{tx("tradeDownloadInvoice", "Download commercial invoice PDF")}</Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${invoiceId}/packing-pdf`, "packing-list.pdf").catch((error) => notifyError(error))}>{tx("tradeDownloadPacking", "Download packing list PDF")}</Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${invoiceId}/customs-pdf`, "customs-bundle.pdf").catch((error) => notifyError(error))}>{tx("tradeDownloadCustoms", "Download combined customs PDF")}</Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${invoiceId}/commercial-pdf`, tradePdfFilename({ invoiceNumber: invoiceNumber || invoiceId, clientName: customerName || "CLIENT", clientCode: customerCode || "NA", country: customerCountry || "NA" })).catch((error) => notifyError(error))}>{tx("tradeDownloadInvoice", "Download commercial invoice PDF")}</Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${invoiceId}/packing-pdf`, tradePdfFilename({ invoiceNumber: invoiceNumber || invoiceId, clientName: customerName || "CLIENT", clientCode: customerCode || "NA", country: customerCountry || "NA" })).catch((error) => notifyError(error))}>{tx("tradeDownloadPacking", "Download packing list PDF")}</Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${invoiceId}/customs-pdf`, tradePdfFilename({ invoiceNumber: invoiceNumber || invoiceId, clientName: customerName || "CLIENT", clientCode: customerCode || "NA", country: customerCountry || "NA" })).catch((error) => notifyError(error))}>{tx("tradeDownloadCustoms", "Download combined customs PDF")}</Button>
       </div>
       <CompanyDialog open={companyOpen} onClose={() => setCompanyOpen(false)} />
       <CatalogDialog open={catalogOpen} onClose={() => setCatalogOpen(false)} />

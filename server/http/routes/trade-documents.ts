@@ -29,7 +29,7 @@ import {
   tradeSheet,
   updateProforma,
 } from "../../services/trade-documents";
-import { invoicePdfBytes, proformaPdfBytes } from "../../services/trade-document-files";
+import { invoicePdfBytes, proformaPdfBytes, tradePdfFilenameFor } from "../../services/trade-document-files";
 import { errors, jsonSuccess } from "../errors";
 import type { AppEnv } from "../types";
 
@@ -68,7 +68,7 @@ export function mountTradeRoutes(api: Hono<AppEnv>) {
   api.get("/proformas/:id", async (c) => jsonSuccess(await getProforma(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
   api.put("/proformas/:id", async (c) => jsonSuccess(await updateProforma(c.env.DB, c.get("actor"), c.req.param("id"), await c.req.json()), c.get("requestId")));
   api.post("/proformas/:id/issue", async (c) => jsonSuccess(await issueProforma(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id")), c.get("requestId")));
-  api.get("/proformas/:id/pdf", async (c) => pdfResponse(await proformaPdfBytes(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id")), "proforma.pdf"));
+  api.get("/proformas/:id/pdf", async (c) => pdfResponse(await proformaPdfBytes(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id")), await tradePdfFilenameFor(c.env.DB, "proforma", c.req.param("id"))));
   api.post("/proformas/:id/convert", async (c) => jsonSuccess(await convertProforma(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
   api.delete("/proformas/:id", async (c) => jsonSuccess(await deleteProforma(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
 
@@ -85,9 +85,9 @@ export function mountTradeRoutes(api: Hono<AppEnv>) {
   api.post("/invoices/:id/sync-totals", async (c) => jsonSuccess(await syncPackingTotals(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
   api.get("/invoices/:id/reconciliation", async (c) => jsonSuccess(await reconciliationFor(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
   api.post("/invoices/:id/issue-trade", async (c) => jsonSuccess(await issueTradeDocuments(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id")), c.get("requestId")));
-  api.get("/invoices/:id/commercial-pdf", async (c) => pdfResponse(await invoicePdfBytes(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id"), "commercial"), "commercial-invoice.pdf"));
-  api.get("/invoices/:id/packing-pdf", async (c) => pdfResponse(await invoicePdfBytes(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id"), "packing"), "packing-list.pdf"));
-  api.get("/invoices/:id/customs-pdf", async (c) => pdfResponse(await invoicePdfBytes(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id"), "customs"), "customs-bundle.pdf"));
+  api.get("/invoices/:id/commercial-pdf", async (c) => pdfResponse(await invoicePdfBytes(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id"), "commercial"), await tradePdfFilenameFor(c.env.DB, "invoice", c.req.param("id"))));
+  api.get("/invoices/:id/packing-pdf", async (c) => pdfResponse(await invoicePdfBytes(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id"), "packing"), await tradePdfFilenameFor(c.env.DB, "invoice", c.req.param("id"))));
+  api.get("/invoices/:id/customs-pdf", async (c) => pdfResponse(await invoicePdfBytes(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id"), "customs"), await tradePdfFilenameFor(c.env.DB, "invoice", c.req.param("id"))));
 }
 
 function pdfResponse(bytes: Uint8Array, filename: string) {

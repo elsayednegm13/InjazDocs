@@ -882,6 +882,19 @@ export function paintTradeBlock(out: string[], text: string, x: number, y: numbe
   return cursor;
 }
 
+export function paintTradeCenteredBlock(out: string[], text: string, centerX: number, y: number, size: number, maxWidth: number) {
+  let cursor = y;
+  const chunks = text.split(/\r?\n/);
+  for (const chunk of chunks.length ? chunks : [""]) {
+    const lines = wrapLines(chunk || " ", size, maxWidth);
+    for (const line of lines.length ? lines : wrapLines(" ", size, maxWidth)) {
+      drawTokens(out, line.tokens, centerX - line.width / 2, cursor, size, line.rtl);
+      cursor -= size + 2;
+    }
+  }
+  return cursor;
+}
+
 export function renderQuotationPdf(snapshot: QuotationPdfSnapshot, opts: { draft: boolean }): Uint8Array {
   const writer = new PdfWriter();
   writer.startPage();

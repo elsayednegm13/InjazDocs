@@ -46,6 +46,7 @@ export type LiveSheetModel = {
   totals: LiveRow[];
   facts: LiveRow[];
   bank: LiveRow[];
+  clientCode: string;
 };
 
 export function LiveInvoiceView({
@@ -124,75 +125,105 @@ export function LiveInvoiceView({
         <Button type="button" size="sm" variant="outline" disabled={disabled || !stamp.stamped} onClick={() => onChange({ ...stamp, stamped: false })}>{tx("tradeClearStamp", "Clear stamp")}</Button>
       </div>
       <div className="overflow-auto rounded-card border border-line bg-paper p-3">
-        <div
-          ref={sheetRef}
-          className="relative mx-auto bg-white text-ink shadow-card"
-          style={{ width: "min(100%, 720px)", aspectRatio: `${TRADE_PAGE_W} / ${TRADE_PAGE_H}`, cursor: arm ? "none" : "default" }}
-          onMouseMove={(event) => {
-            if (drag) onChange({ ...stamp, ...ratios(event), stamped: true });
-            else if (arm) setGhost(ratios(event));
-          }}
-          onMouseLeave={() => { setGhost(null); setDrag(false); }}
-          onClick={(event) => {
-            if (!arm || disabled || drag) return;
-            const target = event.target as HTMLElement;
-            if (target.dataset.stamp === "placed") return;
-            onChange({ ...stamp, ...ratios(event), stamped: true });
-            setHit((value) => value + 1);
-          }}
-        >
-          <div className="absolute inset-[4.6%] flex flex-col gap-[1.2%] text-[10px] leading-snug">
-            <header>
-              <div className="flex items-start justify-between gap-2">
-                <strong className="text-sm">{model.identity.nameEn || "Exporter"}</strong>
-                {model.identity.nameAr ? <span>{model.identity.nameAr}</span> : null}
+          <div className="flex flex-col gap-4">
+            {paginate(model).map((page, pageIndex) => (
+              <div
+                key={pageIndex}
+                ref={pageIndex === 0 ? sheetRef : undefined}
+                className="relative mx-auto overflow-hidden bg-white text-[#0f172a] shadow-card"
+                style={{ width: "min(100%, 720px)", aspectRatio: `${TRADE_PAGE_W} / ${TRADE_PAGE_H}`, cursor: arm && pageIndex === 0 ? "none" : "default" }}
+                dir="ltr"
+                onMouseMove={pageIndex === 0 ? (event) => {
+                  if (drag) onChange({ ...stamp, ...ratios(event), stamped: true });
+                  else if (arm) setGhost(ratios(event));
+                } : undefined}
+                onMouseLeave={pageIndex === 0 ? () => { setGhost(null); setDrag(false); } : undefined}
+                onClick={pageIndex === 0 ? (event) => {
+                  if (!arm || disabled || drag) return;
+                  const target = event.target as HTMLElement;
+                  if (target.dataset.stamp === "placed") return;
+                  onChange({ ...stamp, ...ratios(event), stamped: true });
+                  setHit((value) => value + 1);
+                } : undefined}
+              >
+                <div className="absolute inset-[4.6%] flex flex-col gap-[1.4%] overflow-hidden text-[10px] leading-snug [overflow-wrap:anywhere]">
+                  {pageIndex === 0 ? (
+                    <>
+                      <header className="text-center">
+                        <strong className="block text-sm text-[#0f172a]">{model.identity.nameEn || "Exporter"}</strong>
+                        {model.identity.nameAr ? <span className="block">{model.identity.nameAr}</span> : null}
+                        <p className="mt-1">{model.identity.address}</p>
+                        <p>Tel {model.identity.phone || "—"} · {model.identity.email || "—"}</p>
+                        <p>TAX CARD {model.identity.taxCard || "—"} · TAX FILE {model.identity.taxFile || "—"} · CR {model.identity.commercialRegistry || "—"}</p>
+                      </header>
+                      <div className="bg-[#1e293b] py-1 text-center text-xs font-semibold tracking-wide text-white">{model.title}{model.draft ? " · DRAFT" : ""}</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="text-left">
+                          <p className="font-semibold">BILL TO</p>
+                          {model.buyer.map((row) => <p key={row.label}><span className="font-medium">{row.label}</span> {row.value || "—"}</p>)}
+                        </div>
+                        <Kv rows={model.meta} />
+                      </div>
+                    </>
+                  ) : null}
+                  <table className="w-full border-collapse text-center text-[10px] text-[#0f172a]">
+                    <thead className="bg-[#1e293b] text-white">
+                      <tr>{model.columns.map((column) => <th key={column} className="border border-[#0f172a] px-1 py-1 align-middle font-medium">{column}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {page.lines.map((line, index) => (
+                        <tr key={index}>{line.cells.map((cell, cellIndex) => <td key={cellIndex} className={`border border-[#0f172a] px-1 py-1 align-middle [overflow-wrap:anywhere] ${cellIndex === 1 ? "text-left" : "text-center"}`}>{cell}</td>)}</tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {page.showTail ? (
+                    <>
+                      <Kv rows={model.totals} />
+                      <Kv rows={model.facts} />
+                      {model.bank.length ? <><p className="text-center text-[10px] font-semibold">BANK DETAILS</p><Kv rows={model.bank} /></> : null}
+                    </>
+                  ) : null}
+                  <p className="mt-auto text-[10px] text-[#0f172a]">CLIENT CODE {model.clientCode || "—"}</p>
+                </div>
+                {pageIndex === 0 && arm && ghost && preview.data ? <StampImage src={preview.data} xRatio={ghost.xRatio} yRatio={ghost.yRatio} width={stampWidth} rotation={stamp.rotation} faint /> : null}
+                {pageIndex === 0 && stamp.stamped && preview.data ? (
+                  <StampImage
+                    src={preview.data}
+                    xRatio={stamp.xRatio}
+                    yRatio={stamp.yRatio}
+                    width={stampWidth}
+                    rotation={stamp.rotation}
+                    hit={hit}
+                    onPointerDown={(event) => {
+                      if (disabled) return;
+                      event.stopPropagation();
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      setDrag(true);
+                    }}
+                    onPointerUp={() => setDrag(false)}
+                  />
+                ) : null}
               </div>
-              <p className="mt-1 whitespace-pre-wrap">{model.identity.address}</p>
-              <p>Tel {model.identity.phone || "—"} · {model.identity.email || "—"}</p>
-              <p>TAX CARD {model.identity.taxCard || "—"} · TAX FILE {model.identity.taxFile || "—"} · CR {model.identity.commercialRegistry || "—"}</p>
-            </header>
-            <div className="bg-[#1e293b] py-1 text-center text-xs font-semibold tracking-wide text-white">{model.title}{model.draft ? " · DRAFT" : ""}</div>
-            <Kv rows={model.meta} />
-            <p className="text-[10px] font-semibold">BILL TO</p>
-            <Kv rows={model.buyer} />
-            <table className="w-full border-collapse text-[10px]">
-              <thead className="bg-[#1e293b] text-white">
-                <tr>{model.columns.map((column) => <th key={column} className="border border-[#0f172a] px-1 py-1 text-start font-medium">{column}</th>)}</tr>
-              </thead>
-              <tbody>
-                {model.lines.map((line, index) => (
-                  <tr key={index}>{line.cells.map((cell, cellIndex) => <td key={cellIndex} className="border border-[#0f172a] px-1 py-1 align-top whitespace-pre-wrap">{cell}</td>)}</tr>
-                ))}
-              </tbody>
-            </table>
-            <Kv rows={model.totals} />
-            <Kv rows={model.facts} />
-            {model.bank.length ? <><p className="text-[10px] font-semibold">BANK DETAILS</p><Kv rows={model.bank} /></> : null}
+            ))}
           </div>
-          {arm && ghost && preview.data ? <StampImage src={preview.data} xRatio={ghost.xRatio} yRatio={ghost.yRatio} width={stampWidth} rotation={stamp.rotation} faint /> : null}
-          {stamp.stamped && preview.data ? (
-            <StampImage
-              src={preview.data}
-              xRatio={stamp.xRatio}
-              yRatio={stamp.yRatio}
-              width={stampWidth}
-              rotation={stamp.rotation}
-              hit={hit}
-              onPointerDown={(event) => {
-                if (disabled) return;
-                event.stopPropagation();
-                event.currentTarget.setPointerCapture(event.pointerId);
-                setDrag(true);
-              }}
-              onPointerUp={() => setDrag(false)}
-            />
-          ) : null}
-        </div>
       </div>
       {!preview.data ? <p className="text-xs text-ink-muted">{tx("tradeStampMissing", "Upload a transparent PNG stamp before placing it.")}</p> : null}
       <style>{`@keyframes exportflow-stamp-hit { 0% { transform: translate(-50%, calc(50% - 28px)) scale(1.35) rotate(var(--tilt, 0deg)); opacity: 0.2; } 60% { transform: translate(-50%, 54%) scale(0.92); opacity: 1; } 100% { transform: translate(-50%, 50%) scale(1); } }`}</style>
     </div>
   );
+}
+
+function paginate(model: LiveSheetModel) {
+  const first = 5;
+  const next = 12;
+  const pages: Array<{ lines: LiveLine[]; showTail: boolean }> = [];
+  if (model.lines.length <= first) return [{ lines: model.lines, showTail: true }];
+  pages.push({ lines: model.lines.slice(0, first), showTail: false });
+  for (let index = first; index < model.lines.length; index += next) {
+    const slice = model.lines.slice(index, index + next);
+    pages.push({ lines: slice, showTail: index + next >= model.lines.length });
+  }
+  return pages;
 }
 
 function Kv({ rows }: { rows: LiveRow[] }) {
@@ -201,8 +232,8 @@ function Kv({ rows }: { rows: LiveRow[] }) {
       <tbody>
         {rows.map((row) => (
           <tr key={row.label}>
-            <th className="w-[28%] border border-[#0f172a] px-1 py-1 text-start font-medium">{row.label}</th>
-            <td className="border border-[#0f172a] px-1 py-1 whitespace-pre-wrap">{row.value || "—"}</td>
+            <th className="w-[42%] border border-[#0f172a] px-1 py-1 text-left align-middle font-medium text-[#0f172a]">{row.label}</th>
+            <td className="border border-[#0f172a] px-1 py-1 text-left align-middle text-[#0f172a] [overflow-wrap:anywhere]">{row.value || "—"}</td>
           </tr>
         ))}
       </tbody>

@@ -18,9 +18,10 @@ import { commercialInvoiceTotal, minorToDecimalString } from "@shared/money";
 import { formatWhen } from "./case-format";
 import { TradeBuilder } from "@/features/trade/TradeBuilder";
 import { downloadPdf } from "@/features/trade/trade-model";
+import { tradePdfFilename } from "@shared/trade-sheet";
 import { Link } from "react-router";
 
-export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], customerName = "", customerCode = "", onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; customerName?: string; customerCode?: string; onDone?: () => void }) {
+export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], customerName = "", customerCode = "", customerCountry = "", onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; customerName?: string; customerCode?: string; customerCountry?: string; onDone?: () => void }) {
   const { tx } = useCopy();
   const user = useSession();
   const locked = caseStatus === "COMPLETED";
@@ -107,7 +108,7 @@ export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], cu
               </div>
               <div className="flex flex-wrap items-end gap-1">
                 <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] font-semibold text-ink">{String(inv.trade_status || "DRAFT")}{Number(inv.is_stamped) === 1 ? ` · ${tx("tradeStamped", "Stamped")}` : ""}</span>
-                <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${String(inv.id)}/commercial-pdf`, `${String(inv.invoice_number)}.pdf`).catch(notifyError)}>{tx("pdf", "PDF")}</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/invoices/${String(inv.id)}/commercial-pdf`, tradePdfFilename({ invoiceNumber: String(inv.invoice_number), clientName: customerName || "CLIENT", clientCode: customerCode || "NA", country: customerCountry || "NA" })).catch(notifyError)}>{tx("pdf", "PDF")}</Button>
               </div>
             </div>
             <dl className="grid gap-2 px-4 py-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -135,6 +136,8 @@ export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], cu
                 canEdit={canEdit && (!locked || Number(inv.edit_open) === 1)}
                 customerCode={customerCode}
                 customerName={customerName}
+                customerCountry={customerCountry}
+                invoiceNumber={String(inv.invoice_number)}
                 containers={containers.map((item) => ({
                   id: String(item.id),
                   slot_index: Number(item.slot_index),

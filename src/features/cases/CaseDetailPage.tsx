@@ -288,7 +288,7 @@ export function CaseDetailPage() {
           <CustomFieldsPanel endpoint={`/api/v1/export-cases/${id}/custom-fields`} draft={data.case.status === "DRAFT" || data.case.status === "CANCELLED"} />
         </div>
       ) : null}
-      {tab === "invoices" ? <InvoicePanel invoices={data.invoices} containers={data.containers} customerName={String(data.customer?.legal_name ?? "")} customerCode={String(data.customer?.customer_code ?? "")} caseId={String(id)} caseStatus={String(data.case.status)} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
+      {tab === "invoices" ? <InvoicePanel invoices={data.invoices} containers={data.containers} customerName={String(data.customer?.legal_name ?? "")} customerCode={String(data.customer?.customer_code ?? "")} customerCountry={String(data.customer?.country_code ?? "")} caseId={String(id)} caseStatus={String(data.case.status)} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
       {tab === "documents" ? <DocumentsPanel caseId={String(id)} requirements={data.requirements} versions={(data.documentVersions ?? []) as Array<Record<string, string | number | null>>} customerShareReady={data.customerFileShareReady === true} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
       {tab === "bank" ? <BankPanel caseId={String(id)} route={String(data.case.document_route)} status={String(data.case.bank_path_status)} onDone={() => client.invalidateQueries({ queryKey: ["case", id] })} /> : null}
       {tab === "courier" ? <CourierPanel caseId={String(id)} /> : null}

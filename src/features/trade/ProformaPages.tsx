@@ -7,6 +7,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { tradePdfFilename } from "@shared/trade-sheet";
 import { downloadPdf, lineAmount, moneyMinor, moneyText, newKey, type BankAccount, type InvoiceDraftLine, type ProductPreset } from "./trade-model";
 import { CatalogDialog, CompanyDialog, PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
 import { includesFreight, ShippingMethodField, useShippingMethods } from "./TradeExtras";
@@ -31,6 +32,9 @@ type Proforma = {
   total_minor: number;
   customer_name?: string;
   customer_code?: string | null;
+  customer_country?: string | null;
+  port_of_loading?: string | null;
+  port_of_discharge?: string | null;
   is_stamped?: number;
   stamp_x?: number | null;
   stamp_y?: number | null;
@@ -82,7 +86,7 @@ export function ProformaListPage() {
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
                       <Button asChild size="sm" variant="outline"><Link to={`/proformas/${row.id}`}>{tx("tradeOpen", "Open")}</Link></Button>
-                      <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/proformas/${row.id}/pdf`, `${row.invoice_number}.pdf`).catch(notifyError)}>{tx("pdf", "PDF")}</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/proformas/${row.id}/pdf`, tradePdfFilename({ invoiceNumber: row.invoice_number, clientName: row.customer_name ?? "CLIENT", clientCode: row.customer_code ?? "NA", country: row.customer_country ?? "NA" })).catch(notifyError)}>{tx("pdf", "PDF")}</Button>
                       <Button type="button" size="sm" variant="outline" disabled={!row.case_id} onClick={() => void api<{ invoiceId: string }>(`/api/v1/proformas/${row.id}/convert`, { method: "POST", body: "{}" }).then(() => { notifySuccess(tx("proformaConverted", "Converted")); return client.invalidateQueries({ queryKey: ["proformas"] }); }).catch(notifyError)}>{tx("proformaConvert", "Convert")}</Button>
                       {row.status === "DRAFT" ? <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/proformas/${row.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradeDraftDeleted", "Draft deleted")); return client.invalidateQueries({ queryKey: ["proformas"] }); }).catch(notifyError)}>{tx("tradeDeleteDraft", "Delete draft")}</Button> : null}
                     </div>
@@ -117,7 +121,7 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
   const banks = useQuery({ queryKey: ["exporter-banks"], queryFn: async () => (await api<BankAccount[]>("/api/v1/settings/exporter-bank-accounts")).data });
   const identity = useQuery({ queryKey: ["exporter-identity"], queryFn: async () => (await api<Record<string, string | null> | null>("/api/v1/settings/exporter-identity")).data });
   const presets = useQuery({ queryKey: ["product-presets"], queryFn: async () => (await api<ProductPreset[]>("/api/v1/product-presets")).data });
-  const customers = useQuery({ queryKey: ["customers", "proforma"], queryFn: async () => (await api<Array<{ id: string; legal_name: string; customer_code: string | null }>>("/api/v1/customers?pageSize=100")).data });
+  const customers = useQuery({ queryKey: ["customers", "proforma"], queryFn: async () => (await api<Array<{ id: string; legal_name: string; customer_code: string | null; country_code: string | null }>>("/api/v1/customers?pageSize=100")).data });
   const [companyOpen, setCompanyOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [customerId, setCustomerId] = useState(initial?.customer_id ?? "");
@@ -129,6 +133,8 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
   const [paymentLabel, setPaymentLabel] = useState(initial?.payment_term_label ?? "100% ADVANCE");
   const [shipping, setShipping] = useState(initial?.shipping_method_label ?? "CFR");
   const [origin, setOrigin] = useState(initial?.origin_of_goods ?? "EGYPT");
+  const [portLoading, setPortLoading] = useState(initial?.port_of_loading ?? "");
+  const [portDischarge, setPortDischarge] = useState(initial?.port_of_discharge ?? "");
   const [bankId, setBankId] = useState(initial?.exporter_bank_account_id ?? "");
   const [freight, setFreight] = useState(moneyText(initial?.sea_freight_minor ?? 0));
   const [stamp, setStamp] = useState(stampFromRow(initial));
@@ -148,6 +154,8 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
       printReference: reference,
       invoiceDate: date,
       originOfGoods: origin,
+      portOfLoading: portLoading,
+      portOfDischarge: portDischarge,
       paymentTermCode: paymentCode,
       paymentTermLabel: paymentLabel,
       incoterm: freightOn ? "CFR" : "FOB",
@@ -234,15 +242,17 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
         { label: "REFERENCE", value: reference },
       ],
       buyer: [
-        { label: "CUSTOMER", value: customer ? `${customer.legal_name}${customer.customer_code ? ` (${customer.customer_code})` : ""}` : "" },
+        { label: "NAME", value: customer?.legal_name ?? "" },
         { label: "ADDRESS", value: "" },
-        { label: "REGISTRATION / VAT", value: "" },
+        { label: "VAT", value: "" },
       ],
       columns: ["NO", "DESCRIPTION", "UNIT", "QTY", "PRICE", "AMOUNT"],
       lines: lines.map((line, index) => ({ cells: [String(index + 1), line.description || "—", line.unit, line.quantity, line.price, moneyText(lineAmount(line, "USD"))] })),
       totals: [{ label: "TOTAL F.O.B", value: moneyText(fob) }, ...(freightOn ? [{ label: "SEA FREIGHT", value: moneyText(freightMinor) }, { label: `TOTAL ${shipping}`, value: moneyText(fob + freightMinor) }] : [])],
       facts: [
         { label: "ORIGIN OF GOODS", value: origin },
+        { label: "PORT OF LOADING", value: portLoading },
+        { label: "PORT OF DISCHARGE", value: portDischarge },
         { label: "SHIPPING METHOD", value: shipping },
         { label: "PAYMENT TERM", value: paymentLabel },
       ],
@@ -253,13 +263,15 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
         { label: "BANK ADDRESS", value: bank.bank_address ?? "" },
         { label: "SWIFT CODE", value: bank.swift_code ?? "" },
       ] : [],
+      clientCode: customer?.customer_code ?? reference,
     };
   }
 
   return (
     <div className="space-y-4">
       <PageHeader title={tx("proformaTitle", "Proforma invoice")} subtitle={reference || number || tx("proformaNew", "New proforma")} />
-      <div className="grid gap-3 rounded-card border border-line bg-card p-3 shadow-card md:grid-cols-2">
+      <div className="grid gap-3 rounded-card border border-line bg-card p-4 shadow-card md:grid-cols-2">
+        <p className="md:col-span-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{tx("tradeSectionDocument", "Document")}</p>
         <Field label={tx("customer", "Customer")}>
           <Select value={customerId} disabled={issued} onChange={(event) => {
             const next = event.target.value;
@@ -275,7 +287,9 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
         <Field label={tx("invoiceNumber", "Invoice number")}><Input dir="ltr" value={number} disabled={issued} onChange={(event) => setNumber(event.target.value)} /></Field>
         <Field label={tx("printReference", "Print reference")}><Input dir="ltr" value={reference} disabled={issued} placeholder="EX-116" onChange={(event) => setReference(event.target.value)} /></Field>
         <Field label={tx("invoiceDate", "Invoice date")}><Input type="date" dir="ltr" value={date} disabled={issued} onChange={(event) => setDate(event.target.value)} /></Field>
-        <Field label={tx("originOfGoods", "Origin of goods")}><Input value={origin} disabled={issued} onChange={(event) => setOrigin(event.target.value)} /></Field>
+        <Field label={tx("originOfGoods", "Origin of goods")}><Input dir="ltr" value={origin} disabled={issued} onChange={(event) => setOrigin(event.target.value)} /></Field>
+        <Field label={tx("portOfLoading", "Port of loading")}><Input dir="ltr" value={portLoading} disabled={issued} onChange={(event) => setPortLoading(event.target.value)} placeholder="Alexandria" /></Field>
+        <Field label={tx("portOfDischarge", "Port of discharge")}><Input dir="ltr" value={portDischarge} disabled={issued} onChange={(event) => setPortDischarge(event.target.value)} placeholder="Jeddah" /></Field>
         <Field label={tx("paymentTerm", "Payment term")}>
           <Select value={paymentCode} disabled={issued} onChange={(event) => setPaymentCode(event.target.value)}>
             {["TT", "LC", "DP", "DA", "OTHER"].map((code) => <option key={code}>{code}</option>)}
@@ -290,7 +304,7 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
             {(banks.data ?? []).map((bank) => <option key={bank.id} value={bank.id}>{bank.account_name}</option>)}
           </Select>
         </Field>
-        <div className="flex flex-wrap items-end gap-2 md:col-span-2">
+        <div className="flex flex-wrap items-end gap-2 rounded-control border border-line bg-paper p-3 md:col-span-2">
           <Button type="button" size="sm" variant="outline" onClick={() => setCompanyOpen(true)}>{tx("tradeCompanyDialog", "Company and bank")}</Button>
           <Field label={tx("tradeInsertPreset", "Insert from catalog")}>
             <Select value="" disabled={issued} onChange={(event) => {
@@ -305,7 +319,7 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
           <Button type="button" size="sm" variant="outline" disabled={issued} onClick={() => setCatalogOpen(true)}>{tx("tradeManageCatalog", "Manage catalog")}</Button>
         </div>
         {lines.map((line) => (
-          <div key={line.key} className="grid gap-2 md:col-span-2 md:grid-cols-6">
+          <div key={line.key} className="grid gap-2 rounded-control border border-line bg-paper/70 p-3 md:col-span-2 md:grid-cols-6">
             <div className="md:col-span-2"><Field label={tx("description", "Description")}><Textarea className="min-h-16" value={line.description} disabled={issued} onChange={(event) => setLines((current) => current.map((item) => item.key === line.key ? { ...item, description: event.target.value } : item))} /></Field></div>
             <Field label={tx("unit", "Unit")}><Input value={line.unit} disabled={issued} onChange={(event) => setLines((current) => current.map((item) => item.key === line.key ? { ...item, unit: event.target.value } : item))} /></Field>
             <Field label={tx("quantity", "Quantity")}><Input dir="ltr" value={line.quantity} disabled={issued} onChange={(event) => setLines((current) => current.map((item) => item.key === line.key ? { ...item, quantity: event.target.value } : item))} /></Field>
@@ -325,7 +339,15 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
         <div className="flex flex-wrap gap-2 md:col-span-2">
           <Button type="button" disabled={issued || busy} onClick={() => void save()}>{tx("tradeSaveDraft", "Save draft")}</Button>
           {initial?.id ? <Button type="button" variant="outline" disabled={issued || busy} onClick={() => void issue()}>{tx("proformaIssue", "Issue proforma")}</Button> : null}
-          {initial?.id ? <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/proformas/${initial.id}/pdf`, "proforma.pdf").catch((error) => notifyError(error))}>{tx("proformaDownload", "Download proforma PDF")}</Button> : null}
+          {initial?.id ? <Button type="button" size="sm" variant="outline" onClick={() => {
+            const customer = (customers.data ?? []).find((item) => item.id === customerId);
+            void downloadPdf(`/api/v1/proformas/${initial.id}/pdf`, tradePdfFilename({
+              invoiceNumber: number,
+              clientName: customer?.legal_name ?? "CLIENT",
+              clientCode: customer?.customer_code ?? reference ?? "NA",
+              country: customer?.country_code ?? "NA",
+            })).catch((error) => notifyError(error));
+          }}>{tx("proformaDownload", "Download proforma PDF")}</Button> : null}
           {initial?.id ? <Button type="button" size="sm" variant="outline" disabled={busy || !linkedCase} onClick={() => void convert()}>{tx("proformaConvert", "Convert to commercial invoice")}</Button> : null}
         </div>
       </div>

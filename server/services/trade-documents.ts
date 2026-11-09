@@ -24,6 +24,8 @@ type InvoiceHead = {
   payment_term_label: string | null;
   shipping_method_label: string | null;
   origin_of_goods: string | null;
+  port_of_loading: string | null;
+  port_of_discharge: string | null;
   exporter_bank_account_id: string | null;
   goods_value_minor: number;
   print_reference: string | null;
@@ -103,6 +105,7 @@ async function invoiceHead(db: D1Database, actor: Actor, invoiceId: string) {
     db,
     `SELECT id, case_id, customer_id, invoiced_freight_minor, packages_count, gross_weight_grams, net_weight_grams,
             trade_status, trade_revision, payment_term_code, payment_term_label, shipping_method_label, origin_of_goods,
+            port_of_loading, port_of_discharge,
             exporter_bank_account_id, goods_value_minor, print_reference, incoterm, is_stamped, stamp_x, stamp_y, stamp_rotation,
             stamp_x_ratio, stamp_y_ratio, stamp_scale, packing_is_stamped, packing_stamp_x_ratio, packing_stamp_y_ratio,
             packing_stamp_scale, packing_stamp_rotation
@@ -880,7 +883,7 @@ export async function listProformas(db: D1Database, actor: Actor, caseId?: strin
   if (caseId) await assertCaseAccess(db, actor, caseId);
   return all(
     db,
-    `SELECT p.*, c.legal_name AS customer_name, c.customer_code
+    `SELECT p.*, c.legal_name AS customer_name, c.customer_code, c.country_code AS customer_country
      FROM proforma_invoices p
      JOIN customers c ON c.id = p.customer_id
      ${caseId ? "WHERE p.case_id = ?" : ""}
@@ -930,7 +933,7 @@ export async function saveTradeHeader(db: D1Database, actor: Actor, invoiceId: s
   await db
     .prepare(
       `UPDATE export_invoices
-       SET payment_term_label = ?, shipping_method_label = ?, origin_of_goods = ?, exporter_bank_account_id = ?,
+       SET payment_term_label = ?, shipping_method_label = ?, origin_of_goods = ?, port_of_loading = ?, port_of_discharge = ?, exporter_bank_account_id = ?,
            print_reference = ?, invoiced_freight_minor = ?, invoice_total_minor = ?,
            is_stamped = ?, stamp_x = ?, stamp_y = ?, stamp_rotation = ?, stamp_x_ratio = ?, stamp_y_ratio = ?, stamp_scale = ?,
            packing_is_stamped = ?, packing_stamp_x_ratio = ?, packing_stamp_y_ratio = ?, packing_stamp_scale = ?, packing_stamp_rotation = ?,
@@ -941,6 +944,8 @@ export async function saveTradeHeader(db: D1Database, actor: Actor, invoiceId: s
       text(input.paymentTermLabel, "paymentTermLabel", 200),
       shippingLabel,
       text(input.originOfGoods, "originOfGoods", 80),
+      text(input.portOfLoading, "portOfLoading", 80),
+      text(input.portOfDischarge, "portOfDischarge", 80),
       text(input.exporterBankAccountId, "exporterBankAccountId", 80),
       text(input.printReference, "printReference", 40),
       freight,
