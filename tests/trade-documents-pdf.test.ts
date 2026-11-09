@@ -40,9 +40,10 @@ function base(draft: boolean) {
     logo: null,
     stamp: null,
     stamped: false,
-    stampX: 480,
-    stampY: 140,
-    stampRotation: -6,
+    stampXRatio: 0.5,
+    stampYRatio: 0.25,
+    stampScale: 1,
+    stampRotation: 0,
     includeFreight: true,
   };
 }
@@ -81,6 +82,7 @@ describe("trade document pdf", () => {
     expect(textOf(files[1])).not.toContain("/ImStamp");
     expect(textOf(files[4])).toContain("DCTDecode");
     expect(textOf(files[4])).toContain("/ImStamp");
+    expect(textOf(files[4])).toContain("1 0 0 1 297.64 210.47 cm");
     expect(textOf(files[4])).not.toContain("APPROVED");
     expect(textOf(files[5])).toMatch(/\/Count [2-9]/);
   });

@@ -6,6 +6,7 @@ import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requirePermission } from "./actor";
+import { TRADE_PAGE_H, TRADE_PAGE_W } from "../../shared/trade-sheet";
 import { ensureTradeDefaults, shippingIncludesFreight } from "./trade-defaults";
 
 const EMPTY_IDENTITY: TradeIdentity = {
@@ -136,10 +137,7 @@ async function proformaModel(db: D1Database, bucket: R2Bucket, id: string, draft
     draft,
     ...chrome,
     stamp: stamped ? chrome.stamp : null,
-    stamped,
-    stampX: Number(row.stamp_x ?? 460),
-    stampY: Number(row.stamp_y ?? 130),
-    stampRotation: Number(row.stamp_rotation ?? 0),
+    ...placement(row),
     includeFreight: await shippingIncludesFreight(db, shippingMethod),
     date: String(row.invoice_date ?? ""),
     invoiceNumber: String(row.invoice_number ?? ""),
@@ -172,10 +170,7 @@ async function commercialModel(db: D1Database, bucket: R2Bucket, invoiceId: stri
     draft,
     ...chrome,
     stamp: stamped ? chrome.stamp : null,
-    stamped,
-    stampX: Number(row.stamp_x ?? 460),
-    stampY: Number(row.stamp_y ?? 130),
-    stampRotation: Number(row.stamp_rotation ?? 0),
+    ...placement(row),
     includeFreight: await shippingIncludesFreight(db, shippingMethod),
     date: String(row.invoice_date ?? ""),
     invoiceNumber: String(row.invoice_number ?? ""),
@@ -226,7 +221,47 @@ async function packingModel(db: D1Database, bucket: R2Bucket, invoiceId: string,
     grossGrams: Number(row.gross_weight_grams),
     netGrams: Number(row.net_weight_grams),
   }));
-  return { ...commercial, kind: "packing", rows: packingRows };
+  const stampRow = await one<Record<string, unknown>>(
+    db,
+    `SELECT packing_is_stamped AS is_stamped, packing_stamp_x_ratio AS stamp_x_ratio, packing_stamp_y_ratio AS stamp_y_ratio,
+            packing_stamp_scale AS stamp_scale, packing_stamp_rotation AS stamp_rotation
+     FROM export_invoices WHERE id = ?`,
+    invoiceId,
+  );
+  const placed = placement(stampRow ?? {});
+  return { ...commercial, kind: "packing", rows: packingRows, ...placed, stamp: placed.stamped ? commercial.stamp ?? (await stampBytes(db, bucket, invoiceId)) : null };
+}
+
+async function stampBytes(db: D1Database, bucket: R2Bucket, invoiceId: string) {
+  const row = await one<{ customer_id: string; exporter_bank_account_id: string | null }>(
+    db,
+    "SELECT customer_id, exporter_bank_account_id FROM export_invoices WHERE id = ?",
+    invoiceId,
+  );
+  if (!row) return null;
+  const chrome = await chromeFor(db, row.customer_id, row.exporter_bank_account_id, bucket);
+  return chrome.stamp;
+}
+
+function placement(row: Record<string, unknown>) {
+  const stamped = Number(row.is_stamped) === 1;
+  const ratioX = numberOrNull(row.stamp_x_ratio);
+  const ratioY = numberOrNull(row.stamp_y_ratio);
+  const absoluteX = numberOrNull(row.stamp_x);
+  const absoluteY = numberOrNull(row.stamp_y);
+  return {
+    stamped,
+    stampXRatio: ratioX ?? (absoluteX == null ? 0.78 : absoluteX / TRADE_PAGE_W),
+    stampYRatio: ratioY ?? (absoluteY == null ? 0.16 : absoluteY / TRADE_PAGE_H),
+    stampScale: numberOrNull(row.stamp_scale) ?? 1,
+    stampRotation: Number(row.stamp_rotation ?? 0),
+  };
+}
+
+function numberOrNull(value: unknown) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function itemFrom(row: { description: string; unit_label: string | null; quantity: number; unit_price_minor: number; line_total_minor: number }): TradeItem {

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+﻿import { useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
@@ -14,9 +14,6 @@ export type ShippingMethod = {
   includes_freight: number;
   sort_order: number;
 };
-
-const ZONE_TOP = 841.89 - 210;
-const ZONE_HEIGHT = 164;
 
 export function includesFreight(label: string, methods: ShippingMethod[]) {
   const key = label.trim().toLowerCase();
@@ -185,94 +182,4 @@ export async function stampPngDataUrl(file: File) {
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL("image/png");
-}
-
-export function StampPad({
-  stamped,
-  x,
-  y,
-  rotation,
-  disabled,
-  onChange,
-}: {
-  stamped: boolean;
-  x: number;
-  y: number;
-  rotation: number;
-  disabled?: boolean;
-  onChange: (next: { stamped: boolean; x: number; y: number; rotation: number }) => void;
-}) {
-  const { tx } = useCopy();
-  const client = useQueryClient();
-  const preview = useStampPreview();
-  const [hit, setHit] = useState(0);
-  const left = `${(x / 595.28) * 100}%`;
-  const bottom = `${((y - ZONE_TOP) / ZONE_HEIGHT) * 100}%`;
-
-  async function replaceImage(file: File | undefined) {
-    if (!file) return;
-    try {
-      const dataUrl = await stampPngDataUrl(file);
-      await api("/api/v1/settings/exporter-marks/stamp", { method: "POST", body: JSON.stringify({ dataUrl }) });
-      notifySuccess(tx("tradeStampSaved", "Stamp saved"));
-      await client.invalidateQueries({ queryKey: ["stamp-preview"] });
-      await client.invalidateQueries({ queryKey: ["exporter-marks"] });
-    } catch (error) {
-      notifyError(error);
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-ink">{tx("tradeStampPad", "Stamp area")}</p>
-        <div className="flex flex-wrap gap-2">
-          <label className="inline-flex cursor-pointer items-center">
-            <input className="sr-only" type="file" accept="image/png,image/jpeg" disabled={disabled} onChange={(event) => void replaceImage(event.target.files?.[0])} />
-            <span className="rounded-control border border-line px-2 py-1 text-xs text-ink">{tx("tradeReplaceStamp", "Change stamp image")}</span>
-          </label>
-          <Button type="button" size="sm" variant="outline" disabled={disabled || !stamped} onClick={() => onChange({ stamped: false, x, y, rotation })}>
-            {tx("tradeClearStamp", "Remove stamp")}
-          </Button>
-        </div>
-      </div>
-      <button
-        type="button"
-        disabled={disabled}
-        className="relative block w-full overflow-hidden rounded-card border border-dashed border-line bg-paper text-start disabled:opacity-60"
-        style={{ aspectRatio: `595 / ${ZONE_HEIGHT}` }}
-        onClick={(event) => {
-          if (!preview.data) return;
-          const rect = event.currentTarget.getBoundingClientRect();
-          const nx = (event.clientX - rect.left) / rect.width;
-          const ny = (event.clientY - rect.top) / rect.height;
-          onChange({
-            stamped: true,
-            x: Math.min(575, Math.max(20, nx * 595.28)),
-            y: Math.min(ZONE_TOP + ZONE_HEIGHT - 8, Math.max(ZONE_TOP + 8, ZONE_TOP + (1 - ny) * ZONE_HEIGHT)),
-            rotation: -7 + Math.random() * 8,
-          });
-          setHit((value) => value + 1);
-        }}
-      >
-        <span className="pointer-events-none absolute inset-x-3 top-2 text-[11px] text-ink-muted">{tx("tradeStampHint", "Click where the stamp should land")}</span>
-        {stamped && preview.data ? (
-          <img
-            key={hit}
-            alt=""
-            src={preview.data}
-            className="pointer-events-none absolute w-[18%] max-w-[140px] origin-center"
-            style={{
-              left,
-              bottom,
-              transform: `translate(-50%, 50%) rotate(${rotation}deg)`,
-              animation: "exportflow-stamp-hit 520ms cubic-bezier(0.2, 0.8, 0.2, 1)",
-            }}
-          />
-        ) : null}
-      </button>
-      {!preview.data ? <p className="text-xs text-ink-muted">{tx("tradeStampMissing", "Upload a transparent PNG stamp before placing it.")}</p> : null}
-      <style>{`@keyframes exportflow-stamp-hit { 0% { transform: translate(-50%, calc(50% - 34px)) scale(1.45); opacity: 0.15; filter: blur(1px); } 58% { transform: translate(-50%, 54%) scale(0.9); opacity: 1; filter: none; } 78% { transform: translate(-50%, 46%) scale(1.05); } 100% { transform: translate(-50%, 50%) scale(1); } }`}</style>
-    </div>
-  );
 }

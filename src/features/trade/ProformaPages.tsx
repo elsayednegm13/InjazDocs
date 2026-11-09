@@ -9,7 +9,8 @@ import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
 import { downloadPdf, lineAmount, moneyMinor, moneyText, newKey, type BankAccount, type InvoiceDraftLine, type ProductPreset } from "./trade-model";
 import { CatalogDialog, CompanyDialog, PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
-import { includesFreight, ShippingMethodField, StampPad, useShippingMethods } from "./TradeExtras";
+import { includesFreight, ShippingMethodField, useShippingMethods } from "./TradeExtras";
+import { LiveInvoiceView, stampFromRow, type LiveSheetModel } from "./LiveSheet";
 
 type Proforma = {
   id: string;
@@ -33,6 +34,9 @@ type Proforma = {
   is_stamped?: number;
   stamp_x?: number | null;
   stamp_y?: number | null;
+  stamp_x_ratio?: number | null;
+  stamp_y_ratio?: number | null;
+  stamp_scale?: number | null;
   stamp_rotation?: number | null;
   lines?: Array<{ description: string; unit_label: string | null; quantity: number; unit_price_minor: number }>;
 };
@@ -111,6 +115,7 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
   const navigate = useNavigate();
   const client = useQueryClient();
   const banks = useQuery({ queryKey: ["exporter-banks"], queryFn: async () => (await api<BankAccount[]>("/api/v1/settings/exporter-bank-accounts")).data });
+  const identity = useQuery({ queryKey: ["exporter-identity"], queryFn: async () => (await api<Record<string, string | null> | null>("/api/v1/settings/exporter-identity")).data });
   const presets = useQuery({ queryKey: ["product-presets"], queryFn: async () => (await api<ProductPreset[]>("/api/v1/product-presets")).data });
   const customers = useQuery({ queryKey: ["customers", "proforma"], queryFn: async () => (await api<Array<{ id: string; legal_name: string; customer_code: string | null }>>("/api/v1/customers?pageSize=100")).data });
   const [companyOpen, setCompanyOpen] = useState(false);
@@ -126,7 +131,7 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
   const [origin, setOrigin] = useState(initial?.origin_of_goods ?? "EGYPT");
   const [bankId, setBankId] = useState(initial?.exporter_bank_account_id ?? "");
   const [freight, setFreight] = useState(moneyText(initial?.sea_freight_minor ?? 0));
-  const [stamp, setStamp] = useState({ stamped: initial?.is_stamped === 1, x: initial?.stamp_x ?? 470, y: initial?.stamp_y ?? 130, rotation: initial?.stamp_rotation ?? -4 });
+  const [stamp, setStamp] = useState(stampFromRow(initial));
   const [lines, setLines] = useState<InvoiceDraftLine[]>(initial?.lines?.length ? initial.lines.map((line) => ({ key: newKey(), description: line.description, hsCode: "", barcode: "", unit: line.unit_label ?? "PCS", quantity: String(line.quantity), price: moneyText(line.unit_price_minor) })) : [{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "PCS", quantity: "1", price: "0.00" }]);
   const [busy, setBusy] = useState(false);
   const methods = useShippingMethods();
@@ -150,8 +155,9 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
       exporterBankAccountId: bankId || null,
       seaFreightMinor: freightMinor,
       isStamped: stamp.stamped,
-      stampX: stamp.x,
-      stampY: stamp.y,
+      stampXRatio: stamp.xRatio,
+      stampYRatio: stamp.yRatio,
+      stampScale: stamp.scale,
       stampRotation: stamp.rotation,
       lines: lines.map((line) => ({ description: line.description, unit: line.unit, quantity: Number(line.quantity), unitPriceMinor: moneyMinor(line.price) })),
     };
@@ -203,6 +209,51 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
     } finally {
       setBusy(false);
     }
+  }
+
+  function proformaLiveModel(): LiveSheetModel {
+    const company = identity.data;
+    const customer = (customers.data ?? []).find((item) => item.id === customerId);
+    const bank = (banks.data ?? []).find((item) => item.id === bankId);
+    return {
+      title: "PROFORMA INVOICE",
+      draft: !issued,
+      identity: {
+        nameEn: company?.name_en ?? "",
+        nameAr: company?.name_ar ?? "",
+        address: company?.address ?? "",
+        phone: company?.phone ?? "",
+        email: company?.email ?? "",
+        taxCard: company?.tax_card ?? "",
+        taxFile: company?.tax_file ?? "",
+        commercialRegistry: company?.commercial_registry ?? "",
+      },
+      meta: [
+        { label: "DATE", value: date },
+        { label: "INVOICE NO#", value: number },
+        { label: "REFERENCE", value: reference },
+      ],
+      buyer: [
+        { label: "CUSTOMER", value: customer ? `${customer.legal_name}${customer.customer_code ? ` (${customer.customer_code})` : ""}` : "" },
+        { label: "ADDRESS", value: "" },
+        { label: "REGISTRATION / VAT", value: "" },
+      ],
+      columns: ["NO", "DESCRIPTION", "UNIT", "QTY", "PRICE", "AMOUNT"],
+      lines: lines.map((line, index) => ({ cells: [String(index + 1), line.description || "—", line.unit, line.quantity, line.price, moneyText(lineAmount(line, "USD"))] })),
+      totals: [{ label: "TOTAL F.O.B", value: moneyText(fob) }, ...(freightOn ? [{ label: "SEA FREIGHT", value: moneyText(freightMinor) }, { label: `TOTAL ${shipping}`, value: moneyText(fob + freightMinor) }] : [])],
+      facts: [
+        { label: "ORIGIN OF GOODS", value: origin },
+        { label: "SHIPPING METHOD", value: shipping },
+        { label: "PAYMENT TERM", value: paymentLabel },
+      ],
+      bank: bank ? [
+        { label: "ACCOUNT NAME", value: bank.account_name },
+        { label: "IBAN", value: bank.iban },
+        { label: "BANK NAME", value: bank.bank_name },
+        { label: "BANK ADDRESS", value: bank.bank_address ?? "" },
+        { label: "SWIFT CODE", value: bank.swift_code ?? "" },
+      ] : [],
+    };
   }
 
   return (
@@ -267,7 +318,10 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
           </div>
         ))}
         <p className="text-sm font-medium text-ink md:col-span-2" dir="ltr">TOTAL FOB {moneyText(fob)}{freightOn ? ` + SEA FREIGHT ${moneyText(freightMinor)} = TOTAL ${shipping} ${moneyText(fob + freightMinor)}` : ""}</p>
-        <div className="md:col-span-2"><StampPad stamped={stamp.stamped} x={stamp.x} y={stamp.y} rotation={stamp.rotation} disabled={issued} onChange={setStamp} /></div>
+        <div className="md:col-span-2">
+          <h2 className="mb-2 text-sm font-semibold text-ink">{tx("tradeLiveView", "Live view and stamp")}</h2>
+          <LiveInvoiceView model={proformaLiveModel()} stamp={stamp} disabled={issued} onChange={setStamp} />
+        </div>
         <div className="flex flex-wrap gap-2 md:col-span-2">
           <Button type="button" disabled={issued || busy} onClick={() => void save()}>{tx("tradeSaveDraft", "Save draft")}</Button>
           {initial?.id ? <Button type="button" variant="outline" disabled={issued || busy} onClick={() => void issue()}>{tx("proformaIssue", "Issue proforma")}</Button> : null}

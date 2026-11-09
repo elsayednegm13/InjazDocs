@@ -1,4 +1,5 @@
 import { netAboveGross, packingPieces, reconcileTradeTotals, sumNumbers, type ReconciliationSummary, type TradeTotals } from "../../shared/trade-documents";
+import { TRADE_PAGE_H, TRADE_PAGE_W } from "../../shared/trade-sheet";
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
@@ -31,6 +32,14 @@ type InvoiceHead = {
   stamp_x: number | null;
   stamp_y: number | null;
   stamp_rotation: number | null;
+  stamp_x_ratio: number | null;
+  stamp_y_ratio: number | null;
+  stamp_scale: number | null;
+  packing_is_stamped: number;
+  packing_stamp_x_ratio: number | null;
+  packing_stamp_y_ratio: number | null;
+  packing_stamp_scale: number | null;
+  packing_stamp_rotation: number | null;
 };
 
 type CommercialLineInput = {
@@ -94,7 +103,9 @@ async function invoiceHead(db: D1Database, actor: Actor, invoiceId: string) {
     db,
     `SELECT id, case_id, customer_id, invoiced_freight_minor, packages_count, gross_weight_grams, net_weight_grams,
             trade_status, trade_revision, payment_term_code, payment_term_label, shipping_method_label, origin_of_goods,
-            exporter_bank_account_id, goods_value_minor, print_reference, incoterm, is_stamped, stamp_x, stamp_y, stamp_rotation
+            exporter_bank_account_id, goods_value_minor, print_reference, incoterm, is_stamped, stamp_x, stamp_y, stamp_rotation,
+            stamp_x_ratio, stamp_y_ratio, stamp_scale, packing_is_stamped, packing_stamp_x_ratio, packing_stamp_y_ratio,
+            packing_stamp_scale, packing_stamp_rotation
      FROM export_invoices WHERE id = ?`,
     invoiceId,
   );
@@ -111,13 +122,27 @@ function storedIncoterm(value: unknown, includeFreight: boolean) {
 
 function stampFields(input: Record<string, unknown>) {
   const stamped = input.isStamped === true || input.isStamped === 1 ? 1 : 0;
-  if (!stamped) return { stamped: 0, x: null, y: null, rotation: null };
+  if (!stamped) return { stamped: 0, x: null, y: null, rotation: null, xRatio: null, yRatio: null, scale: null };
+  const xRatio = ratioOf(input.stampXRatio, input.stampX, TRADE_PAGE_W);
+  const yRatio = ratioOf(input.stampYRatio, input.stampY, TRADE_PAGE_H);
+  const scale = clampNumber(input.stampScale ?? 1, 0.35, 2.5);
   return {
     stamped,
-    x: clampNumber(input.stampX, 0, 595.28),
-    y: clampNumber(input.stampY, 0, 841.89),
+    x: xRatio * TRADE_PAGE_W,
+    y: yRatio * TRADE_PAGE_H,
     rotation: clampNumber(input.stampRotation, -40, 40),
+    xRatio,
+    yRatio,
+    scale,
   };
+}
+
+function ratioOf(ratio: unknown, absolute: unknown, page: number) {
+  const direct = Number(ratio);
+  if (Number.isFinite(direct)) return Math.min(1, Math.max(0, direct));
+  const point = Number(absolute);
+  if (Number.isFinite(point)) return Math.min(1, Math.max(0, point / page));
+  return 0.5;
 }
 
 function clampNumber(value: unknown, min: number, max: number) {
@@ -132,7 +157,7 @@ function assertDraft(status: string) {
 
 export async function getExporterIdentity(db: D1Database, actor: Actor) {
   await ready(db);
-  requirePermission(actor, "settings.manage");
+  requireAny(actor, ["settings.manage", "invoices.view"]);
   return (await one(db, "SELECT * FROM exporter_identity WHERE id = 'default'")) ?? null;
 }
 
@@ -605,8 +630,9 @@ export async function createProforma(db: D1Database, actor: Actor, input: Record
         `INSERT INTO proforma_invoices
            (id, customer_id, case_id, invoice_number, print_reference, invoice_date, origin_of_goods, port_of_loading, port_of_discharge,
             payment_term_code, payment_term_label, incoterm, shipping_method_label, exporter_bank_account_id, currency, currency_decimals,
-            fob_total_minor, sea_freight_minor, total_minor, is_stamped, stamp_x, stamp_y, stamp_rotation, status, version, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', 1, ?, ?)`,
+            fob_total_minor, sea_freight_minor, total_minor, is_stamped, stamp_x, stamp_y, stamp_rotation,
+            stamp_x_ratio, stamp_y_ratio, stamp_scale, status, version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', 1, ?, ?)`,
       )
       .bind(
         id,
@@ -631,6 +657,9 @@ export async function createProforma(db: D1Database, actor: Actor, input: Record
         stamp.x,
         stamp.y,
         stamp.rotation,
+        stamp.xRatio,
+        stamp.yRatio,
+        stamp.scale,
         now,
         now,
       ),
@@ -678,7 +707,7 @@ export async function updateProforma(db: D1Database, actor: Actor, id: string, i
         `UPDATE proforma_invoices SET case_id=?, invoice_number=?, print_reference=?, invoice_date=?, origin_of_goods=?,
            port_of_loading=?, port_of_discharge=?, payment_term_code=?, payment_term_label=?, incoterm=?, shipping_method_label=?,
            exporter_bank_account_id=?, currency=?, fob_total_minor=?, sea_freight_minor=?, total_minor=?,
-           is_stamped=?, stamp_x=?, stamp_y=?, stamp_rotation=?, version=version+1, updated_at=?
+           is_stamped=?, stamp_x=?, stamp_y=?, stamp_rotation=?, stamp_x_ratio=?, stamp_y_ratio=?, stamp_scale=?, version=version+1, updated_at=?
          WHERE id=? AND status='DRAFT'`,
       )
       .bind(
@@ -702,6 +731,9 @@ export async function updateProforma(db: D1Database, actor: Actor, id: string, i
         stamp.x,
         stamp.y,
         stamp.rotation,
+        stamp.xRatio,
+        stamp.yRatio,
+        stamp.scale,
         now,
         id,
       ),
@@ -887,13 +919,22 @@ export async function saveTradeHeader(db: D1Database, actor: Actor, invoiceId: s
   const shippingLabel = text(input.shippingMethodLabel, "shippingMethodLabel", 40);
   const includeFreight = await shippingIncludesFreight(db, shippingLabel ?? head.incoterm);
   const stamp = stampFields(input);
+  const packingStamp = stampFields({
+    isStamped: input.packingIsStamped,
+    stampXRatio: input.packingStampXRatio,
+    stampYRatio: input.packingStampYRatio,
+    stampScale: input.packingStampScale,
+    stampRotation: input.packingStampRotation,
+  });
   const goods = await one<{ goods_value_minor: number }>(db, "SELECT goods_value_minor FROM export_invoices WHERE id = ?", invoiceId);
   await db
     .prepare(
       `UPDATE export_invoices
        SET payment_term_label = ?, shipping_method_label = ?, origin_of_goods = ?, exporter_bank_account_id = ?,
            print_reference = ?, invoiced_freight_minor = ?, invoice_total_minor = ?,
-           is_stamped = ?, stamp_x = ?, stamp_y = ?, stamp_rotation = ?, version = version + 1, updated_at = ?
+           is_stamped = ?, stamp_x = ?, stamp_y = ?, stamp_rotation = ?, stamp_x_ratio = ?, stamp_y_ratio = ?, stamp_scale = ?,
+           packing_is_stamped = ?, packing_stamp_x_ratio = ?, packing_stamp_y_ratio = ?, packing_stamp_scale = ?, packing_stamp_rotation = ?,
+           version = version + 1, updated_at = ?
        WHERE id = ?`,
     )
     .bind(
@@ -908,6 +949,14 @@ export async function saveTradeHeader(db: D1Database, actor: Actor, invoiceId: s
       stamp.x,
       stamp.y,
       stamp.rotation,
+      stamp.xRatio,
+      stamp.yRatio,
+      stamp.scale,
+      packingStamp.stamped,
+      packingStamp.xRatio,
+      packingStamp.yRatio,
+      packingStamp.scale,
+      packingStamp.rotation,
       nowIso(),
       invoiceId,
     )

@@ -134,6 +134,7 @@ export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], cu
                 currency={currency}
                 canEdit={canEdit && (!locked || Number(inv.edit_open) === 1)}
                 customerCode={customerCode}
+                customerName={customerName}
                 containers={containers.map((item) => ({
                   id: String(item.id),
                   slot_index: Number(item.slot_index),

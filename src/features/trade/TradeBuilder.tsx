@@ -21,7 +21,8 @@ import {
   type ProductPreset,
 } from "./trade-model";
 import { CatalogDialog, CompanyDialog, PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
-import { includesFreight, ShippingMethodField, StampPad, useShippingMethods } from "./TradeExtras";
+import { includesFreight, ShippingMethodField, useShippingMethods } from "./TradeExtras";
+import { LiveInvoiceView, stampFromRow, type LiveSheetModel } from "./LiveSheet";
 
 type SheetLine = {
   description: string;
@@ -59,6 +60,14 @@ type Sheet = {
     stamp_x: number | null;
     stamp_y: number | null;
     stamp_rotation: number | null;
+    stamp_x_ratio: number | null;
+    stamp_y_ratio: number | null;
+    stamp_scale: number | null;
+    packing_is_stamped: number;
+    packing_stamp_x_ratio: number | null;
+    packing_stamp_y_ratio: number | null;
+    packing_stamp_scale: number | null;
+    packing_stamp_rotation: number | null;
   };
   lines: SheetLine[];
   packing: SheetPack[];
@@ -70,12 +79,14 @@ export function TradeBuilder({
   containers,
   canEdit,
   customerCode = "",
+  customerName = "",
 }: {
   invoiceId: string;
   currency: string;
   containers: Array<{ id: string; slot_index?: number; official_number?: string | null; status?: string }>;
   canEdit: boolean;
   customerCode?: string;
+  customerName?: string;
 }) {
   const { tx } = useCopy();
   const client = useQueryClient();
@@ -85,12 +96,15 @@ export function TradeBuilder({
   });
   const banks = useQuery({ queryKey: ["exporter-banks"], queryFn: async () => (await api<BankAccount[]>("/api/v1/settings/exporter-bank-accounts")).data });
   const presets = useQuery({ queryKey: ["product-presets"], queryFn: async () => (await api<ProductPreset[]>("/api/v1/product-presets")).data });
+  const identity = useQuery({ queryKey: ["exporter-identity"], queryFn: async () => (await api<Record<string, string | null> | null>("/api/v1/settings/exporter-identity")).data });
   const [section, setSection] = useState<"invoice" | "packing">("invoice");
   const [lines, setLines] = useState<InvoiceDraftLine[]>([]);
   const [packing, setPacking] = useState<PackingDraftLine[]>([]);
   const [paymentLabel, setPaymentLabel] = useState("");
   const [reference, setReference] = useState("");
-  const [stamp, setStamp] = useState({ stamped: false, x: 470, y: 130, rotation: -4 });
+  const [stamp, setStamp] = useState(stampFromRow(null));
+  const [packingStamp, setPackingStamp] = useState(stampFromRow(null));
+  const [liveDoc, setLiveDoc] = useState<"commercial" | "packing">("commercial");
   const [companyOpen, setCompanyOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [shippingLabel, setShippingLabel] = useState("CFR");
@@ -112,12 +126,14 @@ export function TradeBuilder({
     setPacking(data.packing.length ? data.packing.map(toPackingLine) : [blankPackingLine()]);
     setPaymentLabel(data.header.payment_term_label ?? "");
     setReference(data.header.print_reference || customerCode);
-    setStamp({
-      stamped: Number(data.header.is_stamped) === 1,
-      x: Number(data.header.stamp_x ?? 470),
-      y: Number(data.header.stamp_y ?? 130),
-      rotation: Number(data.header.stamp_rotation ?? -4),
-    });
+    setStamp(stampFromRow(data.header));
+    setPackingStamp(stampFromRow({
+      is_stamped: data.header.packing_is_stamped,
+      stamp_x_ratio: data.header.packing_stamp_x_ratio,
+      stamp_y_ratio: data.header.packing_stamp_y_ratio,
+      stamp_scale: data.header.packing_stamp_scale,
+      stamp_rotation: data.header.packing_stamp_rotation,
+    }));
     setShippingLabel(data.header.shipping_method_label ?? "CFR");
     setOrigin(data.header.origin_of_goods ?? "EGYPT");
     setBankId(data.header.exporter_bank_account_id ?? "");
@@ -155,9 +171,15 @@ export function TradeBuilder({
           seaFreightMinor: freightMinor,
           printReference: reference,
           isStamped: stamp.stamped,
-          stampX: stamp.x,
-          stampY: stamp.y,
+          stampXRatio: stamp.xRatio,
+          stampYRatio: stamp.yRatio,
+          stampScale: stamp.scale,
           stampRotation: stamp.rotation,
+          packingIsStamped: packingStamp.stamped,
+          packingStampXRatio: packingStamp.xRatio,
+          packingStampYRatio: packingStamp.yRatio,
+          packingStampScale: packingStamp.scale,
+          packingStampRotation: packingStamp.rotation,
         }),
       });
       await api(`/api/v1/invoices/${invoiceId}/lines`, { method: "PUT", body: JSON.stringify({ lines: lines.map(serializeInvoice) }) });
@@ -210,7 +232,7 @@ export function TradeBuilder({
   async function saveQuiet() {
     await api(`/api/v1/invoices/${invoiceId}/trade-header`, {
       method: "PUT",
-      body: JSON.stringify({ paymentTermLabel: paymentLabel, shippingMethodLabel: shippingLabel, originOfGoods: origin, exporterBankAccountId: bankId || null, seaFreightMinor: freightMinor, printReference: reference, isStamped: stamp.stamped, stampX: stamp.x, stampY: stamp.y, stampRotation: stamp.rotation }),
+      body: JSON.stringify({ paymentTermLabel: paymentLabel, shippingMethodLabel: shippingLabel, originOfGoods: origin, exporterBankAccountId: bankId || null, seaFreightMinor: freightMinor, printReference: reference, isStamped: stamp.stamped, stampXRatio: stamp.xRatio, stampYRatio: stamp.yRatio, stampScale: stamp.scale, stampRotation: stamp.rotation, packingIsStamped: packingStamp.stamped, packingStampXRatio: packingStamp.xRatio, packingStampYRatio: packingStamp.yRatio, packingStampScale: packingStamp.scale, packingStampRotation: packingStamp.rotation }),
     });
     await api(`/api/v1/invoices/${invoiceId}/lines`, { method: "PUT", body: JSON.stringify({ lines: lines.map(serializeInvoice) }) });
     await api(`/api/v1/invoices/${invoiceId}/packing-lines`, { method: "PUT", body: JSON.stringify({ lines: packing.map(serializePacking) }) });
@@ -228,6 +250,59 @@ export function TradeBuilder({
       quantity: "1",
       price: moneyText(preset.default_price_minor, currency),
     }]);
+  }
+
+  function tradeLiveModel(): LiveSheetModel {
+    const company = identity.data;
+    const bank = (banks.data ?? []).find((item) => item.id === bankId);
+    const identityBlock = {
+      nameEn: company?.name_en ?? "",
+      nameAr: company?.name_ar ?? "",
+      address: company?.address ?? "",
+      phone: company?.phone ?? "",
+      email: company?.email ?? "",
+      taxCard: company?.tax_card ?? "",
+      taxFile: company?.tax_file ?? "",
+      commercialRegistry: company?.commercial_registry ?? "",
+    };
+    const facts = [
+      { label: "ORIGIN OF GOODS", value: origin },
+      { label: "SHIPPING METHOD", value: shippingLabel },
+      { label: "PAYMENT TERM", value: paymentLabel },
+    ];
+    const bankRows = bank ? [
+      { label: "ACCOUNT NAME", value: bank.account_name },
+      { label: "IBAN", value: bank.iban },
+      { label: "BANK NAME", value: bank.bank_name },
+      { label: "BANK ADDRESS", value: bank.bank_address ?? "" },
+      { label: "SWIFT CODE", value: bank.swift_code ?? "" },
+    ] : [];
+    if (liveDoc === "packing") {
+      return {
+        title: "PACKING LIST",
+        draft: !issued,
+        identity: identityBlock,
+        meta: [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceId }, { label: "REFERENCE", value: reference }],
+        buyer: [{ label: "CUSTOMER", value: customerName }, { label: "CODE", value: customerCode }, { label: "ADDRESS", value: "" }],
+        columns: ["NO", "CONTAINER", "ITEM", "PKG", "PER", "PCS", "GROSS", "NET"],
+        lines: packing.map((line, index) => ({ cells: [String(index + 1), line.containerId || "—", line.description || "—", line.packages, line.perPackage, String(Number(line.packages) * Number(line.perPackage) || 0), line.grossKg, line.netKg] })),
+        totals: [],
+        facts,
+        bank: [],
+      };
+    }
+    return {
+      title: "COMMERCIAL INVOICE",
+      draft: !issued,
+      identity: identityBlock,
+      meta: [{ label: "DATE", value: "" }, { label: "INVOICE NO#", value: invoiceId }, { label: "REFERENCE", value: reference }],
+      buyer: [{ label: "CUSTOMER", value: customerName }, { label: "CODE", value: customerCode }, { label: "ADDRESS", value: "" }],
+      columns: ["NO", "DESCRIPTION", "UNIT", "QTY", "PRICE", "AMOUNT"],
+      lines: lines.map((line, index) => ({ cells: [String(index + 1), line.description || "—", line.unit, line.quantity, line.price, moneyText(lineAmount(line, currency), currency)] })),
+      totals: [{ label: "TOTAL F.O.B", value: moneyText(fob, currency) }, ...(chargesFreight ? [{ label: "SEA FREIGHT", value: moneyText(freightMinor, currency) }, { label: `TOTAL ${shippingLabel}`, value: moneyText(fob + freightMinor, currency) }] : [])],
+      facts,
+      bank: bankRows,
+    };
   }
 
   return (
@@ -284,7 +359,14 @@ export function TradeBuilder({
             ))}
           </div>
           <p className="text-sm font-medium text-ink" dir="ltr">TOTAL FOB {moneyText(fob, currency)}{chargesFreight ? ` + SEA FREIGHT ${moneyText(freightMinor, currency)} = TOTAL ${shippingLabel} ${moneyText(fob + freightMinor, currency)}` : ""}</p>
-          <StampPad stamped={stamp.stamped} x={stamp.x} y={stamp.y} rotation={stamp.rotation} disabled={locked} onChange={setStamp} />
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant={liveDoc === "commercial" ? "default" : "outline"} onClick={() => setLiveDoc("commercial")}>{tx("tradeLiveInvoice", "Live invoice")}</Button>
+              <Button type="button" size="sm" variant={liveDoc === "packing" ? "default" : "outline"} onClick={() => setLiveDoc("packing")}>{tx("tradeLivePacking", "Live packing list")}</Button>
+            </div>
+            <h2 className="text-sm font-semibold text-ink">{tx("tradeLiveView", "Live view and stamp")}</h2>
+            <LiveInvoiceView model={tradeLiveModel()} stamp={liveDoc === "packing" ? packingStamp : stamp} disabled={locked} onChange={liveDoc === "packing" ? setPackingStamp : setStamp} />
+          </div>
         </div>
       ) : (
         <div className="space-y-2">
