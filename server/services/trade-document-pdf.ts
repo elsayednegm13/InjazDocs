@@ -95,14 +95,14 @@ const INK = "0.06 0.09 0.16";
 type ImageObj = { name: string; bytes: Uint8Array; w: number; h: number; kind: "jpeg" | "png"; png?: { data: Uint8Array; colors: number; mask?: Uint8Array } };
 
 export async function renderTradePdf(model: TradePdfModel): Promise<Uint8Array> {
-  const images = await collectImages(model.logo, placedStamp(model));
+  const images = await collectImages(model.logo, model.stamp);
   const pages = layout(model, images);
   stampPages(pages, model.draft, model.printReference || model.buyer.code);
   return assemble(pages, images);
 }
 
 export async function renderCustomsBundle(commercial: CommercialPdf, packing: PackingPdf): Promise<Uint8Array> {
-  const stampBytes = placedStamp(commercial) ?? placedStamp(packing);
+  const stampBytes = commercial.stamp ?? packing.stamp;
   const images = await collectImages(commercial.logo ?? packing.logo, stampBytes);
   const pages = [...layout({ ...commercial, logo: commercial.logo, stamp: commercial.stamp }, images), ...layout(packing, images)];
   stampPages(pages, commercial.draft || packing.draft, commercial.printReference || commercial.buyer.code || packing.buyer.code);
@@ -129,6 +129,23 @@ function layout(model: TradePdfModel, images: ImageObj[]): Page[] {
   paintFooter(cursor, model, fresh);
   paintPlacedStamp(pages[0], model, images);
   return pages;
+}
+
+const PARTY_GAP = 8;
+const META_W = 172;
+const META_LABEL_W = 78;
+
+function partyFrames() {
+  const metaX = PAGE_W - MARGIN - META_W;
+  const buyerW = metaX - PARTY_GAP - MARGIN;
+  const buyerLabel = 108;
+  return {
+    metaX,
+    buyerW,
+    buyerLabel,
+    buyerValue: buyerW - buyerLabel,
+    metaValue: META_W - META_LABEL_W,
+  };
 }
 
 function paintHeader(page: Page, model: TradePdfModel, images: ImageObj[]) {
@@ -160,13 +177,16 @@ function paintHeader(page: Page, model: TradePdfModel, images: ImageObj[]) {
   page.ops.push(`${INK} RG`, `0.8 w ${n(PAGE_W / 2 - 70)} ${n(page.y - 3)} m ${n(PAGE_W / 2 + 70)} ${n(page.y - 3)} l S`);
   ink(page.ops);
   page.y -= 16;
+  const frames = partyFrames();
   const partyTop = page.y;
   const leftBottom = paintBuyer(page, model, partyTop);
-  const rightBottom = paintInvoiceMeta(page, model, partyTop, leftBottom);
-  page.y = Math.min(leftBottom, rightBottom) - 10;
+  const rightBottom = paintInvoiceMeta(page, model, partyTop);
+  const stampBottom = paintAutoStamp(page, model, images, frames.metaX, rightBottom, leftBottom);
+  page.y = Math.min(leftBottom, rightBottom, stampBottom) - 10;
 }
 
 function paintBuyer(page: Page, model: TradePdfModel, top: number) {
+  const frames = partyFrames();
   const rows = model.buyerRows?.length
     ? model.buyerRows
     : [
@@ -174,37 +194,58 @@ function paintBuyer(page: Page, model: TradePdfModel, top: number) {
         ["ADDRESS", dash(model.buyer.address)],
         ["Registration number", dash(model.buyer.vat)],
       ].map(([label, value]) => ({ label, value }));
-  return paintPairTable(page, rows.map((row) => [row.label, row.value]), MARGIN, top, 110, 250);
+  return paintPairTable(page, rows.map((row) => [row.label, row.value]), MARGIN, top, frames.buyerLabel, frames.buyerValue);
 }
 
-function paintInvoiceMeta(page: Page, model: TradePdfModel, top: number, bottom: number) {
+function paintInvoiceMeta(page: Page, model: TradePdfModel, top: number) {
+  const frames = partyFrames();
   const rows = model.metaRows?.length
     ? model.metaRows
     : [
         { label: "DATE", value: dash(model.date) },
         { label: "INVOICE NO#", value: dash(model.invoiceNumber) },
       ];
-  const height = rows.length * 18;
-  const block = Math.max(18, bottom - top);
-  const y = top - Math.max(0, (block - height) / 2);
-  return paintPairTable(page, rows.map((row) => [row.label, row.value]), PAGE_W - MARGIN - 210, y, 90, 120);
+  return paintPairTable(page, rows.map((row) => [row.label, row.value]), frames.metaX, top, META_LABEL_W, frames.metaValue);
 }
 
 function paintPairTable(page: Page, rows: Array<[string, string]>, x: number, top: number, labelW: number, valueW: number) {
   let y = top;
   for (const [label, value] of rows) {
-    const lines = Math.max(1, tradeLineCount(value || "—", 8, valueW - 10));
+    const labelLines = Math.max(1, tradeLineCount(label, 7.5, labelW - 8));
+    const valueLines = Math.max(1, tradeLineCount(value || "—", 8, valueW - 8));
+    const lines = Math.max(labelLines, valueLines);
     const height = Math.max(18, lines * 10 + 6);
     page.ops.push(`${INK} RG`, `0.6 w ${n(x)} ${n(y - height)} ${n(labelW + valueW)} ${n(height)} re S`);
     page.ops.push(`${n(x + labelW)} ${n(y)} m ${n(x + labelW)} ${n(y - height)} l S`);
     ink(page.ops);
-    const base = y - height / 2 - (lines - 1) * 5 + 3;
-    text(page.ops, label, x + labelW / 2, y - height / 2 - 2, 8, "center");
-    paintTradeCenteredBlock(page.ops, value || "—", x + labelW + valueW / 2, base, 8, valueW - 10);
+    const labelBase = y - (height - labelLines * 10) / 2 - 7;
+    const valueBase = y - (height - valueLines * 10) / 2 - 7;
+    paintTradeCenteredBlock(page.ops, label, x + labelW / 2, labelBase, 7.5, labelW - 8);
+    paintTradeCenteredBlock(page.ops, value || "—", x + labelW + valueW / 2, valueBase, 8, valueW - 8);
     ink(page.ops);
     y -= height;
   }
   return y;
+}
+
+function paintAutoStamp(page: Page, model: TradePdfModel, images: ImageObj[], metaX: number, metaBottom: number, buyerBottom: number) {
+  const stamp = images.find((image) => image.name === "ImStamp");
+  if (model.stamped || !stamp || !model.stamp) return Math.min(metaBottom, buyerBottom);
+  const widthLimit = META_W - 16;
+  if (buyerBottom <= metaBottom - 64) {
+    const room = metaBottom - buyerBottom;
+    const width = Math.min(TRADE_STAMP_BASE * 0.85, widthLimit, room - 8);
+    const natural = Math.max(28, (stamp.h / Math.max(stamp.w, 1)) * width);
+    const fitted = natural > room - 8 ? width * ((room - 8) / natural) : width;
+    const height = Math.max(28, (stamp.h / Math.max(stamp.w, 1)) * fitted);
+    drawStamp(page.ops, stamp.name, metaX + META_W / 2, buyerBottom + room / 2, fitted, height, -4);
+    return buyerBottom;
+  }
+  const width = Math.min(96, widthLimit);
+  const height = Math.max(28, (stamp.h / Math.max(stamp.w, 1)) * width);
+  const top = Math.min(metaBottom, buyerBottom) - 6;
+  drawStamp(page.ops, stamp.name, metaX + META_W / 2, top - height / 2, width, height, -4);
+  return top - height - 4;
 }
 
 function paintItems(cursor: { page: Page }, model: ProformaPdf | CommercialPdf, fresh: () => void) {
@@ -415,10 +456,6 @@ function stampPages(pages: Page[], draft: boolean, clientCode: string) {
   });
 }
 
-function placedStamp(model: TradePdfModel) {
-  return model.stamped ? model.stamp : null;
-}
-
 function money(minor: number) {
   const abs = Math.abs(Math.round(minor));
   return `${Math.floor(abs / 100).toLocaleString("en-US")}.${String(abs % 100).padStart(2, "0")}`;
@@ -467,10 +504,10 @@ function drawStamp(ops: string[], name: string, centerX: number, centerY: number
   const sin = Math.sin(radians);
   ops.push(
     "q",
-    `${n(w)} 0 0 ${n(h)} 0 0 cm`,
-    `1 0 0 1 ${n(-w / 2)} ${n(-h / 2)} cm`,
-    `${n(cos)} ${n(sin)} ${n(-sin)} ${n(cos)} 0 0 cm`,
     `1 0 0 1 ${n(centerX)} ${n(centerY)} cm`,
+    `${n(cos)} ${n(sin)} ${n(-sin)} ${n(cos)} 0 0 cm`,
+    `1 0 0 1 ${n(-w / 2)} ${n(-h / 2)} cm`,
+    `${n(w)} 0 0 ${n(h)} 0 0 cm`,
     `/${name} Do`,
     "Q",
   );

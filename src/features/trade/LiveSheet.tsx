@@ -157,8 +157,8 @@ export function LiveInvoiceView({
                         <div className="mx-auto mt-1 h-px w-full bg-[#0f172a]" />
                         <p className="mt-2 text-sm font-bold underline">{model.title}{model.draft ? " - DRAFT" : ""}</p>
                       </header>
-                      <div className="flex items-center justify-between gap-3">
-                        <table className="w-[62%] border-collapse text-center text-[10px]">
+                      <div className="flex items-start justify-between gap-3">
+                        <table className="w-[64%] border-collapse text-center text-[10px]">
                           <tbody>
                             {model.buyer.map((row, index) => (
                               <tr key={`${row.label}-${index}`}>
@@ -168,7 +168,8 @@ export function LiveInvoiceView({
                             ))}
                           </tbody>
                         </table>
-                        <table className="w-[34%] border-collapse text-center text-[10px]">
+                        <div className="flex w-[34%] flex-col items-center">
+                        <table className="w-full border-collapse text-center text-[10px]">
                           <tbody>
                             {model.meta.map((row, index) => (
                               <tr key={`${row.label}-${index}`}>
@@ -178,6 +179,8 @@ export function LiveInvoiceView({
                             ))}
                           </tbody>
                         </table>
+                        {!stamp.stamped && preview.data ? <img src={preview.data} alt="" className="mt-2 w-[78%] object-contain" style={{ transform: `rotate(${stamp.rotation}deg)` }} /> : null}
+                        </div>
                       </div>
                     </>
                   ) : null}

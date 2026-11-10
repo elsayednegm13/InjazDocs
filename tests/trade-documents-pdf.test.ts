@@ -172,4 +172,64 @@ describe("trade document pdf", () => {
     expect(pdf).toContain(" f");
     expect(pdf).not.toContain("0.93 0.94 0.96 rg");
   });
+
+  it("keeps the customer table clear of the date box and prints a company stamp", async () => {
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x00, 0xff, 0xd9]);
+    const description = "Blanket 2.4KG (1 ply)\n100% POLYESTER\nSIZE 180-230 / 200-240\nBARCODE 6223010920876 / 6223010920814";
+    const line = (quantity: number, price: number) => ({
+      description,
+      unit: "Piece",
+      quantity,
+      unitPriceMinor: price,
+      lineTotalMinor: quantity * price,
+    });
+    const model: ProformaPdf = {
+      ...base(false),
+      kind: "proforma",
+      incoterm: "C&F",
+      fobMinor: 1855000,
+      freightMinor: 90000,
+      buyerRows: [
+        { label: "BILL TO", value: "Nordisk Hjalp" },
+        { label: "ADDRESS", value: "Cairo, Egypt" },
+        { label: "Registration number", value: "12345678910" },
+        { label: "TEL", value: "+20 10 04229166" },
+        { label: "BANK", value: "Buyer Bank" },
+        { label: "ACCOUNT NO", value: "123456789012" },
+        { label: "IBAN", value: "EG998877660000000000000001" },
+        { label: "SWIFT", value: "BXDE514XXX" },
+        { label: "Bank Address", value: "Turkey" },
+      ],
+      metaRows: [
+        { label: "DATE", value: "2026-11-09" },
+        { label: "INVOICE NO#", value: "610" },
+      ],
+      lines: [line(100, 1000), line(200, 500), line(300, 550), line(600, 1400), line(520, 1250)],
+      stamp: jpeg,
+      stamped: false,
+    };
+    const bytes = await renderTradePdf(model);
+    const pdf = textOf(bytes);
+    const boxes = [...pdf.matchAll(/([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) re S/g)].map((match) => ({
+      x: Number(match[1]),
+      y: Number(match[2]),
+      w: Number(match[3]),
+      h: Number(match[4]),
+    }));
+    const left = boxes.filter((box) => box.x === 28 && box.w < 400);
+    const right = boxes.filter((box) => box.x > 380 && box.w < 200);
+    expect(left.length).toBeGreaterThan(5);
+    expect(right.length).toBeGreaterThan(0);
+    for (const buyer of left) {
+      for (const meta of right) {
+        const separated = buyer.x + buyer.w <= meta.x - 6 || meta.x + meta.w <= buyer.x - 6 || buyer.y + buyer.h <= meta.y + 0.5 || meta.y + meta.h <= buyer.y + 0.5;
+        expect(separated).toBe(true);
+      }
+    }
+    expect(pdf).toContain("(INVOICE)");
+    expect(pdf).toContain("(610)");
+    expect(pdf).toContain("/ImStamp");
+    expect(pdf).toContain("481.28");
+    expect(pdf).toContain("EG998877660000000000000001");
+  });
 });

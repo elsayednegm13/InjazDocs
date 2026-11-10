@@ -44,8 +44,8 @@ export function PrintFieldsPanel({
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      <FieldList title={tx("tradeBuyerFields", "Customer fields on the PDF")} hint={tx("tradeBuyerFieldsHint", "Values come from the customer profile. Hide a row or add your own.")} fields={current.filter((field) => field.side === "buyer")} profile={shown} document={document} disabled={disabled} onUpdate={update} onAdd={() => add("buyer")} addLabel={tx("tradeAddBuyerField", "Add customer field")} />
-      <FieldList title={tx("tradeMetaFields", "Invoice number and date fields")} hint={tx("tradeMetaFieldsHint", "Shown in the box opposite the customer. Add a custom row when you need one.")} fields={current.filter((field) => field.side === "meta")} profile={shown} document={document} disabled={disabled} onUpdate={update} onAdd={() => add("meta")} addLabel={tx("tradeAddMetaField", "Add document field")} />
+      <FieldList title={tx("tradeBuyerFields", "Customer fields on the PDF")} hint={tx("tradeBuyerFieldsHint", "Edit any value for this invoice. Hide a row or add your own.")} fields={current.filter((field) => field.side === "buyer")} profile={shown} document={document} disabled={disabled} onUpdate={update} onAdd={() => add("buyer")} addLabel={tx("tradeAddBuyerField", "Add customer field")} />
+      <FieldList title={tx("tradeMetaFields", "Invoice number and date fields")} hint={tx("tradeMetaFieldsHint", "Edit the date box, or add another row beside it.")} fields={current.filter((field) => field.side === "meta")} profile={shown} document={document} disabled={disabled} onUpdate={update} onAdd={() => add("meta")} addLabel={tx("tradeAddMetaField", "Add document field")} />
     </div>
   );
 }
@@ -79,18 +79,14 @@ function FieldList({
         {fields.map((field) => {
           const preview = field.source === "custom" ? field.value ?? "" : profileFieldValue(profile, field.key, document);
           return (
-            <li key={field.id} className="grid grid-cols-[auto_1fr] items-center gap-2">
-              <button type="button" disabled={disabled} className={`rounded-full border px-2 py-1 text-[11px] ${field.visible ? "border-accent bg-accent/10 text-accent" : "border-line text-ink-muted"}`} onClick={() => onUpdate(field.id, { visible: !field.visible })}>
+            <li key={field.id} className="grid grid-cols-[auto_1fr] items-start gap-2">
+              <button type="button" disabled={disabled} className={`mt-1 rounded-full border px-2 py-1 text-[11px] ${field.visible ? "border-accent bg-accent/10 text-accent" : "border-line text-ink-muted"}`} onClick={() => onUpdate(field.id, { visible: !field.visible })}>
                 {field.visible ? "PDF" : "—"}
               </button>
-              {field.source === "custom" ? (
-                <div className="grid gap-1 sm:grid-cols-2">
-                  <Input dir="ltr" disabled={disabled} value={field.label} placeholder="Label" onChange={(event) => onUpdate(field.id, { label: event.target.value })} />
-                  <Input dir="ltr" disabled={disabled} value={field.value ?? ""} placeholder="Value" onChange={(event) => onUpdate(field.id, { value: event.target.value })} />
-                </div>
-              ) : (
-                <p className="min-w-0 text-sm text-ink"><span className="font-medium">{field.label}</span> <span className="text-ink-muted" dir="ltr">{preview || "—"}</span></p>
-              )}
+              <div className="grid gap-1 sm:grid-cols-2">
+                <Input dir="ltr" disabled={disabled} value={field.label} placeholder="Label" onChange={(event) => onUpdate(field.id, { label: event.target.value })} />
+                <Input dir="ltr" disabled={disabled} value={field.value || preview} placeholder={preview || "Value"} onChange={(event) => onUpdate(field.id, { value: event.target.value })} />
+              </div>
             </li>
           );
         })}

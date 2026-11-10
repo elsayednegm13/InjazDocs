@@ -132,12 +132,11 @@ async function proformaModel(db: D1Database, bucket: R2Bucket, id: string, draft
   );
   const chrome = await chromeFor(db, String(row.customer_id), row.exporter_bank_account_id ? String(row.exporter_bank_account_id) : null, bucket);
   const shippingMethod = String(row.shipping_method_label ?? row.incoterm ?? "");
-  const stamped = Number(row.is_stamped) === 1;
   return {
     kind: "proforma",
     draft,
     ...chrome,
-    stamp: stamped ? chrome.stamp : null,
+    stamp: chrome.stamp,
     ...placement(row),
     ...printRowsFor(row, chrome.profile, String(row.invoice_date ?? ""), String(row.invoice_number ?? ""), String(row.print_reference ?? "")),
     includeFreight: await shippingIncludesFreight(db, shippingMethod),
@@ -166,12 +165,11 @@ async function commercialModel(db: D1Database, bucket: R2Bucket, invoiceId: stri
   );
   const chrome = await chromeFor(db, String(row.customer_id), row.exporter_bank_account_id ? String(row.exporter_bank_account_id) : null, bucket);
   const shippingMethod = String(row.shipping_method_label ?? row.incoterm ?? "");
-  const stamped = Number(row.is_stamped) === 1;
   return {
     kind: "commercial",
     draft,
     ...chrome,
-    stamp: stamped ? chrome.stamp : null,
+    stamp: chrome.stamp,
     ...placement(row),
     ...printRowsFor(row, chrome.profile, String(row.invoice_date ?? ""), String(row.invoice_number ?? ""), String(row.print_reference ?? "")),
     includeFreight: await shippingIncludesFreight(db, shippingMethod),
@@ -232,7 +230,7 @@ async function packingModel(db: D1Database, bucket: R2Bucket, invoiceId: string,
     invoiceId,
   );
   const placed = placement(stampRow ?? {});
-  return { ...commercial, kind: "packing", rows: packingRows, ...placed, stamp: placed.stamped ? commercial.stamp ?? (await stampBytes(db, bucket, invoiceId)) : null };
+  return { ...commercial, kind: "packing", rows: packingRows, stamp: commercial.stamp ?? (await stampBytes(db, bucket, invoiceId)), ...placed };
 }
 
 async function stampBytes(db: D1Database, bucket: R2Bucket, invoiceId: string) {

@@ -101,6 +101,12 @@ export function profileFieldValue(profile: CustomerPrintProfile, key: string, do
   return "";
 }
 
+export function printedFieldValue(field: PrintField, profile: CustomerPrintProfile, document: PrintDocumentValues) {
+  const typed = (field.value ?? "").trim();
+  if (field.source === "custom" || typed) return typed;
+  return profileFieldValue(profile, field.key, document).trim();
+}
+
 export function resolvePrintRows(
   fields: PrintField[] | null,
   profile: CustomerPrintProfile,
@@ -111,7 +117,7 @@ export function resolvePrintRows(
     .filter((field) => field.visible)
     .map((field) => ({
       label: field.label,
-      value: (field.source === "custom" ? field.value ?? "" : profileFieldValue(profile, field.key, document)).trim(),
+      value: printedFieldValue(field, profile, document),
       side: field.side,
     }))
     .filter((row) => row.value.length > 0);
