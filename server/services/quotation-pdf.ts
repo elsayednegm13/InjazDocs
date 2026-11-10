@@ -442,7 +442,7 @@ function contourOpsAbs(contour: readonly number[], x0: number, y0: number, s: nu
   while (first < n && !on(first)) first += 1;
   if (first === n) {
     // All points off-curve: the anchors are the implied midpoints.
-    let ops = ` m ${fmt((px(0) + px(1)) / 2)} ${fmt((py(0) + py(1)) / 2)}`;
+    let ops = ` ${fmt((px(0) + px(1)) / 2)} ${fmt((py(0) + py(1)) / 2)} m`;
     let ax = (px(0) + px(1)) / 2;
     let ay = (py(0) + py(1)) / 2;
     for (let i = 1; i <= n; i += 1) {
@@ -454,12 +454,12 @@ function contourOpsAbs(contour: readonly number[], x0: number, y0: number, s: nu
     }
     return ops + " h";
   }
-  let ops = ` m ${fmt(px(first))} ${fmt(py(first))}`;
+  let ops = ` ${fmt(px(first))} ${fmt(py(first))} m`;
   let ax = px(first);
   let ay = py(first);
   for (let i = first + 1; i <= first + n; ) {
     if (on(i)) {
-      ops += ` l ${fmt(px(i))} ${fmt(py(i))}`;
+      ops += ` ${fmt(px(i))} ${fmt(py(i))} l`;
       ax = px(i);
       ay = py(i);
       i += 1;

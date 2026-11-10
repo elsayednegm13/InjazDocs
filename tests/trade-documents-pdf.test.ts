@@ -170,6 +170,7 @@ describe("trade document pdf", () => {
     expect(pdf).toContain("0.06 0.09 0.16 rg");
     expect(pdf).toContain("re S");
     expect(pdf).toContain(" f");
+    expect(pdf).toMatch(/\d+\.\d{2} \d+\.\d{2} m/);
     expect(pdf).not.toContain("0.93 0.94 0.96 rg");
   });
 
