@@ -38,6 +38,8 @@ const PROBE_GROUPS = {
     { key: "proforma_stamp", sql: "SELECT is_stamped, stamp_x_ratio, stamp_y_ratio, stamp_scale, stamp_rotation, print_fields_json FROM proforma_invoices LIMIT 1" },
     { key: "invoice_print_fields", sql: "SELECT print_fields_json FROM export_invoices LIMIT 1" },
     { key: "customer_bank_full", sql: "SELECT account_number, iban FROM customer_bank_accounts LIMIT 1" },
+    { key: "packing_weights", sql: "SELECT line_type, unit_net_weight_grams, bag_weight_grams, poster_weight_grams, other_accessory_weight_grams, extra_accessories_json, manual_weight_override, include_pieces_in_reconciliation FROM packing_lines LIMIT 1" },
+    { key: "preset_weights", sql: "SELECT unit_net_weight_grams, bag_weight_grams, poster_weight_grams, other_accessory_weight_grams, extra_accessories_json FROM product_presets LIMIT 1" },
   ],
   customers: [
     { key: "customer_bank_full", sql: "SELECT account_number, iban FROM customer_bank_accounts LIMIT 1" },

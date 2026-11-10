@@ -6,7 +6,16 @@ import { Field, Input, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
-import { moneyMinor, moneyText, type BankAccount, type InvoiceDraftLine, type ProductPreset } from "./trade-model";
+import {
+  kgText,
+  moneyMinor,
+  moneyText,
+  safeGrams,
+  type BankAccount,
+  type InvoiceDraftLine,
+  type PackingDraftLine,
+  type ProductPreset,
+} from "./trade-model";
 
 export const PAYMENT_PRESETS = [
   "100% ADVANCE",
@@ -88,35 +97,49 @@ export function CompanyDialog({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogPortal>
-      <DialogOverlay className="fixed inset-0 z-40 bg-ink/40" />
-      <DialogContent className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[min(100%-2rem,40rem)] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-card border border-line bg-card p-4 text-start shadow-card focus:outline-none">
-        <DialogTitle className="text-base font-semibold text-ink">{tx("tradeCompanyDialog", "Company and bank")}</DialogTitle>
-        {row && !banks.isLoading ? (
-          <form className="mt-3 grid gap-3 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }}>
-            <Field label={tx("tradeNameEn", "English name")}><Input name="nameEn" defaultValue={row.name_en ?? ""} /></Field>
-            <Field label={tx("tradeNameAr", "Arabic name")}><Input name="nameAr" defaultValue={row.name_ar ?? ""} /></Field>
-            <div className="md:col-span-2"><Field label={tx("tradeAddress", "Address")}><Textarea name="address" className="min-h-16" defaultValue={row.address ?? ""} /></Field></div>
-            <Field label={tx("taxCard", "Tax card")}><Input name="taxCard" dir="ltr" defaultValue={row.tax_card ?? ""} /></Field>
-            <Field label={tx("taxFile", "Tax file")}><Input name="taxFile" dir="ltr" defaultValue={row.tax_file ?? ""} /></Field>
-            <Field label={tx("commercialRegistry", "Commercial registry")}><Input name="commercialRegistry" dir="ltr" defaultValue={row.commercial_registry ?? ""} /></Field>
-            <Field label={tx("phone", "Phone")}><Input name="phone" dir="ltr" defaultValue={row.phone ?? ""} /></Field>
-            <Field label={tx("email", "Email")}><Input name="email" dir="ltr" defaultValue={row.email ?? ""} /></Field>
-            <Field label={tx("accountName", "Account name")}><Input name="accountName" defaultValue={bank?.account_name ?? ""} /></Field>
-            <Field label={tx("iban", "IBAN")}><Input name="iban" dir="ltr" defaultValue={bank?.iban ?? ""} /></Field>
-            <Field label={tx("bankName", "Bank name")}><Input name="bankName" defaultValue={bank?.bank_name ?? ""} /></Field>
-            <Field label={tx("swift", "SWIFT code")}><Input name="swiftCode" dir="ltr" defaultValue={bank?.swift_code ?? ""} /></Field>
-            <div className="md:col-span-2"><Field label={tx("bankAddress", "Bank address")}><Input name="bankAddress" defaultValue={bank?.bank_address ?? ""} /></Field></div>
-            <div className="flex gap-2 md:col-span-2">
-              <Button type="submit" disabled={busy}>{tx("save", "Save")}</Button>
-              <Button type="button" variant="outline" onClick={onClose}>{tx("cancel", "Cancel")}</Button>
-            </div>
-          </form>
-        ) : <p className="mt-3 text-sm text-ink-muted">…</p>}
-      </DialogContent>
+        <DialogOverlay className="fixed inset-0 z-40 bg-ink/40" />
+        <DialogContent className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[min(100%-2rem,40rem)] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-card border border-line bg-card p-4 text-start shadow-card focus:outline-none">
+          <DialogTitle className="text-base font-semibold text-ink">{tx("tradeCompanyDialog", "Company and bank")}</DialogTitle>
+          {row && !banks.isLoading ? (
+            <form className="mt-3 grid gap-3 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }}>
+              <Field label={tx("tradeNameEn", "English name")}><Input name="nameEn" defaultValue={row.name_en ?? ""} /></Field>
+              <Field label={tx("tradeNameAr", "Arabic name")}><Input name="nameAr" defaultValue={row.name_ar ?? ""} /></Field>
+              <div className="md:col-span-2"><Field label={tx("tradeAddress", "Address")}><Textarea name="address" className="min-h-16" defaultValue={row.address ?? ""} /></Field></div>
+              <Field label={tx("taxCard", "Tax card")}><Input name="taxCard" dir="ltr" defaultValue={row.tax_card ?? ""} /></Field>
+              <Field label={tx("taxFile", "Tax file")}><Input name="taxFile" dir="ltr" defaultValue={row.tax_file ?? ""} /></Field>
+              <Field label={tx("commercialRegistry", "Commercial registry")}><Input name="commercialRegistry" dir="ltr" defaultValue={row.commercial_registry ?? ""} /></Field>
+              <Field label={tx("phone", "Phone")}><Input name="phone" dir="ltr" defaultValue={row.phone ?? ""} /></Field>
+              <Field label={tx("email", "Email")}><Input name="email" dir="ltr" defaultValue={row.email ?? ""} /></Field>
+              <Field label={tx("accountName", "Account name")}><Input name="accountName" defaultValue={bank?.account_name ?? ""} /></Field>
+              <Field label={tx("iban", "IBAN")}><Input name="iban" dir="ltr" defaultValue={bank?.iban ?? ""} /></Field>
+              <Field label={tx("bankName", "Bank name")}><Input name="bankName" defaultValue={bank?.bank_name ?? ""} /></Field>
+              <Field label={tx("swift", "SWIFT code")}><Input name="swiftCode" dir="ltr" defaultValue={bank?.swift_code ?? ""} /></Field>
+              <div className="md:col-span-2"><Field label={tx("bankAddress", "Bank address")}><Input name="bankAddress" defaultValue={bank?.bank_address ?? ""} /></Field></div>
+              <div className="flex gap-2 md:col-span-2">
+                <Button type="submit" disabled={busy}>{tx("save", "Save")}</Button>
+                <Button type="button" variant="outline" onClick={onClose}>{tx("cancel", "Cancel")}</Button>
+              </div>
+            </form>
+          ) : <p className="mt-3 text-sm text-ink-muted">…</p>}
+        </DialogContent>
       </DialogPortal>
     </Dialog>
   );
 }
+
+const EMPTY_CATALOG_DRAFT = {
+  name: "",
+  description: "",
+  hsCode: "",
+  barcode: "",
+  unit: "Piece",
+  price: "0",
+  defaultPacking: "10",
+  unitNetKg: "0.000",
+  bagKg: "0.000",
+  posterKg: "0.000",
+  otherAccessoryKg: "0.000",
+};
 
 export function CatalogDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { tx } = useCopy();
@@ -124,10 +147,11 @@ export function CatalogDialog({ open, onClose }: { open: boolean; onClose: () =>
   const presets = useQuery({ queryKey: ["product-presets"], queryFn: async () => (await api<ProductPreset[]>("/api/v1/product-presets")).data, enabled: open });
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: "", description: "", hsCode: "", barcode: "", unit: "Piece", price: "0" });
+  const [draft, setDraft] = useState(EMPTY_CATALOG_DRAFT);
 
   function editPreset(preset: ProductPreset) {
     setEditingId(preset.id);
+    const netGrams = preset.unit_net_weight_grams ?? preset.piece_weight_grams ?? 0;
     setDraft({
       name: preset.name,
       description: preset.description_template,
@@ -135,6 +159,11 @@ export function CatalogDialog({ open, onClose }: { open: boolean; onClose: () =>
       barcode: preset.barcode ?? "",
       unit: preset.unit_label ?? "Piece",
       price: moneyText(preset.default_price_minor),
+      defaultPacking: preset.default_packing_per_package != null ? String(preset.default_packing_per_package) : "",
+      unitNetKg: kgText(netGrams),
+      bagKg: kgText(preset.bag_weight_grams ?? 0),
+      posterKg: kgText(preset.poster_weight_grams ?? 0),
+      otherAccessoryKg: kgText(preset.other_accessory_weight_grams ?? 0),
     });
   }
 
@@ -142,6 +171,11 @@ export function CatalogDialog({ open, onClose }: { open: boolean; onClose: () =>
     event.preventDefault();
     setBusy(true);
     try {
+      const unitNetGrams = safeGrams(draft.unitNetKg);
+      const bagGrams = safeGrams(draft.bagKg);
+      const posterGrams = safeGrams(draft.posterKg);
+      const otherGrams = safeGrams(draft.otherAccessoryKg);
+      const packingPerPkg = draft.defaultPacking.trim() ? Number(draft.defaultPacking) : null;
       const body = {
         name: draft.name,
         descriptionTemplate: draft.description,
@@ -149,11 +183,17 @@ export function CatalogDialog({ open, onClose }: { open: boolean; onClose: () =>
         hsCode: draft.hsCode,
         unit: draft.unit || "Piece",
         defaultPriceMinor: moneyMinor(draft.price || "0"),
+        defaultPackingPerPackage: Number.isInteger(packingPerPkg) && (packingPerPkg ?? 0) >= 0 ? packingPerPkg : null,
+        pieceWeightGrams: unitNetGrams,
+        unitNetWeightGrams: unitNetGrams,
+        bagWeightGrams: bagGrams,
+        posterWeightGrams: posterGrams,
+        otherAccessoryWeightGrams: otherGrams,
       };
       if (editingId) await api(`/api/v1/product-presets/${editingId}`, { method: "PATCH", body: JSON.stringify(body) });
       else await api("/api/v1/product-presets", { method: "POST", body: JSON.stringify(body) });
       setEditingId(null);
-      setDraft({ name: "", description: "", hsCode: "", barcode: "", unit: "Piece", price: "0" });
+      setDraft(EMPTY_CATALOG_DRAFT);
       notifySuccess(tx("tradePresetSaved", "Catalog item saved"));
       await client.invalidateQueries({ queryKey: ["product-presets"] });
     } catch (error) {
@@ -163,35 +203,78 @@ export function CatalogDialog({ open, onClose }: { open: boolean; onClose: () =>
     }
   }
 
+  const unitGrossPreviewGrams =
+    safeGrams(draft.unitNetKg) +
+    safeGrams(draft.bagKg) +
+    safeGrams(draft.posterKg) +
+    safeGrams(draft.otherAccessoryKg);
+
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogPortal>
-      <DialogOverlay className="fixed inset-0 z-40 bg-ink/40" />
-      <DialogContent className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[min(100%-2rem,42rem)] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-card border border-line bg-card p-4 text-start shadow-card focus:outline-none">
-        <DialogTitle className="text-base font-semibold text-ink">{tx("tradeManageCatalog", "Manage catalog")}</DialogTitle>
-        <ul className="mt-3 max-h-40 space-y-1 overflow-auto text-sm">
-          {(presets.data ?? []).map((preset) => (
-            <li key={preset.id} className="flex items-center gap-2">
-              <button type="button" className="min-w-0 flex-1 rounded-control border border-line px-2 py-1 text-start" onClick={() => editPreset(preset)}>
-                {preset.name} · <span dir="ltr">{preset.hs_code}</span>
-              </button>
-              <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/product-presets/${preset.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradePresetDeleted", "Catalog item deleted")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("delete", "Delete")}</Button>
-            </li>
-          ))}
-        </ul>
-        <form className="mt-3 grid gap-2 md:grid-cols-2" onSubmit={(event) => void saveCatalog(event)}>
-          <Field label={tx("name", "Name")}><Input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></Field>
-          <Field label={tx("hsCode", "HS code")}><Input dir="ltr" value={draft.hsCode} onChange={(event) => setDraft({ ...draft, hsCode: event.target.value })} /></Field>
-          <div className="md:col-span-2"><Field label={tx("tradeDescription", "Description template")}><Textarea className="min-h-16" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></Field></div>
-          <Field label={tx("barcode", "Barcode")}><Input dir="ltr" value={draft.barcode} onChange={(event) => setDraft({ ...draft, barcode: event.target.value })} /></Field>
-          <Field label={tx("unit", "Unit")}><Input value={draft.unit} onChange={(event) => setDraft({ ...draft, unit: event.target.value })} /></Field>
-          <Field label={tx("price", "Default price")}><Input dir="ltr" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} /></Field>
-          <div className="flex gap-2 md:col-span-2">
-            <Button type="submit" disabled={busy}>{editingId ? tx("save", "Save") : tx("tradeAddPreset", "Add catalog item")}</Button>
-            <Button type="button" variant="outline" onClick={onClose}>{tx("cancel", "Cancel")}</Button>
-          </div>
-        </form>
-      </DialogContent>
+        <DialogOverlay className="fixed inset-0 z-40 bg-ink/40" />
+        <DialogContent className="fixed left-1/2 top-1/2 z-50 max-h-[88vh] w-[min(100%-2rem,48rem)] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-card border border-line bg-card p-4 text-start shadow-card focus:outline-none">
+          <DialogTitle className="text-base font-semibold text-ink">{tx("tradeManageCatalog", "Manage catalog & standard weights")}</DialogTitle>
+          <ul className="mt-3 max-h-44 space-y-1 overflow-auto text-sm">
+            {(presets.data ?? []).map((preset) => {
+              const netG = preset.unit_net_weight_grams ?? preset.piece_weight_grams ?? 0;
+              const bagG = preset.bag_weight_grams ?? 0;
+              const posterG = preset.poster_weight_grams ?? 0;
+              const otherG = preset.other_accessory_weight_grams ?? 0;
+              const grossG = netG + bagG + posterG + otherG;
+              return (
+                <li key={preset.id} className="flex items-center gap-2">
+                  <button type="button" className="min-w-0 flex-1 rounded-control border border-line px-2.5 py-1.5 text-start hover:bg-paper" onClick={() => editPreset(preset)}>
+                    <span className="font-medium text-ink">{preset.name}</span>
+                    <span className="ms-2 text-xs text-ink-muted" dir="ltr">
+                      {preset.hs_code || "—"} · Net {kgText(netG)} kg · Bag {kgText(bagG)} kg · Poster {kgText(posterG)} kg · Gross/pc {kgText(grossG)} kg
+                    </span>
+                  </button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/product-presets/${preset.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradePresetDeleted", "Catalog item deleted")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("delete", "Delete")}</Button>
+                </li>
+              );
+            })}
+          </ul>
+          <form className="mt-3 grid gap-2.5 md:grid-cols-3" onSubmit={(event) => void saveCatalog(event)}>
+            <div className="md:col-span-2">
+              <Field label={tx("name", "Name")}><Input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></Field>
+            </div>
+            <Field label={tx("hsCode", "HS code")}><Input dir="ltr" value={draft.hsCode} onChange={(event) => setDraft({ ...draft, hsCode: event.target.value })} /></Field>
+            <div className="md:col-span-3">
+              <Field label={tx("tradeDescription", "Description template")}><Textarea className="min-h-16" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></Field>
+            </div>
+            <Field label={tx("barcode", "Barcode")}><Input dir="ltr" value={draft.barcode} onChange={(event) => setDraft({ ...draft, barcode: event.target.value })} /></Field>
+            <Field label={tx("unit", "Unit")}><Input value={draft.unit} onChange={(event) => setDraft({ ...draft, unit: event.target.value })} /></Field>
+            <Field label={tx("price", "Default price")}><Input dir="ltr" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} /></Field>
+            <Field label={tx("packingPerPackage", "Packing per package (pcs/bale)")}>
+              <Input dir="ltr" inputMode="numeric" value={draft.defaultPacking} onChange={(event) => setDraft({ ...draft, defaultPacking: event.target.value })} />
+            </Field>
+            <Field label={tx("unitNetKg", "Blanket net weight / pc (kg)")}>
+              <Input dir="ltr" inputMode="decimal" value={draft.unitNetKg} onChange={(event) => setDraft({ ...draft, unitNetKg: event.target.value })} />
+            </Field>
+            <Field label={tx("bagKg", "Bag weight / pc (kg)")}>
+              <Input dir="ltr" inputMode="decimal" value={draft.bagKg} onChange={(event) => setDraft({ ...draft, bagKg: event.target.value })} />
+            </Field>
+            <Field label={tx("posterKg", "Poster / carton weight / pc (kg)")}>
+              <Input dir="ltr" inputMode="decimal" value={draft.posterKg} onChange={(event) => setDraft({ ...draft, posterKg: event.target.value })} />
+            </Field>
+            <Field label={tx("otherAccessoryKg", "Other accessory weight / pc (kg)")}>
+              <Input dir="ltr" inputMode="decimal" value={draft.otherAccessoryKg} onChange={(event) => setDraft({ ...draft, otherAccessoryKg: event.target.value })} />
+            </Field>
+            <Field label={tx("unitGrossKg", "Calculated gross / pc (kg)")}>
+              <Input dir="ltr" readOnly value={kgText(unitGrossPreviewGrams)} />
+            </Field>
+            <div className="flex gap-2 md:col-span-3">
+              <Button type="submit" disabled={busy}>{editingId ? tx("save", "Save") : tx("tradeAddPreset", "Add catalog item")}</Button>
+              {editingId ? (
+                <Button type="button" variant="outline" onClick={() => { setEditingId(null); setDraft(EMPTY_CATALOG_DRAFT); }}>
+                  {tx("tradeNewPreset", "New item")}
+                </Button>
+              ) : null}
+              <Button type="button" variant="outline" onClick={onClose}>{tx("cancel", "Cancel")}</Button>
+            </div>
+          </form>
+        </DialogContent>
       </DialogPortal>
     </Dialog>
   );
@@ -208,6 +291,32 @@ export async function saveLineToCatalog(line: InvoiceDraftLine) {
       hsCode: line.hsCode,
       unit: line.unit,
       defaultPriceMinor: moneyMinor(line.price || "0"),
+    }),
+  });
+}
+
+export async function savePackingLineToCatalog(line: PackingDraftLine) {
+  const name = line.description.split(/\n/)[0]?.trim() || "Blanket Item";
+  const unitNetGrams = safeGrams(line.unitNetKg);
+  const bagGrams = safeGrams(line.bagKg);
+  const posterGrams = safeGrams(line.posterKg);
+  const otherGrams = safeGrams(line.otherAccessoryKg);
+  const perPackage = Number(line.perPackage);
+  await api("/api/v1/product-presets", {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      descriptionTemplate: line.description,
+      barcode: line.barcode ?? "",
+      hsCode: line.hsCode,
+      unit: "PCS",
+      defaultPackingPerPackage: Number.isInteger(perPackage) && perPackage > 0 ? perPackage : null,
+      pieceWeightGrams: unitNetGrams,
+      unitNetWeightGrams: unitNetGrams,
+      bagWeightGrams: bagGrams,
+      posterWeightGrams: posterGrams,
+      otherAccessoryWeightGrams: otherGrams,
+      extraAccessories: line.extraAccessories,
     }),
   });
 }

@@ -1,13 +1,13 @@
 import { all, newId, nowIso, one } from "../db/sql";
 
 const PRESETS = [
-  ["Blanket 2.4KG (1 ply)", "1 ply"],
-  ["Blanket 2.7KG (1 ply)", "1 ply"],
-  ["Blanket 3KG (1 ply)", "1 ply"],
-  ["Blanket 3.7KG (1 ply)", "1 ply"],
-  ["Blanket 4KG (1 ply)", "1 ply"],
-  ["Blanket 5.7KG (1 ply)", "1 ply"],
-  ["Blanket 6KG (2 ply)", "2 ply"],
+  ["Blanket 2.4KG (1 ply)", "1 ply", 2400],
+  ["Blanket 2.7KG (1 ply)", "1 ply", 2700],
+  ["Blanket 3KG (1 ply)", "1 ply", 3000],
+  ["Blanket 3.7KG (1 ply)", "1 ply", 3700],
+  ["Blanket 4KG (1 ply)", "1 ply", 4000],
+  ["Blanket 5.7KG (1 ply)", "1 ply", 5700],
+  ["Blanket 6KG (2 ply)", "2 ply", 6000],
 ] as const;
 
 export async function ensureTradeDefaults(db: D1Database) {
@@ -74,14 +74,15 @@ export async function ensureTradeDefaults(db: D1Database) {
   }
   const presets = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM product_presets");
   if (!presets || Number(presets.n) === 0) {
-    for (const [name, ply] of PRESETS) {
+    for (const [name, ply, netGrams] of PRESETS) {
       await db
         .prepare(
           `INSERT INTO product_presets
-             (id, name, description_template, ply, material, size_label, barcode, hs_code, unit_label, default_price_minor, active, created_at, updated_at)
-           VALUES (?, ?, ?, ?, '100% POLYESTER', '180-230 / 200-240', '6223010920876', 'HS6301400010', 'Piece', 0, 1, ?, ?)`,
+             (id, name, description_template, ply, material, size_label, barcode, hs_code, unit_label, default_price_minor,
+              piece_weight_grams, unit_net_weight_grams, bag_weight_grams, poster_weight_grams, other_accessory_weight_grams, active, created_at, updated_at)
+           VALUES (?, ?, ?, ?, '100% POLYESTER', '180-230 / 200-240', '6223010920876', 'HS6301400010', 'Piece', 0, ?, ?, 0, 0, 0, 1, ?, ?)`,
         )
-        .bind(newId(), name, `${name}\n100% POLYESTER\nSIZE 180-230 / 200-240\nBARCODE 6223010920876 / 6223010920814`, ply, now, now)
+        .bind(newId(), name, `${name}\n100% POLYESTER\nSIZE 180-230 / 200-240\nBARCODE 6223010920876 / 6223010920814`, ply, netGrams, netGrams, now, now)
         .run();
     }
   }

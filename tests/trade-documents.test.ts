@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { netAboveGross, reconcileTradeTotals } from "../shared/trade-documents";
+import {
+  calculatePackingLineWeights,
+  groupPackingByContainer,
+  netAboveGross,
+  reconcileTradeTotals,
+} from "../shared/trade-documents";
 import { hashToken } from "../server/services/tracking";
 import { createTestHarness } from "./transition-2026-10-21/harness/app";
 import { createAuditDatabase, type AuditDatabase } from "./transition-2026-10-21/harness/db";
@@ -366,5 +371,267 @@ describe("trade document rules", () => {
     expect(pdf.text).toContain("123456789012");
     expect(pdf.text).toContain("LC-9");
     expect(pdf.text).not.toContain("TAX-7788");
+  });
+
+  it("calculates net and gross weights from blanket + bag + poster + accessories × pieces and supports manual bascule override", async () => {
+    // 1. Pure formula check: 25 bales × 10 pcs/bale = 250 pcs
+    // Unit net: 2400g, bag: 150g, poster: 50g, extra hanger: 30g => Unit gross = 2630g
+    // Total net = 250 * 2400 = 600,000g (600.000 kg)
+    // Total gross = 250 * 2630 = 657,500g (657.500 kg)
+    const calc = calculatePackingLineWeights({
+      packagesCount: 25,
+      packingPerPackage: 10,
+      unitNetWeightGrams: 2400,
+      bagWeightGrams: 150,
+      posterWeightGrams: 50,
+      extraAccessories: [{ name: "Hanger", weightGrams: 30 }],
+    });
+    expect(calc.piecesCount).toBe(250);
+    expect(calc.unitGrossWeightGrams).toBe(2630);
+    expect(calc.netWeightGrams).toBe(600_000);
+    expect(calc.grossWeightGrams).toBe(657_500);
+
+    // 2. Manual weighbridge (bascule) override check
+    const overridden = calculatePackingLineWeights({
+      packagesCount: 25,
+      packingPerPackage: 10,
+      unitNetWeightGrams: 2400,
+      bagWeightGrams: 150,
+      posterWeightGrams: 50,
+      manualWeightOverride: true,
+      netWeightGrams: 601_200,
+      grossWeightGrams: 659_000,
+    });
+    expect(overridden.manualWeightOverride).toBe(true);
+    expect(overridden.netWeightGrams).toBe(601_200);
+    expect(overridden.grossWeightGrams).toBe(659_000);
+
+    // 3. End-to-end API & catalog preset persistence check
+    const audit = fresh();
+    seedCaseInvoice(audit);
+    const harness = createTestHarness(audit);
+
+    const savedPreset = await harness.request({
+      method: "POST",
+      path: "/api/v1/product-presets",
+      body: {
+        name: "Blanket 2.4KG Royal",
+        descriptionTemplate: "Royal Blanket 2.4KG",
+        hsCode: "6301400010",
+        unit: "PCS",
+        defaultPriceMinor: 1200,
+        defaultPackingPerPackage: 10,
+        unitNetWeightGrams: 2400,
+        bagWeightGrams: 150,
+        posterWeightGrams: 50,
+        otherAccessoryWeightGrams: 30,
+        extraAccessories: [{ name: "Ribbon", weightGrams: 30 }],
+      },
+    });
+    expect(savedPreset.status).toBe(201);
+    expect(savedPreset.json?.data).toMatchObject({
+      unit_net_weight_grams: 2400,
+      bag_weight_grams: 150,
+      poster_weight_grams: 50,
+      other_accessory_weight_grams: 30,
+      default_packing_per_package: 10,
+    });
+
+    const packedRes = await harness.request({
+      method: "PUT",
+      path: "/api/v1/invoices/invoice-trade/packing-lines",
+      body: {
+        lines: [
+          {
+            description: "Royal Blanket 2.4KG",
+            hsCode: "6301400010",
+            containerId: "container-a",
+            lineType: "PRODUCT",
+            packagesCount: 25,
+            packingPerPackage: 10,
+            unitNetWeightGrams: 2400,
+            bagWeightGrams: 150,
+            posterWeightGrams: 50,
+            extraAccessories: [{ name: "Ribbon", weightGrams: 30 }],
+            manualWeightOverride: false,
+          },
+          {
+            description: "Heavy Blanket 4KG (Bascule override)",
+            hsCode: "6301400010",
+            containerId: "container-b",
+            lineType: "PRODUCT",
+            packagesCount: 10,
+            packingPerPackage: 8,
+            unitNetWeightGrams: 4000,
+            bagWeightGrams: 200,
+            posterWeightGrams: 100,
+            manualWeightOverride: true,
+            netWeightGrams: 320_500,
+            grossWeightGrams: 345_000,
+          },
+        ],
+      },
+    });
+    expect(packedRes.status).toBe(200);
+    const sheet = await harness.request({ path: "/api/v1/invoices/invoice-trade/trade-sheet" });
+    expect(sheet.status).toBe(200);
+    const savedPacking = sheet.json?.data?.packing as Array<Record<string, unknown>>;
+    expect(savedPacking).toHaveLength(2);
+    expect(savedPacking[0]).toMatchObject({
+      pieces_count: 250,
+      unit_net_weight_grams: 2400,
+      bag_weight_grams: 150,
+      poster_weight_grams: 50,
+      other_accessory_weight_grams: 30,
+      net_weight_grams: 600_000,
+      gross_weight_grams: 657_500,
+      manual_weight_override: 0,
+    });
+    expect(savedPacking[1]).toMatchObject({
+      pieces_count: 80,
+      net_weight_grams: 320_500,
+      gross_weight_grams: 345_000,
+      manual_weight_override: 1,
+    });
+  });
+
+  it("groups packing lines by operation containers and supports standalone accessory lines without breaking blanket piece reconciliation", async () => {
+    const audit = fresh();
+    seedCaseInvoice(audit);
+    const harness = createTestHarness(audit);
+
+    // Commercial invoice has 400 blankets total (250 in container A + 150 in container B)
+    const invLines = await harness.request({
+      method: "PUT",
+      path: "/api/v1/invoices/invoice-trade/lines",
+      body: {
+        lines: [
+          { description: "Blanket 2.4KG", hsCode: "6301.40", unit: "PCS", quantity: 250, unitPriceMinor: 1000 },
+          { description: "Blanket 3.0KG", hsCode: "6301.40", unit: "PCS", quantity: 150, unitPriceMinor: 1200 },
+        ],
+      },
+    });
+    expect(invLines.status).toBe(200);
+
+    // Packing list has:
+    // - Container A: 25 bales × 10 pcs = 250 blankets + 2 cartons of 100 spare PVC bags (ACCESSORY)
+    // - Container B: 15 bales × 10 pcs = 150 blankets + 1 carton of 200 spare posters (ACCESSORY)
+    const packLines = await harness.request({
+      method: "PUT",
+      path: "/api/v1/invoices/invoice-trade/packing-lines",
+      body: {
+        lines: [
+          {
+            description: "Blanket 2.4KG",
+            hsCode: "6301.40",
+            containerId: "container-a",
+            lineType: "PRODUCT",
+            packagesCount: 25,
+            packingPerPackage: 10,
+            unitNetWeightGrams: 2400,
+            bagWeightGrams: 100,
+            posterWeightGrams: 50,
+          },
+          {
+            description: "Spare PVC Zipper Bags (Cartons)",
+            hsCode: "3923.29",
+            containerId: "container-a",
+            lineType: "ACCESSORY",
+            packagesCount: 2,
+            packingPerPackage: 100,
+            grossWeightGrams: 22_000,
+            netWeightGrams: 20_000,
+          },
+          {
+            description: "Blanket 3.0KG",
+            hsCode: "6301.40",
+            containerId: "container-b",
+            lineType: "PRODUCT",
+            packagesCount: 15,
+            packingPerPackage: 10,
+            unitNetWeightGrams: 3000,
+            bagWeightGrams: 120,
+            posterWeightGrams: 60,
+          },
+          {
+            description: "Spare Printed Posters (Carton)",
+            hsCode: "4911.10",
+            containerId: "container-b",
+            lineType: "ACCESSORY",
+            packagesCount: 1,
+            packingPerPackage: 200,
+            grossWeightGrams: 11_000,
+            netWeightGrams: 10_000,
+          },
+        ],
+      },
+    });
+    expect(packLines.status).toBe(200);
+
+    // Sync package & weight summary from packing list to commercial invoice header
+    const synced = await harness.request({
+      method: "POST",
+      path: "/api/v1/invoices/invoice-trade/sync-totals",
+      body: {},
+    });
+    expect(synced.status).toBe(200);
+    // Reconciled pieces should be 250 + 150 = 400 (matching the commercial invoice!),
+    // while total packages = 25 + 2 + 15 + 1 = 43
+    expect(synced.json?.data).toMatchObject({
+      matched: true,
+      invoice: {
+        pieces: 400,
+        packages: 43,
+        netGrams: 600_000 + 20_000 + 450_000 + 10_000,
+        grossGrams: 637_500 + 22_000 + 477_000 + 11_000,
+      },
+      packing: {
+        pieces: 400,
+        packages: 43,
+        netGrams: 1_080_000,
+        grossGrams: 1_147_500,
+      },
+    });
+
+    // Verify container-centric grouping on trade-sheet response
+    const sheet = await harness.request({ path: "/api/v1/invoices/invoice-trade/trade-sheet" });
+    expect(sheet.status).toBe(200);
+    const groups = sheet.json?.data?.containerGroups as ReturnType<typeof groupPackingByContainer>;
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toMatchObject({
+      containerId: "container-a",
+      officialNumber: "TCLU0000001",
+      totals: {
+        packagesCount: 27,
+        piecesCount: 450,
+        reconciledPiecesCount: 250,
+        productPiecesCount: 250,
+        accessoryPiecesCount: 200,
+        netWeightGrams: 620_000,
+        grossWeightGrams: 659_500,
+      },
+    });
+    expect(groups[1]).toMatchObject({
+      containerId: "container-b",
+      officialNumber: "TCLU0000002",
+      totals: {
+        packagesCount: 16,
+        piecesCount: 350,
+        reconciledPiecesCount: 150,
+        productPiecesCount: 150,
+        accessoryPiecesCount: 200,
+        netWeightGrams: 460_000,
+        grossWeightGrams: 488_000,
+      },
+    });
+
+    // Issue the trade documents and verify it succeeds
+    const issued = await harness.request({
+      method: "POST",
+      path: "/api/v1/invoices/invoice-trade/issue-trade",
+      body: {},
+    });
+    expect(issued.status).toBe(200);
+    expect(issued.json?.data?.tradeStatus).toBe("ISSUED");
   });
 });

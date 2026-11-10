@@ -21,7 +21,7 @@ import { downloadPdf } from "@/features/trade/trade-model";
 import { tradePdfFilename } from "@shared/trade-sheet";
 import { Link } from "react-router";
 
-export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], customerId = "", customerName = "", customerCode = "", customerCountry = "", onDone }: { invoices: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; customerId?: string; customerName?: string; customerCode?: string; customerCountry?: string; onDone?: () => void }) {
+export function InvoicePanel({ invoices, bookings = [], caseStatus, caseId, containers = [], customerId = "", customerName = "", customerCode = "", customerCountry = "", onDone }: { invoices: Array<Record<string, string | number>>; bookings?: Array<Record<string, string | number>>; caseStatus: string; caseId: string; containers?: Array<Record<string, string | number>>; customerId?: string; customerName?: string; customerCode?: string; customerCountry?: string; onDone?: () => void }) {
   const { tx } = useCopy();
   const user = useSession();
   const locked = caseStatus === "COMPLETED";
@@ -132,6 +132,7 @@ export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], cu
             <div className="border-t border-line px-4 py-3">
               <TradeBuilder
                 invoiceId={String(inv.id)}
+                caseId={caseId}
                 currency={currency}
                 canEdit={canEdit && (!locked || Number(inv.edit_open) === 1)}
                 customerCode={customerCode}
@@ -140,11 +141,18 @@ export function InvoicePanel({ invoices, caseStatus, caseId, containers = [], cu
                 customerName={customerName}
                 customerCountry={customerCountry}
                 invoiceNumber={String(inv.invoice_number)}
+                bookings={bookings.map((b) => ({
+                  id: String(b.id),
+                  booking_number: b.booking_number == null ? undefined : String(b.booking_number),
+                  status: b.status == null ? undefined : String(b.status),
+                  version: b.version == null ? undefined : Number(b.version),
+                }))}
                 containers={containers.map((item) => ({
                   id: String(item.id),
                   slot_index: Number(item.slot_index),
                   official_number: item.official_number == null ? null : String(item.official_number),
                   status: item.status == null ? undefined : String(item.status),
+                  version: item.version == null ? undefined : Number(item.version),
                 }))}
               />
             </div>

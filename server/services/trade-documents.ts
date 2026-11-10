@@ -1,4 +1,16 @@
-import { netAboveGross, packingPieces, reconcileTradeTotals, sumNumbers, type ReconciliationSummary, type TradeTotals } from "../../shared/trade-documents";
+import {
+  calculatePackingLineWeights,
+  groupPackingByContainer,
+  netAboveGross,
+  parseExtraAccessories,
+  reconcileTradeTotals,
+  shouldIncludePiecesInReconciliation,
+  sumNumbers,
+  type ExtraAccessory,
+  type PackingLineType,
+  type ReconciliationSummary,
+  type TradeTotals,
+} from "../../shared/trade-documents";
 import { normalizePrintFields } from "../../shared/trade-print-fields";
 import { TRADE_PAGE_H, TRADE_PAGE_W } from "../../shared/trade-sheet";
 import { all, newId, nowIso, one } from "../db/sql";
@@ -60,8 +72,17 @@ type PackingLineInput = {
   hsCode?: string | null;
   barcode?: string | null;
   containerId?: string | null;
+  lineType: PackingLineType;
   packagesCount: number;
   packingPerPackage: number;
+  piecesCount: number;
+  unitNetWeightGrams: number;
+  bagWeightGrams: number;
+  posterWeightGrams: number;
+  otherAccessoryWeightGrams: number;
+  extraAccessoriesJson: string | null;
+  manualWeightOverride: number;
+  includePiecesInReconciliation: number;
   grossWeightGrams: number;
   netWeightGrams: number;
 };
@@ -350,7 +371,19 @@ export async function saveProductPreset(db: D1Database, actor: Actor, input: Rec
   const name = text(input.name, "name", 200, true);
   const description = text(input.descriptionTemplate, "descriptionTemplate", 4000) ?? "";
   const packing = input.defaultPackingPerPackage == null ? null : whole(input.defaultPackingPerPackage, "defaultPackingPerPackage");
-  const pieceWeight = input.pieceWeightGrams == null ? null : whole(input.pieceWeightGrams, "pieceWeightGrams");
+  const rawPieceWeight = input.pieceWeightGrams == null ? null : whole(input.pieceWeightGrams, "pieceWeightGrams");
+  const unitNetWeight = input.unitNetWeightGrams != null
+    ? whole(input.unitNetWeightGrams, "unitNetWeightGrams")
+    : (rawPieceWeight ?? 0);
+  const pieceWeight = rawPieceWeight ?? (unitNetWeight > 0 ? unitNetWeight : null);
+  const bagWeight = input.bagWeightGrams == null ? 0 : whole(input.bagWeightGrams, "bagWeightGrams");
+  const posterWeight = input.posterWeightGrams == null ? 0 : whole(input.posterWeightGrams, "posterWeightGrams");
+  const extraAccessories: ExtraAccessory[] = parseExtraAccessories(input.extraAccessories ?? input.extraAccessoriesJson);
+  const extraSum = sumNumbers(extraAccessories.map((item) => item.weightGrams));
+  const otherAccessoryWeight = input.otherAccessoryWeightGrams == null
+    ? extraSum
+    : whole(input.otherAccessoryWeightGrams, "otherAccessoryWeightGrams");
+  const extraJson = extraAccessories.length > 0 ? JSON.stringify(extraAccessories) : null;
   const price = input.defaultPriceMinor == null ? 0 : whole(input.defaultPriceMinor, "defaultPriceMinor");
   if (presetId) {
     const existing = await one(db, "SELECT id FROM product_presets WHERE id = ?", presetId);
@@ -358,19 +391,61 @@ export async function saveProductPreset(db: D1Database, actor: Actor, input: Rec
     await db
       .prepare(
         `UPDATE product_presets SET name=?, description_template=?, ply=?, material=?, size_label=?, barcode=?, hs_code=?,
-           unit_label=?, default_price_minor=?, default_packing_per_package=?, piece_weight_grams=?, updated_at=? WHERE id=?`,
+           unit_label=?, default_price_minor=?, default_packing_per_package=?, piece_weight_grams=?,
+           unit_net_weight_grams=?, bag_weight_grams=?, poster_weight_grams=?, other_accessory_weight_grams=?, extra_accessories_json=?,
+           updated_at=? WHERE id=?`,
       )
-      .bind(name, description, text(input.ply, "ply", 20), text(input.material, "material", 80), text(input.sizeLabel, "sizeLabel", 40), text(input.barcode, "barcode", 40), text(input.hsCode, "hsCode", 32), text(input.unit, "unit", 20), price, packing, pieceWeight, now, id)
+      .bind(
+        name,
+        description,
+        text(input.ply, "ply", 20),
+        text(input.material, "material", 80),
+        text(input.sizeLabel, "sizeLabel", 40),
+        text(input.barcode, "barcode", 40),
+        text(input.hsCode, "hsCode", 32),
+        text(input.unit, "unit", 20),
+        price,
+        packing,
+        pieceWeight,
+        unitNetWeight,
+        bagWeight,
+        posterWeight,
+        otherAccessoryWeight,
+        extraJson,
+        now,
+        id,
+      )
       .run();
   } else {
     await db
       .prepare(
         `INSERT INTO product_presets
            (id, name, description_template, ply, material, size_label, barcode, hs_code, unit_label, default_price_minor,
-            default_packing_per_package, piece_weight_grams, active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+            default_packing_per_package, piece_weight_grams, unit_net_weight_grams, bag_weight_grams, poster_weight_grams,
+            other_accessory_weight_grams, extra_accessories_json, active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       )
-      .bind(id, name, description, text(input.ply, "ply", 20), text(input.material, "material", 80), text(input.sizeLabel, "sizeLabel", 40), text(input.barcode, "barcode", 40), text(input.hsCode, "hsCode", 32), text(input.unit, "unit", 20), price, packing, pieceWeight, now, now)
+      .bind(
+        id,
+        name,
+        description,
+        text(input.ply, "ply", 20),
+        text(input.material, "material", 80),
+        text(input.sizeLabel, "sizeLabel", 40),
+        text(input.barcode, "barcode", 40),
+        text(input.hsCode, "hsCode", 32),
+        text(input.unit, "unit", 20),
+        price,
+        packing,
+        pieceWeight,
+        unitNetWeight,
+        bagWeight,
+        posterWeight,
+        otherAccessoryWeight,
+        extraJson,
+        now,
+        now,
+      )
       .run();
   }
   return one(db, "SELECT * FROM product_presets WHERE id = ?", id);
@@ -475,20 +550,63 @@ function packingLines(raw: unknown): PackingLineInput[] {
     const row = item as Record<string, unknown>;
     const description = text(row.description, "description", 4000);
     if (!description) continue;
-    const gross = whole(row.grossWeightGrams, "grossWeightGrams");
-    const net = whole(row.netWeightGrams, "netWeightGrams");
-    if (netAboveGross(net, gross)) {
+    const rawType = typeof row.lineType === "string" ? row.lineType.trim().toUpperCase() : "PRODUCT";
+    const lineType: PackingLineType = rawType === "ACCESSORY" ? "ACCESSORY" : "PRODUCT";
+    const packagesCount = whole(row.packagesCount, "packagesCount");
+    const packingPerPackage = row.packingPerPackage == null && lineType === "ACCESSORY"
+      ? 1
+      : whole(row.packingPerPackage, "packingPerPackage");
+    const unitNetWeightGrams = row.unitNetWeightGrams == null ? 0 : whole(row.unitNetWeightGrams, "unitNetWeightGrams");
+    const bagWeightGrams = row.bagWeightGrams == null ? 0 : whole(row.bagWeightGrams, "bagWeightGrams");
+    const posterWeightGrams = row.posterWeightGrams == null ? 0 : whole(row.posterWeightGrams, "posterWeightGrams");
+    const extraAccessories = parseExtraAccessories(row.extraAccessories ?? row.extraAccessoriesJson);
+    const directOther = row.otherAccessoryWeightGrams == null ? 0 : whole(row.otherAccessoryWeightGrams, "otherAccessoryWeightGrams");
+    const manualOverride = row.manualWeightOverride === true || row.manualWeightOverride === 1;
+    const hasComponentWeights =
+      unitNetWeightGrams > 0 ||
+      bagWeightGrams > 0 ||
+      posterWeightGrams > 0 ||
+      directOther > 0 ||
+      extraAccessories.length > 0;
+    const explicitGross = row.grossWeightGrams == null ? (hasComponentWeights && !manualOverride ? 0 : whole(row.grossWeightGrams, "grossWeightGrams")) : whole(row.grossWeightGrams, "grossWeightGrams");
+    const explicitNet = row.netWeightGrams == null ? (hasComponentWeights && !manualOverride ? 0 : whole(row.netWeightGrams, "netWeightGrams")) : whole(row.netWeightGrams, "netWeightGrams");
+    const calculated = calculatePackingLineWeights({
+      packagesCount,
+      packingPerPackage,
+      unitNetWeightGrams,
+      bagWeightGrams,
+      posterWeightGrams,
+      otherAccessoryWeightGrams: directOther,
+      extraAccessories,
+      manualWeightOverride: manualOverride,
+      grossWeightGrams: explicitGross,
+      netWeightGrams: explicitNet,
+    });
+    if (netAboveGross(calculated.netWeightGrams, calculated.grossWeightGrams)) {
       throw errors.validation("Net weight cannot exceed gross weight.", { netWeightGrams: "Net weight is above gross weight." }, "NET_ABOVE_GROSS");
     }
+    const includePieces = shouldIncludePiecesInReconciliation(
+      lineType,
+      row.includePiecesInReconciliation as boolean | number | null | undefined,
+    ) ? 1 : 0;
     lines.push({
       description,
       hsCode: text(row.hsCode, "hsCode", 32),
       barcode: text(row.barcode, "barcode", 40),
       containerId: text(row.containerId, "containerId", 80),
-      packagesCount: whole(row.packagesCount, "packagesCount"),
-      packingPerPackage: whole(row.packingPerPackage, "packingPerPackage"),
-      grossWeightGrams: gross,
-      netWeightGrams: net,
+      lineType,
+      packagesCount,
+      packingPerPackage,
+      piecesCount: calculated.piecesCount,
+      unitNetWeightGrams: calculated.unitNetWeightGrams,
+      bagWeightGrams: calculated.bagWeightGrams,
+      posterWeightGrams: calculated.posterWeightGrams,
+      otherAccessoryWeightGrams: calculated.otherAccessoryWeightGrams,
+      extraAccessoriesJson: extraAccessories.length > 0 ? JSON.stringify(extraAccessories) : null,
+      manualWeightOverride: calculated.manualWeightOverride ? 1 : 0,
+      includePiecesInReconciliation: includePieces,
+      grossWeightGrams: calculated.grossWeightGrams,
+      netWeightGrams: calculated.netWeightGrams,
     });
   }
   return lines;
@@ -503,9 +621,16 @@ export async function reconciliationFor(db: D1Database, actor: Actor, invoiceId:
 
 async function loadReconciliation(db: D1Database, head: InvoiceHead) {
   const commercial = await all<{ quantity: number }>(db, "SELECT quantity FROM invoice_lines WHERE invoice_id = ?", head.id);
-  const packing = await all<{ pieces_count: number; packages_count: number; gross_weight_grams: number; net_weight_grams: number }>(
+  const packing = await all<{
+    pieces_count: number;
+    packages_count: number;
+    gross_weight_grams: number;
+    net_weight_grams: number;
+    line_type: string | null;
+    include_pieces_in_reconciliation: number | null;
+  }>(
     db,
-    "SELECT pieces_count, packages_count, gross_weight_grams, net_weight_grams FROM packing_lines WHERE invoice_id = ?",
+    "SELECT pieces_count, packages_count, gross_weight_grams, net_weight_grams, line_type, include_pieces_in_reconciliation FROM packing_lines WHERE invoice_id = ?",
     head.id,
   );
   const invoice: TradeTotals = {
@@ -515,7 +640,11 @@ async function loadReconciliation(db: D1Database, head: InvoiceHead) {
     netGrams: Number(head.net_weight_grams),
   };
   const packed: TradeTotals = {
-    pieces: sumNumbers(packing.map((row) => Number(row.pieces_count))),
+    pieces: sumNumbers(
+      packing
+        .filter((row) => shouldIncludePiecesInReconciliation(row.line_type, row.include_pieces_in_reconciliation))
+        .map((row) => Number(row.pieces_count)),
+    ),
     packages: sumNumbers(packing.map((row) => Number(row.packages_count))),
     grossGrams: sumNumbers(packing.map((row) => Number(row.gross_weight_grams))),
     netGrams: sumNumbers(packing.map((row) => Number(row.net_weight_grams))),
@@ -567,9 +696,12 @@ export async function replacePackingLines(db: D1Database, actor: Actor, invoiceI
       db
         .prepare(
           `INSERT INTO packing_lines
-             (id, invoice_id, case_id, container_id, line_no, description, hs_code, barcode, packages_count, packing_per_package,
-              pieces_count, gross_weight_grams, net_weight_grams)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (id, invoice_id, case_id, container_id, line_no, line_type, description, hs_code, barcode,
+              packages_count, packing_per_package, pieces_count,
+              unit_net_weight_grams, bag_weight_grams, poster_weight_grams, other_accessory_weight_grams, extra_accessories_json,
+              manual_weight_override, include_pieces_in_reconciliation,
+              gross_weight_grams, net_weight_grams)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           newId(),
@@ -577,12 +709,20 @@ export async function replacePackingLines(db: D1Database, actor: Actor, invoiceI
           head.case_id,
           line.containerId,
           index + 1,
+          line.lineType,
           line.description,
           line.hsCode,
           line.barcode,
           line.packagesCount,
           line.packingPerPackage,
-          packingPieces(line.packagesCount, line.packingPerPackage),
+          line.piecesCount,
+          line.unitNetWeightGrams,
+          line.bagWeightGrams,
+          line.posterWeightGrams,
+          line.otherAccessoryWeightGrams,
+          line.extraAccessoriesJson,
+          line.manualWeightOverride,
+          line.includePiecesInReconciliation,
           line.grossWeightGrams,
           line.netWeightGrams,
         ),
@@ -962,8 +1102,84 @@ export async function tradeSheet(db: D1Database, actor: Actor, invoiceId: string
   requirePermission(actor, "invoices.view");
   const head = await invoiceHead(db, actor, invoiceId);
   const lines = await all(db, "SELECT * FROM invoice_lines WHERE invoice_id = ? ORDER BY line_no", invoiceId);
-  const packing = await all(db, "SELECT * FROM packing_lines WHERE invoice_id = ? ORDER BY line_no", invoiceId);
-  return { header: head, lines, packing, reconciliation: await loadReconciliation(db, head) };
+  const packing = await all<{
+    id: string;
+    container_id: string | null;
+    line_no: number;
+    line_type: PackingLineType | null;
+    description: string;
+    hs_code: string | null;
+    barcode: string | null;
+    packages_count: number;
+    packing_per_package: number;
+    pieces_count: number;
+    unit_net_weight_grams: number;
+    bag_weight_grams: number;
+    poster_weight_grams: number;
+    other_accessory_weight_grams: number;
+    extra_accessories_json: string | null;
+    manual_weight_override: number;
+    include_pieces_in_reconciliation: number;
+    gross_weight_grams: number;
+    net_weight_grams: number;
+  }>(db, "SELECT * FROM packing_lines WHERE invoice_id = ? ORDER BY line_no", invoiceId);
+  const containers = await all<{
+    id: string;
+    booking_id: string;
+    slot_index: number;
+    official_number: string | null;
+    status: string;
+    version: number;
+  }>(
+    db,
+    "SELECT id, booking_id, slot_index, official_number, status, version FROM containers WHERE case_id = ? AND status != 'CANCELLED' ORDER BY slot_index",
+    head.case_id,
+  );
+  const bookings = await all<{
+    id: string;
+    booking_number: string;
+    expected_containers: number;
+    status: string;
+    version: number;
+  }>(
+    db,
+    "SELECT id, booking_number, expected_containers, status, version FROM bookings WHERE case_id = ? AND status != 'CANCELLED' ORDER BY created_at DESC",
+    head.case_id,
+  );
+  const proformas = await all(
+    db,
+    "SELECT * FROM proforma_invoices WHERE case_id = ? ORDER BY created_at DESC",
+    head.case_id,
+  );
+  const containerGroups = groupPackingByContainer(
+    containers.map((c) => ({
+      id: c.id,
+      slotIndex: Number(c.slot_index),
+      officialNumber: c.official_number,
+      status: c.status,
+    })),
+    packing.map((row) => ({
+      ...row,
+      containerId: row.container_id,
+      lineType: (row.line_type === "ACCESSORY" ? "ACCESSORY" : "PRODUCT") as PackingLineType,
+      packagesCount: Number(row.packages_count),
+      packingPerPackage: Number(row.packing_per_package),
+      piecesCount: Number(row.pieces_count),
+      grossWeightGrams: Number(row.gross_weight_grams),
+      netWeightGrams: Number(row.net_weight_grams),
+      includePiecesInReconciliation: Number(row.include_pieces_in_reconciliation ?? 1),
+    })),
+  );
+  return {
+    header: head,
+    lines,
+    packing,
+    containers,
+    bookings,
+    proformas,
+    containerGroups,
+    reconciliation: await loadReconciliation(db, head),
+  };
 }
 
 export async function saveTradeHeader(db: D1Database, actor: Actor, invoiceId: string, input: Record<string, unknown>) {

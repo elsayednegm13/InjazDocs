@@ -7,7 +7,7 @@ import { Field, Input, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
-import { moneyMinor, moneyText, type BankAccount, type ProductPreset } from "./trade-model";
+import { kgText, moneyMinor, moneyText, safeGrams, type BankAccount, type ProductPreset } from "./trade-model";
 import { ShippingMethodsDialog, stampPngDataUrl } from "./TradeExtras";
 
 type Identity = {
@@ -202,6 +202,10 @@ function PresetCard() {
 
   async function save(form: HTMLFormElement) {
     const data = new FormData(form);
+    const unitNetGrams = safeGrams(String(data.get("unitNetKg") || "0"));
+    const bagGrams = safeGrams(String(data.get("bagKg") || "0"));
+    const posterGrams = safeGrams(String(data.get("posterKg") || "0"));
+    const otherGrams = safeGrams(String(data.get("otherAccessoryKg") || "0"));
     const body = {
       name: data.get("name"),
       descriptionTemplate: data.get("descriptionTemplate"),
@@ -213,6 +217,11 @@ function PresetCard() {
       unit: data.get("unit"),
       defaultPriceMinor: moneyMinor(String(data.get("price") || "0")),
       defaultPackingPerPackage: data.get("packing") ? Number(data.get("packing")) : null,
+      pieceWeightGrams: unitNetGrams,
+      unitNetWeightGrams: unitNetGrams,
+      bagWeightGrams: bagGrams,
+      posterWeightGrams: posterGrams,
+      otherAccessoryWeightGrams: otherGrams,
     };
     setBusy(true);
     try {
@@ -232,18 +241,26 @@ function PresetCard() {
   return (
     <SectionCard title={tx("tradePresets", "Product catalog")} icon={<Package className="h-4 w-4" />}>
       <ul className="mb-3 space-y-2 text-sm">
-        {(presets.data ?? []).map((preset) => (
-          <li key={preset.id} className="flex items-center justify-between gap-2 rounded-control border border-line px-3 py-2">
-            <div>
-              <span className="font-medium text-ink">{preset.name}</span>
-              <span className="mt-0.5 block text-xs text-ink-muted" dir="ltr">{preset.hs_code || "—"} · {preset.unit_label || "—"} · {moneyText(preset.default_price_minor)}</span>
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => setEditing(preset)}>{tx("edit", "Edit")}</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/product-presets/${preset.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradePresetDeleted", "Catalog item deleted")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("delete", "Delete")}</Button>
-            </div>
-          </li>
-        ))}
+        {(presets.data ?? []).map((preset) => {
+          const netG = preset.unit_net_weight_grams ?? preset.piece_weight_grams ?? 0;
+          const bagG = preset.bag_weight_grams ?? 0;
+          const posterG = preset.poster_weight_grams ?? 0;
+          const otherG = preset.other_accessory_weight_grams ?? 0;
+          return (
+            <li key={preset.id} className="flex items-center justify-between gap-2 rounded-control border border-line px-3 py-2">
+              <div>
+                <span className="font-medium text-ink">{preset.name}</span>
+                <span className="mt-0.5 block text-xs text-ink-muted" dir="ltr">
+                  {preset.hs_code || "—"} · {preset.unit_label || "—"} · {moneyText(preset.default_price_minor)} · Net {kgText(netG)} kg · Bag {kgText(bagG)} kg · Poster {kgText(posterG)} kg{otherG ? ` · Extra ${kgText(otherG)} kg` : ""}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => setEditing(preset)}>{tx("edit", "Edit")}</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/product-presets/${preset.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradePresetDeleted", "Catalog item deleted")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("delete", "Delete")}</Button>
+              </div>
+            </li>
+          );
+        })}
       </ul>
       <form key={editing?.id ?? "new"} className="grid gap-3 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void save(event.currentTarget); }}>
         <Field label={tx("name", "Name")}><Input name="name" required defaultValue={editing?.name ?? ""} /></Field>
@@ -255,8 +272,12 @@ function PresetCard() {
         <Field label={tx("barcode", "Barcode")}><Input name="barcode" dir="ltr" defaultValue={editing?.barcode ?? ""} /></Field>
         <Field label={tx("hsCode", "HS code")}><Input name="hsCode" dir="ltr" defaultValue={editing?.hs_code ?? ""} /></Field>
         <Field label={tx("price", "Default price")}><Input name="price" dir="ltr" defaultValue={editing ? moneyText(editing.default_price_minor) : "0"} /></Field>
-        <Field label={tx("packingPerPackage", "Default packing per package")}><Input name="packing" dir="ltr" inputMode="numeric" /></Field>
-        <div><Button type="submit" disabled={busy}>{tx("tradeAddPreset", "Add catalog item")}</Button></div>
+        <Field label={tx("packingPerPackage", "Default packing per package")}><Input name="packing" dir="ltr" inputMode="numeric" defaultValue={editing?.default_packing_per_package != null ? String(editing.default_packing_per_package) : ""} /></Field>
+        <Field label={tx("unitNetKg", "Blanket net weight / pc (kg)")}><Input name="unitNetKg" dir="ltr" inputMode="decimal" defaultValue={kgText(editing?.unit_net_weight_grams ?? editing?.piece_weight_grams ?? 0)} /></Field>
+        <Field label={tx("bagKg", "Bag weight / pc (kg)")}><Input name="bagKg" dir="ltr" inputMode="decimal" defaultValue={kgText(editing?.bag_weight_grams ?? 0)} /></Field>
+        <Field label={tx("posterKg", "Poster / carton weight / pc (kg)")}><Input name="posterKg" dir="ltr" inputMode="decimal" defaultValue={kgText(editing?.poster_weight_grams ?? 0)} /></Field>
+        <Field label={tx("otherAccessoryKg", "Other accessory weight / pc (kg)")}><Input name="otherAccessoryKg" dir="ltr" inputMode="decimal" defaultValue={kgText(editing?.other_accessory_weight_grams ?? 0)} /></Field>
+        <div><Button type="submit" disabled={busy}>{editing ? tx("save", "Save") : tx("tradeAddPreset", "Add catalog item")}</Button></div>
       </form>
     </SectionCard>
   );
