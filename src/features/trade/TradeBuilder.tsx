@@ -1028,7 +1028,7 @@ export function TradeBuilder({
                 </div>
 
                 {/* Fixed-Style Table Header */}
-                <div className="hidden border-b border-line bg-slate-900/5 px-3.5 py-2 text-xs font-semibold text-ink-muted dark:bg-slate-900/60 md:grid md:grid-cols-[4fr_2fr_1fr_1.5fr_1.5fr_1.5fr_auto] md:items-center md:gap-2.5">
+                <div className="hidden border-b border-line bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-800 dark:bg-slate-900/70 dark:text-slate-100 md:grid md:grid-cols-[4fr_2fr_1fr_1.5fr_1.5fr_1.5fr_auto] md:items-center md:gap-2.5">
                   <div>{tx("description", "وصف الصنف (Description)")}</div>
                   <div>{tx("hsAndBarcode", "البند الجمركي / الباركود")}</div>
                   <div className="text-center">{tx("unit", "الوحدة")}</div>
@@ -1095,7 +1095,7 @@ export function TradeBuilder({
                         <Input
                           dir="ltr"
                           inputMode="numeric"
-                          className="h-9 px-2.5 text-center text-xs font-semibold tabular-nums"
+                          className="h-9 px-2.5 text-center text-xs font-semibold tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           value={line.quantity}
                           disabled={locked}
                           onChange={(event) => updateLine(setLines, line.key, { quantity: event.target.value })}
@@ -1107,7 +1107,7 @@ export function TradeBuilder({
                         <Input
                           dir="ltr"
                           inputMode="decimal"
-                          className="h-9 px-2.5 text-center text-xs tabular-nums"
+                          className="h-9 px-2.5 text-center text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           value={line.price}
                           disabled={locked}
                           onChange={(event) => updateLine(setLines, line.key, { price: event.target.value })}
@@ -1168,7 +1168,7 @@ export function TradeBuilder({
                 </div>
 
                 {/* 3-Cell Financial Totals Footer */}
-                <div className="grid grid-cols-1 divide-y divide-line border-t border-line bg-slate-900/5 dark:bg-slate-900/50 md:grid-cols-3 md:divide-x md:divide-y-0 md:divide-x-reverse">
+                <div className="grid grid-cols-1 divide-y divide-line border-t border-line bg-slate-100/80 text-slate-800 dark:bg-slate-900/60 dark:text-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0 md:divide-x-reverse">
                   <div className="flex items-center justify-between px-4 py-3">
                     <span className="text-xs font-medium text-ink-muted">{tx("fobTotalLabel", "إجمالي البضاعة (FOB)")}</span>
                     <span className="text-sm font-semibold tabular-nums text-ink" dir="ltr">
@@ -1184,7 +1184,7 @@ export function TradeBuilder({
                       {moneyText(effectiveFreightMinor, currency)} {currency}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between bg-accent/[0.06] px-4 py-3">
+                  <div className="flex items-center justify-between bg-accent/[0.08] px-4 py-3">
                     <span className="text-xs font-bold text-ink">{tx("grandTotalLabel", `الإجمالي النهائي (${shippingLabel})`)}</span>
                     <span className="text-base font-bold tabular-nums text-accent" dir="ltr">
                       {moneyText(grandTotalMinor, currency)} {currency}
@@ -1260,115 +1260,122 @@ export function TradeBuilder({
                       className="overflow-hidden rounded-xl border border-line bg-card shadow-sm"
                       data-container-block={group.containerId ?? "unassigned"}
                     >
-                      {/* Container Card Header */}
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-paper/80 px-4 py-3">
-                        {/* Right: Container Number + Summary Badges */}
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-accent/15 px-2.5 py-1 text-xs font-bold text-accent">
-                            <Container className="h-3.5 w-3.5" />
-                            <span>{containerTitle}</span>
-                            {group.officialNumber ? (
-                              <span className="font-mono text-ink" dir="ltr">({group.officialNumber})</span>
+                      {/* Container Card Header (2 Organized Rows) */}
+                      <div className="space-y-2.5 border-b border-line bg-slate-50/90 px-4 py-3 dark:bg-slate-900/50">
+                        {/* Row 1: Container Name + Official Number Input + 4 Summary Chips */}
+                        <div className="flex flex-wrap items-center justify-between gap-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-accent/15 px-2.5 py-1 text-xs font-bold text-accent">
+                              <Container className="h-3.5 w-3.5" />
+                              <span>{containerTitle}</span>
+                              {group.officialNumber ? (
+                                <span className="font-mono text-ink" dir="ltr">({group.officialNumber})</span>
+                              ) : null}
+                            </span>
+
+                            {containerObj && !locked ? (
+                              <div className="flex items-center gap-1.5">
+                                <Input
+                                  dir="ltr"
+                                  className="h-8 w-40 px-2.5 text-xs font-mono"
+                                  placeholder="رقم الحاوية الرسمي..."
+                                  value={editNum}
+                                  onChange={(e) =>
+                                    setContainerNumberEdits((cur) => ({ ...cur, [containerObj.id]: e.target.value }))
+                                  }
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2.5 text-xs"
+                                  disabled={busy || !editNum.trim()}
+                                  onClick={() => void saveContainerNumber(containerObj)}
+                                >
+                                  {tx("saveShort", "حفظ الرقم")}
+                                </Button>
+                              </div>
                             ) : null}
-                          </span>
+                          </div>
 
-                          {containerObj && !locked ? (
-                            <div className="flex items-center gap-1">
-                              <Input
-                                dir="ltr"
-                                className="h-8 w-36 px-2 text-xs font-mono"
-                                placeholder="رقم الحاوية الرسمي..."
-                                value={editNum}
-                                onChange={(e) =>
-                                  setContainerNumberEdits((cur) => ({ ...cur, [containerObj.id]: e.target.value }))
-                                }
-                              />
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-2.5 text-xs"
-                                disabled={busy || !editNum.trim()}
-                                onClick={() => void saveContainerNumber(containerObj)}
-                              >
-                                {tx("saveShort", "حفظ الرقم")}
-                              </Button>
-                            </div>
-                          ) : null}
-
-                          {/* Container Summary Chips */}
+                          {/* 4 Container Summary Chips */}
                           <div className="flex flex-wrap items-center gap-1.5 text-[11px]" dir="ltr">
-                            <span className="rounded-md border border-line bg-card px-2 py-0.5 font-semibold text-ink">
+                            <span className="whitespace-nowrap rounded-md border border-line bg-card px-2.5 py-1 font-semibold text-ink shadow-2xs">
                               الطرود: <strong className="tabular-nums">{group.totals.packagesCount}</strong>
                             </span>
-                            <span className="rounded-md border border-line bg-card px-2 py-0.5 font-semibold text-ink">
+                            <span className="whitespace-nowrap rounded-md border border-line bg-card px-2.5 py-1 font-semibold text-ink shadow-2xs">
                               القطع: <strong className="tabular-nums">{group.totals.piecesCount}</strong>
                             </span>
-                            <span className="rounded-md border border-line bg-card px-2 py-0.5 font-semibold text-ink">
+                            <span className="whitespace-nowrap rounded-md border border-line bg-card px-2.5 py-1 font-semibold text-ink shadow-2xs">
                               الصافي: <strong className="tabular-nums">{kgText(group.totals.netWeightGrams)} kg</strong>
                             </span>
-                            <span className="rounded-md border border-accent/30 bg-accent/[0.06] px-2 py-0.5 font-bold text-accent">
+                            <span className="whitespace-nowrap rounded-md border border-accent/35 bg-accent/10 px-2.5 py-1 font-bold text-accent shadow-2xs">
                               القائم: <strong className="tabular-nums">{kgText(group.totals.grossWeightGrams)} kg</strong>
                             </span>
                           </div>
                         </div>
 
-                        {/* Left: Add Product / Standalone Accessory / Preset */}
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Select
-                            value=""
-                            disabled={locked}
-                            className="h-8 w-48 text-xs"
-                            onChange={(event) => {
-                              insertPresetToPackingContainer(event.target.value, group.containerId ?? "");
-                              event.target.value = "";
-                            }}
-                          >
-                            <option value="">{tx("tradeChoosePreset", "+ إدراج من الكتالوج...")}</option>
-                            {(presets.data ?? []).map((preset) => {
-                              const netG = preset.unit_net_weight_grams ?? preset.piece_weight_grams ?? 0;
-                              return (
-                                <option key={preset.id} value={preset.id}>
-                                  {preset.name} ({kgText(netG)} kg)
-                                </option>
-                              );
-                            })}
-                          </Select>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 px-2.5 text-xs"
-                            disabled={locked}
-                            onClick={() =>
-                              setPacking((current) => [
-                                ...current,
-                                blankPackingLine(group.containerId ?? ""),
-                              ])
-                            }
-                          >
-                            + {tx("addProductShort", "بند منتج")}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 px-2.5 text-xs"
-                            disabled={locked}
-                            onClick={() =>
-                              setPacking((current) => [
-                                ...current,
-                                blankAccessoryPackingLine(group.containerId ?? ""),
-                              ])
-                            }
-                          >
-                            + {tx("addAccessoryShort", "ملحق مفرد")}
-                          </Button>
+                        {/* Row 2: Insertion Tools (Catalog Select + Add Product + Add Standalone Accessory) */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/60 pt-2">
+                          <span className="text-[11px] font-medium text-ink-muted">
+                            {tx("containerInsertToolbarHint", "إدراج أصناف أو ملحقات داخل هذه الحاوية:")}
+                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Select
+                              value=""
+                              disabled={locked}
+                              className="h-8 w-56 bg-card text-xs"
+                              onChange={(event) => {
+                                insertPresetToPackingContainer(event.target.value, group.containerId ?? "");
+                                event.target.value = "";
+                              }}
+                            >
+                              <option value="">{tx("tradeChoosePreset", "اختر صنفاً من الكتالوج...")}</option>
+                              {(presets.data ?? []).map((preset) => {
+                                const netG = preset.unit_net_weight_grams ?? preset.piece_weight_grams ?? 0;
+                                return (
+                                  <option key={preset.id} value={preset.id}>
+                                    {preset.name} ({kgText(netG)} kg)
+                                  </option>
+                                );
+                              })}
+                            </Select>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 bg-card px-2.5 text-xs"
+                              disabled={locked}
+                              onClick={() =>
+                                setPacking((current) => [
+                                  ...current,
+                                  blankPackingLine(group.containerId ?? ""),
+                                ])
+                              }
+                            >
+                              + {tx("addProductShort", "بند منتج")}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 bg-card px-2.5 text-xs"
+                              disabled={locked}
+                              onClick={() =>
+                                setPacking((current) => [
+                                  ...current,
+                                  blankAccessoryPackingLine(group.containerId ?? ""),
+                                ])
+                              }
+                            >
+                              + {tx("addAccessoryShort", "ملحق مفرد")}
+                            </Button>
+                          </div>
                         </div>
                       </div>
 
                       {/* Container Items Table Header */}
-                      <div className="hidden border-b border-line bg-slate-900/5 px-3.5 py-2 text-xs font-semibold text-ink-muted dark:bg-slate-900/60 md:grid md:grid-cols-[3.5fr_1.5fr_1fr_1fr_1fr_1.5fr_1.5fr_auto] md:items-center md:gap-2">
+                      <div className="hidden border-b border-line bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-800 dark:bg-slate-900/70 dark:text-slate-100 md:grid md:grid-cols-[3.5fr_1.5fr_1fr_1fr_1fr_1.5fr_1.5fr_auto] md:items-center md:gap-2">
                         <div>{tx("description", "وصف الصنف")}</div>
                         <div>{tx("hsCode", "HS Code / الحاوية")}</div>
                         <div className="text-center">{tx("packages", "الطرود")}</div>
@@ -1395,35 +1402,33 @@ export function TradeBuilder({
                               <div key={line.key} className="px-3.5 py-2.5 transition-colors hover:bg-paper/30">
                                 {/* Primary Table Row */}
                                 <div className="grid grid-cols-1 items-start gap-2 md:grid-cols-[3.5fr_1.5fr_1fr_1fr_1fr_1.5fr_1.5fr_auto]">
-                                  {/* Col 1: Description + Type Badge */}
+                                  {/* Col 1: Description + Optional Accessory/Alert Badges */}
                                   <div className="space-y-1">
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        disabled={locked}
-                                        onClick={() => {
-                                          const nextType = isAccessory ? "PRODUCT" : "ACCESSORY";
-                                          updatePackingLine(line.key, {
-                                            lineType: nextType,
-                                            includePiecesInReconciliation: nextType === "PRODUCT",
-                                          });
-                                        }}
-                                        className={cn(
-                                          "rounded-md px-2 py-0.5 text-[10px] font-bold transition-colors",
-                                          isAccessory
-                                            ? "bg-warn/15 text-warn hover:bg-warn/25"
-                                            : "bg-accent/15 text-accent hover:bg-accent/25",
-                                        )}
-                                        title={tx("toggleLineTypeHint", "انقر للتبديل بين منتج أساسي وملحق مفرد")}
-                                      >
-                                        {isAccessory ? "ملحق مفرد" : "منتج أساسي"}
-                                      </button>
-                                      {heavy ? (
-                                        <span className="text-[11px] font-semibold text-danger" role="alert">
-                                          {tx("netAboveGrossShort", "الصافي أكبر من القائم!")}
-                                        </span>
-                                      ) : null}
-                                    </div>
+                                    {(isAccessory || heavy) ? (
+                                      <div className="flex items-center gap-1.5">
+                                        {isAccessory ? (
+                                          <button
+                                            type="button"
+                                            disabled={locked}
+                                            onClick={() =>
+                                              updatePackingLine(line.key, {
+                                                lineType: "PRODUCT",
+                                                includePiecesInReconciliation: true,
+                                              })
+                                            }
+                                            className="rounded-md border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 transition-colors hover:bg-amber-200 dark:border-amber-500/35 dark:bg-amber-500/20 dark:text-amber-300"
+                                            title={tx("toggleLineTypeHint", "انقر للتحويل إلى منتج أساسي")}
+                                          >
+                                            ملحق مفرد
+                                          </button>
+                                        ) : null}
+                                        {heavy ? (
+                                          <span className="text-[11px] font-semibold text-danger" role="alert">
+                                            {tx("netAboveGrossShort", "الصافي أكبر من القائم!")}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    ) : null}
                                     <Textarea
                                       rows={2}
                                       className="min-h-[52px] resize-y py-1.5 text-xs leading-relaxed"
@@ -1464,7 +1469,7 @@ export function TradeBuilder({
                                     <Input
                                       dir="ltr"
                                       inputMode="numeric"
-                                      className="h-9 px-2 text-center text-xs font-semibold tabular-nums"
+                                      className="h-9 px-2 text-center text-xs font-semibold tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                       value={line.packages}
                                       disabled={locked}
                                       onChange={(event) => updatePackingLine(line.key, { packages: event.target.value })}
@@ -1476,7 +1481,7 @@ export function TradeBuilder({
                                     <Input
                                       dir="ltr"
                                       inputMode="numeric"
-                                      className="h-9 px-2 text-center text-xs font-semibold tabular-nums"
+                                      className="h-9 px-2 text-center text-xs font-semibold tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                       value={line.perPackage}
                                       disabled={locked}
                                       onChange={(event) => updatePackingLine(line.key, { perPackage: event.target.value })}
@@ -1497,7 +1502,7 @@ export function TradeBuilder({
                                       dir="ltr"
                                       inputMode="decimal"
                                       className={cn(
-                                        "h-9 px-2 text-center text-xs font-semibold tabular-nums",
+                                        "h-9 px-2 text-center text-xs font-semibold tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
                                         heavy ? "border-danger text-danger" : "",
                                       )}
                                       value={line.netKg}
@@ -1513,7 +1518,7 @@ export function TradeBuilder({
                                     <Input
                                       dir="ltr"
                                       inputMode="decimal"
-                                      className="h-9 px-2 text-center text-xs font-bold tabular-nums text-accent"
+                                      className="h-9 px-2 text-center text-xs font-bold tabular-nums text-accent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                       value={line.grossKg}
                                       disabled={locked}
                                       onChange={(event) =>
@@ -1608,7 +1613,21 @@ export function TradeBuilder({
                                       />
                                       {tx("includeAccessoryPiecesInReconciliation", "احتساب عدد هذا الملحق ضمن مطابقة قطع الفاتورة")}
                                     </label>
-                                  ) : null}
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={locked}
+                                      onClick={() =>
+                                        updatePackingLine(line.key, {
+                                          lineType: "ACCESSORY",
+                                          includePiecesInReconciliation: false,
+                                        })
+                                      }
+                                      className="text-[11px] font-medium text-ink-muted transition-colors hover:text-accent hover:underline disabled:opacity-40"
+                                    >
+                                      {tx("convertToAccessoryShort", "تحويل لملحق مفرد")}
+                                    </button>
+                                  )}
                                 </div>
 
                                 {/* Collapsible Component Weight Breakdown Drawer */}
@@ -1619,7 +1638,7 @@ export function TradeBuilder({
                                         <Input
                                           dir="ltr"
                                           inputMode="decimal"
-                                          className="h-9 text-xs tabular-nums"
+                                          className="h-9 text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                           value={line.unitNetKg}
                                           disabled={locked}
                                           onChange={(e) => updatePackingLine(line.key, { unitNetKg: e.target.value, manualOverride: false })}
@@ -1629,7 +1648,7 @@ export function TradeBuilder({
                                         <Input
                                           dir="ltr"
                                           inputMode="decimal"
-                                          className="h-9 text-xs tabular-nums"
+                                          className="h-9 text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                           value={line.bagKg}
                                           disabled={locked}
                                           onChange={(e) => updatePackingLine(line.key, { bagKg: e.target.value, manualOverride: false })}
@@ -1639,7 +1658,7 @@ export function TradeBuilder({
                                         <Input
                                           dir="ltr"
                                           inputMode="decimal"
-                                          className="h-9 text-xs tabular-nums"
+                                          className="h-9 text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                           value={line.posterKg}
                                           disabled={locked}
                                           onChange={(e) => updatePackingLine(line.key, { posterKg: e.target.value, manualOverride: false })}
@@ -1649,7 +1668,7 @@ export function TradeBuilder({
                                         <Input
                                           dir="ltr"
                                           inputMode="decimal"
-                                          className="h-9 text-xs tabular-nums"
+                                          className="h-9 text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                           value={line.otherAccessoryKg}
                                           disabled={locked}
                                           onChange={(e) => updatePackingLine(line.key, { otherAccessoryKg: e.target.value, manualOverride: false })}
@@ -1852,81 +1871,83 @@ export function TradeBuilder({
           ) : null}
         </div>
 
-        {/* 6. Unified Bottom Action Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-b-xl border-t border-line bg-slate-900/5 p-4 dark:bg-slate-900/80">
-          {/* Right Side (in RTL): Primary Actions */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Button type="button" variant="outline" disabled={locked || busy} onClick={() => void saveDraft()}>
-              {tx("tradeSaveDraft", "حفظ كمسودة")}
-            </Button>
-            <Button type="button" disabled={locked || busy} onClick={() => void issue()}>
-              <CheckCircle2 className="h-4 w-4" />
-              {tx("tradeIssue", "إصدار نهائي وإرفاق بالمستندات")}
-            </Button>
-          </div>
+        {/* 6. Unified Bottom Action Bar (Hidden on Tab 1 "الفاتورة المبدئية" since Proforma has its own dedicated action bar) */}
+        {section !== "proforma" ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-b-xl border-t border-line bg-slate-50/90 p-4 dark:bg-slate-900/80">
+            {/* Right Side (in RTL): Primary Actions */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Button type="button" variant="outline" disabled={locked || busy} onClick={() => void saveDraft()}>
+                {tx("tradeSaveDraft", "حفظ كمسودة")}
+              </Button>
+              <Button type="button" disabled={locked || busy} onClick={() => void issue()}>
+                <CheckCircle2 className="h-4 w-4" />
+                {tx("tradeIssue", "إصدار نهائي وإرفاق بالمستندات")}
+              </Button>
+            </div>
 
-          {/* Left Side (in RTL): Joined PDF Export Button Group */}
-          <div
-            className="inline-flex flex-wrap overflow-hidden rounded-control border border-line bg-card shadow-sm divide-x divide-x-reverse divide-line"
-            role="group"
-            aria-label={tx("pdfDownloadsGroup", "تصدير ملفات PDF")}
-          >
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-paper"
-              onClick={() =>
-                void downloadPdf(
-                  `/api/v1/invoices/${invoiceId}/commercial-pdf`,
-                  tradePdfFilename({
-                    invoiceNumber: invoiceNumber || invoiceId,
-                    clientName: customerName || "CLIENT",
-                    clientCode: customerCode || "NA",
-                    country: customerCountry || "NA",
-                  }),
-                ).catch((error) => notifyError(error))
-              }
+            {/* Left Side (in RTL): Joined PDF Export Button Group */}
+            <div
+              className="inline-flex flex-wrap overflow-hidden rounded-control border border-line bg-card shadow-sm divide-x divide-x-reverse divide-line"
+              role="group"
+              aria-label={tx("pdfDownloadsGroup", "تصدير ملفات PDF")}
             >
-              <FileDown className="h-3.5 w-3.5 text-accent" />
-              <span>{tx("tradeDownloadInvoiceShort", "PDF الفاتورة")}</span>
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-paper"
-              onClick={() =>
-                void downloadPdf(
-                  `/api/v1/invoices/${invoiceId}/packing-pdf`,
-                  tradePdfFilename({
-                    invoiceNumber: invoiceNumber || invoiceId,
-                    clientName: customerName || "CLIENT",
-                    clientCode: customerCode || "NA",
-                    country: customerCountry || "NA",
-                  }),
-                ).catch((error) => notifyError(error))
-              }
-            >
-              <FileDown className="h-3.5 w-3.5 text-accent" />
-              <span>{tx("tradeDownloadPackingShort", "PDF بيان العبوة")}</span>
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-paper"
-              onClick={() =>
-                void downloadPdf(
-                  `/api/v1/invoices/${invoiceId}/customs-pdf`,
-                  tradePdfFilename({
-                    invoiceNumber: invoiceNumber || invoiceId,
-                    clientName: customerName || "CLIENT",
-                    clientCode: customerCode || "NA",
-                    country: customerCountry || "NA",
-                  }),
-                ).catch((error) => notifyError(error))
-              }
-            >
-              <FileDown className="h-3.5 w-3.5 text-accent" />
-              <span>{tx("tradeDownloadCustomsShort", "PDF الجمارك المدمج")}</span>
-            </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 bg-card px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() =>
+                  void downloadPdf(
+                    `/api/v1/invoices/${invoiceId}/commercial-pdf`,
+                    tradePdfFilename({
+                      invoiceNumber: invoiceNumber || invoiceId,
+                      clientName: customerName || "CLIENT",
+                      clientCode: customerCode || "NA",
+                      country: customerCountry || "NA",
+                    }),
+                  ).catch((error) => notifyError(error))
+                }
+              >
+                <FileDown className="h-3.5 w-3.5 text-accent" />
+                <span>{tx("tradeDownloadInvoiceShort", "PDF الفاتورة")}</span>
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 bg-card px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() =>
+                  void downloadPdf(
+                    `/api/v1/invoices/${invoiceId}/packing-pdf`,
+                    tradePdfFilename({
+                      invoiceNumber: invoiceNumber || invoiceId,
+                      clientName: customerName || "CLIENT",
+                      clientCode: customerCode || "NA",
+                      country: customerCountry || "NA",
+                    }),
+                  ).catch((error) => notifyError(error))
+                }
+              >
+                <FileDown className="h-3.5 w-3.5 text-accent" />
+                <span>{tx("tradeDownloadPackingShort", "PDF بيان العبوة")}</span>
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 bg-card px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() =>
+                  void downloadPdf(
+                    `/api/v1/invoices/${invoiceId}/customs-pdf`,
+                    tradePdfFilename({
+                      invoiceNumber: invoiceNumber || invoiceId,
+                      clientName: customerName || "CLIENT",
+                      clientCode: customerCode || "NA",
+                      country: customerCountry || "NA",
+                    }),
+                  ).catch((error) => notifyError(error))
+                }
+              >
+                <FileDown className="h-3.5 w-3.5 text-accent" />
+                <span>{tx("tradeDownloadCustomsShort", "PDF الجمارك المدمج")}</span>
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
       </section>
 
       <CompanyDialog open={companyOpen} onClose={() => setCompanyOpen(false)} />
@@ -1947,7 +1968,8 @@ function ReconciliationBar({
   onSync: () => void;
 }) {
   const { tx } = useCopy();
-  const fmt = (n: number, isWeight = false) => (isWeight ? n.toFixed(3) : String(Math.round(n)));
+  const fmt = (n: number, isWeight = false) =>
+    isWeight ? Number(n.toFixed(3)).toString() : String(Math.round(n));
 
   const cells = [
     {
@@ -1989,8 +2011,8 @@ function ReconciliationBar({
       className={cn(
         "grid grid-cols-1 gap-2.5 rounded-xl border p-3 lg:grid-cols-5",
         summary.matched
-          ? "border-emerald-500/30 bg-emerald-500/[0.04]"
-          : "border-amber-500/35 bg-amber-500/[0.05]",
+          ? "border-emerald-300/80 bg-emerald-50/60 dark:border-emerald-500/30 dark:bg-emerald-500/[0.04]"
+          : "border-amber-300/80 bg-amber-50/60 dark:border-amber-500/35 dark:bg-amber-500/[0.05]",
       )}
       role="status"
     >
@@ -2002,13 +2024,13 @@ function ReconciliationBar({
             className="flex flex-col justify-between rounded-lg border border-line/80 bg-card px-3 py-2 shadow-2xs"
           >
             <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[11px] font-semibold text-ink-muted">{cell.title}</span>
+              <span className="truncate text-[11px] font-semibold text-ink-muted">{cell.title}</span>
               <span
                 className={cn(
-                  "rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums",
+                  "whitespace-nowrap shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums",
                   matched
-                    ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                    : "border-amber-500/35 bg-amber-500/15 text-amber-700 dark:text-amber-300",
+                    ? "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-300"
+                    : "border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-500/35 dark:bg-amber-500/20 dark:text-amber-300",
                 )}
               >
                 {matched ? "متطابق ✓" : `فرق: ${cell.diff > 0 ? "+" : ""}${cell.diffLabel}`}

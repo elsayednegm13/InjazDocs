@@ -483,7 +483,7 @@ export function EmbeddedProformaTab({
         </div>
 
         {/* 12-Col Grid Header */}
-        <div className="hidden border-b border-line bg-slate-900/5 px-3.5 py-2 text-xs font-semibold text-ink-muted dark:bg-slate-900/60 md:grid md:grid-cols-[4fr_2fr_1fr_1.5fr_1.5fr_1.5fr_auto] md:items-center md:gap-2.5">
+        <div className="hidden border-b border-line bg-slate-100 px-3.5 py-2.5 text-xs font-semibold text-slate-800 dark:bg-slate-900/70 dark:text-slate-100 md:grid md:grid-cols-[4fr_2fr_1fr_1.5fr_1.5fr_1.5fr_auto] md:items-center md:gap-2.5">
           <div>{tx("description", "وصف الصنف (Description)")}</div>
           <div>{tx("hsAndBarcode", "البند الجمركي / الباركود")}</div>
           <div className="text-center">{tx("unit", "الوحدة")}</div>
@@ -558,7 +558,7 @@ export function EmbeddedProformaTab({
                 <Input
                   dir="ltr"
                   inputMode="numeric"
-                  className="h-9 px-2.5 text-center text-xs font-semibold tabular-nums"
+                  className="h-9 px-2.5 text-center text-xs font-semibold tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   value={line.quantity}
                   disabled={locked}
                   onChange={(e) =>
@@ -572,7 +572,7 @@ export function EmbeddedProformaTab({
                 <Input
                   dir="ltr"
                   inputMode="decimal"
-                  className="h-9 px-2.5 text-center text-xs tabular-nums"
+                  className="h-9 px-2.5 text-center text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   value={line.price}
                   disabled={locked}
                   onChange={(e) =>
@@ -634,55 +634,77 @@ export function EmbeddedProformaTab({
         </div>
 
         {/* 3-Cell Financial Totals Footer */}
-        <div className="grid grid-cols-1 divide-y divide-line border-t border-line bg-slate-900/5 dark:bg-slate-900/50 md:grid-cols-3 md:divide-x md:divide-y-0 md:divide-x-reverse">
+        <div className="grid grid-cols-1 divide-y divide-line border-t border-line bg-slate-100/80 text-slate-800 dark:bg-slate-900/60 dark:text-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0 md:divide-x-reverse">
           <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-xs font-medium text-ink-muted">{tx("fobTotalLabel", "إجمالي البضاعة (FOB)")}</span>
-            <span className="text-sm font-semibold tabular-nums text-ink" dir="ltr">
+            <span className="text-xs font-semibold text-ink-muted">{tx("fobTotalLabel", "إجمالي البضاعة (FOB)")}</span>
+            <span className="text-sm font-bold tabular-nums text-ink" dir="ltr">
               {moneyText(fob, currency)} {currency}
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-xs font-medium text-ink-muted">
+            <span className="text-xs font-semibold text-ink-muted">
               {tx("seaFreightTotalLabel", "الشحن البحري (Freight)")}
               {!freightOn ? <span className="ms-1 text-[11px] opacity-75">(غير مضاف على {shipping})</span> : null}
             </span>
-            <span className={cn("text-sm font-semibold tabular-nums", freightOn ? "text-ink" : "text-ink-muted")} dir="ltr">
+            <span className={cn("text-sm font-bold tabular-nums", freightOn ? "text-ink" : "text-ink-muted")} dir="ltr">
               {freightOn ? `${moneyText(freightMinor, currency)} ${currency}` : `0.00 ${currency}`}
             </span>
           </div>
-          <div className="flex items-center justify-between bg-accent/[0.06] px-4 py-3">
+          <div className="flex items-center justify-between bg-accent/[0.08] px-4 py-3">
             <span className="text-xs font-bold text-ink">{tx("grandTotalLabel", `الإجمالي النهائي (${shipping})`)}</span>
-            <span className="text-base font-bold tabular-nums text-accent" dir="ltr">
+            <span className="text-base font-extrabold tabular-nums text-accent" dir="ltr">
               {moneyText(grandTotalMinor, currency)} {currency}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Proforma Action Strip */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper/60 px-4 py-3">
-        <span className="text-xs text-ink-muted">
-          {issued
-            ? tx("proformaStatusIssuedHint", "هذه الفاتورة المبدئية معتمدة ومصدرة. يمكنك تحميلها أو تحويلها مباشرة للفاتورة التجارية.")
-            : tx("proformaStatusDraftHint", "احفظ مسودة الفاتورة المبدئية أو اعتمدها وحوّل بنودها إلى الفاتورة التجارية للعملية.")}
-        </span>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" variant="outline" disabled={locked || busy || !customerId} onClick={() => void saveProforma()}>
-            {tx("tradeSaveDraft", "حفظ الفاتورة المبدئية")}
+      {/* Unified Proforma Bottom Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-slate-50/90 p-4 dark:bg-slate-900/80">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button type="button" variant="outline" disabled={locked || busy || !customerId} onClick={() => void saveProforma()}>
+            {tx("tradeSaveDraft", "حفظ كمسودة")}
           </Button>
           {selectedId && selectedId !== "new" && !issued ? (
-            <Button type="button" size="sm" variant="outline" disabled={locked || busy} onClick={() => void issueSelected()}>
-              <CheckCircle2 className="h-3.5 w-3.5" />
+            <Button type="button" variant="outline" disabled={locked || busy} onClick={() => void issueSelected()}>
+              <CheckCircle2 className="h-4 w-4" />
               {tx("proformaIssue", "إصدار الفاتورة المبدئية")}
             </Button>
           ) : null}
           {selectedId && selectedId !== "new" ? (
-            <Button type="button" size="sm" disabled={!canEdit || busy} onClick={() => void convertSelected()}>
-              <ArrowLeftRight className="h-3.5 w-3.5" />
-              {tx("proformaConvert", "تحويل إلى الفاتورة التجارية")}
+            <Button type="button" disabled={!canEdit || busy} onClick={() => void convertSelected()}>
+              <ArrowLeftRight className="h-4 w-4" />
+              {tx("proformaConvert", "اعتماد وتحويل إلى الفاتورة التجارية")}
             </Button>
           ) : null}
         </div>
+
+        {selectedId && selectedId !== "new" ? (
+          <div
+            className="inline-flex overflow-hidden rounded-control border border-line bg-card shadow-sm"
+            role="group"
+            aria-label={tx("proformaPdfGroup", "تصدير PDF الفاتورة المبدئية")}
+          >
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-ink transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+              onClick={() =>
+                void downloadPdf(
+                  `/api/v1/proformas/${selectedId}/pdf`,
+                  tradePdfFilename({
+                    invoiceNumber: number || selectedId,
+                    clientName: customerName || "CLIENT",
+                    clientCode: customerCode || reference || "NA",
+                    country: customerCountry || "NA",
+                  }),
+                ).catch(notifyError)
+              }
+            >
+              <FileDown className="h-3.5 w-3.5 text-accent" />
+              <span>{tx("proformaDownload", "PDF الفاتورة المبدئية")}</span>
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

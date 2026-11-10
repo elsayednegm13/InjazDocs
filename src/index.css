@@ -1,5 +1,6 @@
 @import "./assets/fonts/fonts.css";
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Light values are the shipped workspace. Dark values stay in the same navy
    family: the rail is darker than the page, cards lift one step, and text
@@ -182,6 +183,17 @@ button:disabled,
 select:disabled,
 [aria-disabled="true"] {
   cursor: not-allowed;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .login-stage {
