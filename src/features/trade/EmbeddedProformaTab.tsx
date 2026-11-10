@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookmarkPlus, Copy, FileDown, FilePlus2, ArrowLeftRight, CheckCircle2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Ltr } from "@/components/ui/chrome";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { cn } from "@/lib/utils";
 import { tradePdfFilename } from "@shared/trade-sheet";
 import {
   downloadPdf,
@@ -17,7 +19,7 @@ import {
   type InvoiceDraftLine,
   type ProductPreset,
 } from "./trade-model";
-import { PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
+import { PaymentPresetStrip, PaymentTermField, saveLineToCatalog } from "./TradeDialogs";
 import { includesFreight, ShippingMethodField, useShippingMethods } from "./TradeExtras";
 
 export type CaseProformaRow = {
@@ -40,7 +42,14 @@ export type CaseProformaRow = {
   fob_total_minor: number;
   total_minor: number;
   converted_invoice_id?: string | null;
-  lines?: Array<{ description: string; unit_label: string | null; quantity: number; unit_price_minor: number }>;
+  lines?: Array<{
+    description: string;
+    hs_code?: string | null;
+    barcode?: string | null;
+    unit_label: string | null;
+    quantity: number;
+    unit_price_minor: number;
+  }>;
 };
 
 export function EmbeddedProformaTab({
@@ -53,7 +62,6 @@ export function EmbeddedProformaTab({
   canEdit,
   defaultInvoiceNumber,
   onConverted,
-  onOpenCatalog,
 }: {
   caseId: string;
   customerId: string;
@@ -64,7 +72,7 @@ export function EmbeddedProformaTab({
   canEdit: boolean;
   defaultInvoiceNumber: string;
   onConverted?: () => void;
-  onOpenCatalog: () => void;
+  onOpenCatalog?: () => void;
 }) {
   const { tx } = useCopy();
   const client = useQueryClient();
@@ -84,15 +92,8 @@ export function EmbeddedProformaTab({
   const methods = useShippingMethods();
 
   const proformas = listQuery.data ?? [];
-  const [selectedId, setSelectedId] = useState<string | "new">("");
-
-  useEffect(() => {
-    if (!selectedId && proformas.length > 0) {
-      setSelectedId(proformas[0].id);
-    } else if (!selectedId && !listQuery.isLoading && proformas.length === 0) {
-      setSelectedId("new");
-    }
-  }, [proformas, selectedId, listQuery.isLoading]);
+  const [userSelectedId, setSelectedId] = useState<string | "new">("");
+  const selectedId = userSelectedId || (proformas.length > 0 ? proformas[0].id : "new");
 
   const detailQuery = useQuery({
     queryKey: ["proforma", selectedId],
@@ -106,7 +107,7 @@ export function EmbeddedProformaTab({
 
   const [number, setNumber] = useState("");
   const [reference, setReference] = useState(customerCode);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [paymentCode, setPaymentCode] = useState("TT");
   const [paymentLabel, setPaymentLabel] = useState("100% ADVANCE");
   const [shipping, setShipping] = useState("CFR");
@@ -116,7 +117,7 @@ export function EmbeddedProformaTab({
   const [bankId, setBankId] = useState("");
   const [freight, setFreight] = useState("0.00");
   const [lines, setLines] = useState<InvoiceDraftLine[]>([
-    { key: newKey(), description: "", hsCode: "", barcode: "", unit: "PCS", quantity: "1", price: "0.00" },
+    { key: newKey(), description: "", hsCode: "", barcode: "", unit: "Piece", quantity: "1", price: "0.00" },
   ]);
   const [busy, setBusy] = useState(false);
 
@@ -133,7 +134,7 @@ export function EmbeddedProformaTab({
       setPortDischarge("");
       setBankId(banks.data?.find((b) => b.is_default)?.id ?? "");
       setFreight("0.00");
-      setLines([{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "PCS", quantity: "1", price: "0.00" }]);
+      setLines([{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "Piece", quantity: "1", price: "0.00" }]);
       return;
     }
     if (!active) return;
@@ -153,13 +154,13 @@ export function EmbeddedProformaTab({
         ? active.lines.map((line) => ({
             key: newKey(),
             description: line.description,
-            hsCode: "",
-            barcode: "",
-            unit: line.unit_label ?? "PCS",
+            hsCode: line.hs_code ?? "",
+            barcode: line.barcode ?? "",
+            unit: line.unit_label ?? "Piece",
             quantity: String(line.quantity),
             price: moneyText(line.unit_price_minor, currency),
           }))
-        : [{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "PCS", quantity: "1", price: "0.00" }],
+        : [{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "Piece", quantity: "1", price: "0.00" }],
     );
   }, [selectedId, active, customerCode, currency, defaultInvoiceNumber, banks.data]);
 
@@ -171,6 +172,7 @@ export function EmbeddedProformaTab({
   } catch {
     freightMinor = 0;
   }
+  const grandTotalMinor = freightOn ? fob + freightMinor : fob;
 
   function buildPayload() {
     return {
@@ -256,10 +258,11 @@ export function EmbeddedProformaTab({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line bg-paper/60 px-3 py-2">
+    <div className="space-y-4">
+      {/* Top Proforma Selector Strip */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper/60 px-3.5 py-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-ink">{tx("proformas", "الفواتير المبدئية للعملية")}:</span>
+          <span className="text-xs font-semibold text-ink-muted">{tx("proformas", "الفواتير المبدئية للعملية")}:</span>
           {proformas.map((item) => (
             <Button
               key={item.id}
@@ -268,7 +271,10 @@ export function EmbeddedProformaTab({
               variant={selectedId === item.id ? "default" : "outline"}
               onClick={() => setSelectedId(item.id)}
             >
-              <Ltr>{item.invoice_number}</Ltr> ({item.status})
+              <Ltr>{item.invoice_number}</Ltr>
+              <span className="ms-1.5 rounded-full bg-black/10 px-1.5 py-0.2 text-[10px]">
+                {item.status === "ISSUED" ? "معتمدة" : "مسودة"}
+              </span>
             </Button>
           ))}
           {canEdit ? (
@@ -278,7 +284,8 @@ export function EmbeddedProformaTab({
               variant={selectedId === "new" ? "default" : "outline"}
               onClick={() => setSelectedId("new")}
             >
-              + {tx("proformaNew", "فاتورة مبدئية جديدة")}
+              <FilePlus2 className="h-3.5 w-3.5" />
+              {tx("proformaNew", "فاتورة مبدئية جديدة")}
             </Button>
           ) : null}
         </div>
@@ -300,10 +307,12 @@ export function EmbeddedProformaTab({
                 ).catch(notifyError)
               }
             >
-              {tx("proformaDownload", "تحميل PDF المبدئية")}
+              <FileDown className="h-3.5 w-3.5" />
+              {tx("proformaDownload", "PDF المبدئية")}
             </Button>
             {canEdit ? (
               <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void convertSelected()}>
+                <ArrowLeftRight className="h-3.5 w-3.5" />
                 {tx("proformaConvert", "اعتماد وتحويل إلى الفاتورة التجارية")}
               </Button>
             ) : null}
@@ -311,168 +320,365 @@ export function EmbeddedProformaTab({
         ) : null}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Field label={tx("invoiceNumber", "رقم الفاتورة المبدئية")}>
-          <Input dir="ltr" value={number} disabled={locked} onChange={(e) => setNumber(e.target.value)} placeholder="PI-2026-01" />
-        </Field>
-        <Field label={tx("printReference", "المرجع المطبوع")}>
-          <Input dir="ltr" value={reference} disabled={locked} onChange={(e) => setReference(e.target.value)} placeholder="EX-116" />
-        </Field>
-        <Field label={tx("invoiceDate", "التاريخ")}>
-          <Input type="date" dir="ltr" value={date} disabled={locked} onChange={(e) => setDate(e.target.value)} />
-        </Field>
-        <Field label={tx("paymentTerm", "نوع الدفع")}>
-          <Select value={paymentCode} disabled={locked} onChange={(e) => setPaymentCode(e.target.value)}>
-            {["TT", "LC", "DP", "DA", "OTHER"].map((code) => (
-              <option key={code} value={code}>{code}</option>
-            ))}
-          </Select>
-        </Field>
-        <PaymentTermField value={paymentLabel} disabled={locked} onChange={setPaymentLabel} />
-        <ShippingMethodField value={shipping} disabled={locked} onChange={setShipping} />
-        <Field label={tx("originOfGoods", "بلد المنشأ")}>
-          <Input dir="ltr" value={origin} disabled={locked} onChange={(e) => setOrigin(e.target.value)} />
-        </Field>
-        <Field label={tx("seaFreight", "النولون البحري")}>
-          <Input dir="ltr" value={freight} disabled={locked} onChange={(e) => setFreight(e.target.value)} />
-        </Field>
-        <Field label={tx("portOfLoading", "ميناء الشحن")}>
-          <Input dir="ltr" value={portLoading} disabled={locked} onChange={(e) => setPortLoading(e.target.value)} />
-        </Field>
-        <Field label={tx("portOfDischarge", "ميناء الوصول")}>
-          <Input dir="ltr" value={portDischarge} disabled={locked} onChange={(e) => setPortDischarge(e.target.value)} />
-        </Field>
-        <Field label={tx("tradeBank", "حساب البنك المصدر")}>
-          <Select value={bankId} disabled={locked} onChange={(e) => setBankId(e.target.value)}>
-            <option value="">{tx("tradeNoBank", "بدون حساب بنكي")}</option>
-            {(banks.data ?? []).map((bank) => (
-              <option key={bank.id} value={bank.id}>{bank.account_name}</option>
-            ))}
-          </Select>
-        </Field>
+      {/* 12-Column Aligned Header Form (4 Equal Columns) */}
+      <div className="rounded-xl border border-line bg-paper/30 p-4">
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
+          <Field label={tx("invoiceNumber", "رقم الفاتورة المبدئية")}>
+            <Input
+              dir="ltr"
+              className="h-10"
+              value={number}
+              disabled={locked}
+              onChange={(e) => setNumber(e.target.value)}
+              placeholder="PI-2026-01"
+            />
+          </Field>
+          <Field label={tx("printReference", "المرجع المطبوع (كود العميل)")}>
+            <Input
+              dir="ltr"
+              className="h-10"
+              value={reference}
+              disabled={locked}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="EX-116"
+            />
+          </Field>
+          <Field label={tx("invoiceDate", "تاريخ الفاتورة")}>
+            <Input
+              type="date"
+              dir="ltr"
+              className="h-10"
+              value={date}
+              disabled={locked}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </Field>
+          <Field label={tx("paymentTerm", "نوع الدفع")}>
+            <Select
+              className="h-10"
+              value={paymentCode}
+              disabled={locked}
+              onChange={(e) => setPaymentCode(e.target.value)}
+            >
+              {["TT", "LC", "DP", "DA", "OTHER"].map((code) => (
+                <option key={code} value={code}>{code}</option>
+              ))}
+            </Select>
+          </Field>
+
+          <PaymentTermField value={paymentLabel} disabled={locked} onChange={setPaymentLabel} />
+          <ShippingMethodField value={shipping} disabled={locked} onChange={setShipping} />
+          <Field label={tx("originOfGoods", "بلد المنشأ")}>
+            <Input
+              dir="ltr"
+              className="h-10"
+              value={origin}
+              disabled={locked}
+              onChange={(e) => setOrigin(e.target.value)}
+            />
+          </Field>
+          <Field label={tx("seaFreight", "تكلفة الشحن البحري")}>
+            <Input
+              dir="ltr"
+              className="h-10"
+              value={freight}
+              disabled={locked}
+              onChange={(e) => setFreight(e.target.value)}
+            />
+          </Field>
+
+          <Field label={tx("portOfLoading", "ميناء الشحن")}>
+            <Input
+              dir="ltr"
+              className="h-10"
+              value={portLoading}
+              disabled={locked}
+              onChange={(e) => setPortLoading(e.target.value)}
+            />
+          </Field>
+          <Field label={tx("portOfDischarge", "ميناء الوصول")}>
+            <Input
+              dir="ltr"
+              className="h-10"
+              value={portDischarge}
+              disabled={locked}
+              onChange={(e) => setPortDischarge(e.target.value)}
+            />
+          </Field>
+          <div className="md:col-span-2">
+            <Field label={tx("tradeBank", "حساب البنك المصدر")}>
+              <Select
+                className="h-10"
+                value={bankId}
+                disabled={locked}
+                onChange={(e) => setBankId(e.target.value)}
+              >
+                <option value="">{tx("tradeNoBank", "بدون حساب بنكي")}</option>
+                {(banks.data ?? []).map((bank) => (
+                  <option key={bank.id} value={bank.id}>{bank.account_name}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          <div className="border-t border-line/60 pt-2.5 md:col-span-4">
+            <PaymentPresetStrip value={paymentLabel} disabled={locked} onChange={setPaymentLabel} />
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2 rounded-control border border-line bg-paper p-2">
-        <Field label={tx("tradeInsertPreset", "إدراج صنف من الكتالوج")}>
-          <Select
-            value=""
-            disabled={locked}
-            onChange={(event) => {
-              const preset = (presets.data ?? []).find((item) => item.id === event.target.value);
-              event.target.value = "";
-              if (!preset) return;
-              setLines((current) => [
-                ...current.filter((l) => l.description.trim()),
-                {
-                  key: newKey(),
-                  description: [preset.description_template, preset.ply, preset.material, preset.size_label].filter(Boolean).join("\n"),
-                  hsCode: preset.hs_code ?? "",
-                  barcode: preset.barcode ?? "",
-                  unit: preset.unit_label ?? "PCS",
-                  quantity: "1",
-                  price: moneyText(preset.default_price_minor, currency),
-                },
-              ]);
-            }}
-          >
-            <option value="">{tx("tradeChoosePreset", "اختر صنفاً من الكتالوج")}</option>
-            {(presets.data ?? []).map((preset) => (
-              <option key={preset.id} value={preset.id}>{preset.name}</option>
-            ))}
-          </Select>
-        </Field>
-        <Button type="button" size="sm" variant="outline" disabled={locked} onClick={onOpenCatalog}>
-          {tx("tradeManageCatalog", "إدارة الكتالوج")}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={locked}
-          onClick={() => setLines((current) => [...current, { key: newKey(), description: "", hsCode: "", barcode: "", unit: "PCS", quantity: "1", price: "0.00" }])}
-        >
-          + {tx("tradeAddLine", "إضافة بند")}
-        </Button>
-      </div>
+      {/* True Spreadsheet Table UI for Proforma Lines */}
+      <div className="overflow-hidden rounded-xl border border-line bg-card shadow-sm">
+        {/* Table Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-paper/60 px-3.5 py-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-ink">{tx("proformaItemsTableTitle", "جدول بنود الفاتورة المبدئية")}</span>
+            <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
+              {lines.length} {tx("itemsCountLabel", "بنود")}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value=""
+              disabled={locked}
+              className="h-9 w-56 text-xs"
+              onChange={(event) => {
+                const preset = (presets.data ?? []).find((item) => item.id === event.target.value);
+                event.target.value = "";
+                if (!preset) return;
+                setLines((current) => [
+                  ...current.filter((l) => l.description.trim()),
+                  {
+                    key: newKey(),
+                    description: [preset.description_template, preset.ply, preset.material, preset.size_label].filter(Boolean).join("\n"),
+                    hsCode: preset.hs_code ?? "",
+                    barcode: preset.barcode ?? "",
+                    unit: preset.unit_label ?? "Piece",
+                    quantity: "1",
+                    price: moneyText(preset.default_price_minor, currency),
+                  },
+                ]);
+              }}
+            >
+              <option value="">{tx("tradeChoosePreset", "+ إدراج صنف سريع من الكتالوج...")}</option>
+              {(presets.data ?? []).map((preset) => (
+                <option key={preset.id} value={preset.id}>{preset.name}</option>
+              ))}
+            </Select>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={locked}
+              onClick={() =>
+                setLines((current) => [
+                  ...current,
+                  { key: newKey(), description: "", hsCode: "", barcode: "", unit: "Piece", quantity: "1", price: "0.00" },
+                ])
+              }
+            >
+              + {tx("tradeAddLine", "إضافة بند")}
+            </Button>
+          </div>
+        </div>
 
-      <div className="space-y-2">
-        {lines.map((line) => (
-          <div key={line.key} className="grid gap-2 rounded-control border border-line p-2 md:grid-cols-6">
-            <div className="md:col-span-2">
-              <Field label={tx("description", "الوصف")}>
+        {/* 12-Col Grid Header */}
+        <div className="hidden border-b border-line bg-slate-900/5 px-3.5 py-2 text-xs font-semibold text-ink-muted dark:bg-slate-900/60 md:grid md:grid-cols-[4fr_2fr_1fr_1.5fr_1.5fr_1.5fr_auto] md:items-center md:gap-2.5">
+          <div>{tx("description", "وصف الصنف (Description)")}</div>
+          <div>{tx("hsAndBarcode", "البند الجمركي / الباركود")}</div>
+          <div className="text-center">{tx("unit", "الوحدة")}</div>
+          <div className="text-center">{tx("quantity", "الكمية (QTY)")}</div>
+          <div className="text-center">{tx("price", "سعر الوحدة")}</div>
+          <div className="text-end">{tx("amount", "إجمالي السطر")}</div>
+          <div className="w-24 text-center">{tx("actions", "إجراءات")}</div>
+        </div>
+
+        {/* Table Rows */}
+        <div className="divide-y divide-line/70">
+          {lines.map((line, idx) => (
+            <div
+              key={line.key}
+              className="grid grid-cols-1 items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-paper/40 md:grid-cols-[4fr_2fr_1fr_1.5fr_1.5fr_1.5fr_auto]"
+            >
+              {/* Col 1 (4fr): Description */}
+              <div className="flex items-start gap-2">
+                <span className="mt-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-paper text-[11px] font-semibold text-ink-muted tabular-nums">
+                  {idx + 1}
+                </span>
                 <Textarea
-                  className="min-h-14"
+                  rows={2}
+                  className="min-h-[60px] resize-y py-1.5 text-xs leading-relaxed"
+                  placeholder={tx("descriptionPlaceholder", "وصف الصنف، عدد الطبقات، الخامة، المقاس...")}
                   value={line.description}
                   disabled={locked}
-                  onChange={(e) => setLines((cur) => cur.map((item) => (item.key === line.key ? { ...item, description: e.target.value } : item)))}
+                  onChange={(e) =>
+                    setLines((cur) => cur.map((item) => (item.key === line.key ? { ...item, description: e.target.value } : item)))
+                  }
                 />
-              </Field>
+              </div>
+
+              {/* Col 2 (2fr): HS Code + Barcode */}
+              <div className="grid gap-1.5">
+                <Input
+                  dir="ltr"
+                  className="h-7 px-2 text-xs font-mono"
+                  placeholder="HS Code"
+                  value={line.hsCode}
+                  disabled={locked}
+                  onChange={(e) =>
+                    setLines((cur) => cur.map((item) => (item.key === line.key ? { ...item, hsCode: e.target.value } : item)))
+                  }
+                />
+                <Input
+                  dir="ltr"
+                  className="h-7 px-2 text-xs font-mono"
+                  placeholder="Barcode"
+                  value={line.barcode}
+                  disabled={locked}
+                  onChange={(e) =>
+                    setLines((cur) => cur.map((item) => (item.key === line.key ? { ...item, barcode: e.target.value } : item)))
+                  }
+                />
+              </div>
+
+              {/* Col 3 (1fr): Unit */}
+              <div>
+                <Input
+                  className="h-9 px-2 text-center text-xs"
+                  value={line.unit}
+                  disabled={locked}
+                  onChange={(e) =>
+                    setLines((cur) => cur.map((item) => (item.key === line.key ? { ...item, unit: e.target.value } : item)))
+                  }
+                />
+              </div>
+
+              {/* Col 4 (1.5fr): Quantity */}
+              <div>
+                <Input
+                  dir="ltr"
+                  inputMode="numeric"
+                  className="h-9 px-2.5 text-center text-xs font-semibold tabular-nums"
+                  value={line.quantity}
+                  disabled={locked}
+                  onChange={(e) =>
+                    setLines((cur) => cur.map((item) => (item.key === line.key ? { ...item, quantity: e.target.value } : item)))
+                  }
+                />
+              </div>
+
+              {/* Col 5 (1.5fr): Unit Price */}
+              <div>
+                <Input
+                  dir="ltr"
+                  inputMode="decimal"
+                  className="h-9 px-2.5 text-center text-xs tabular-nums"
+                  value={line.price}
+                  disabled={locked}
+                  onChange={(e) =>
+                    setLines((cur) => cur.map((item) => (item.key === line.key ? { ...item, price: e.target.value } : item)))
+                  }
+                />
+              </div>
+
+              {/* Col 6 (1.5fr): Line Amount */}
+              <div className="flex h-9 items-center justify-end rounded-control border border-line/60 bg-paper/60 px-2.5 text-xs font-bold tabular-nums text-ink" dir="ltr">
+                {moneyText(lineAmount(line, currency), currency)} {currency}
+              </div>
+
+              {/* Col 7 (0.5fr / auto): Compact Icon Actions */}
+              <div className="flex h-9 w-24 items-center justify-center gap-1">
+                <button
+                  type="button"
+                  disabled={locked}
+                  title={tx("tradeCopyLine", "تكرار السطر")}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line bg-card text-ink-muted transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-40"
+                  onClick={() => setLines((cur) => [...cur, { ...line, key: newKey() }])}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={locked || !line.description.trim()}
+                  title={tx("tradeSaveLineCatalog", "حفظ في الكتالوج")}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line bg-card text-ink-muted transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-40"
+                  onClick={() =>
+                    void saveLineToCatalog(line)
+                      .then(() => {
+                        notifySuccess(tx("tradePresetSaved", "تم حفظ الصنف في الكتالوج"));
+                        return client.invalidateQueries({ queryKey: ["product-presets"] });
+                      })
+                      .catch(notifyError)
+                  }
+                >
+                  <BookmarkPlus className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={locked}
+                  title={tx("tradeRemoveLine", "حذف البند")}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line bg-card text-danger/80 transition-colors hover:border-danger/40 hover:bg-danger/10 hover:text-danger disabled:opacity-40"
+                  onClick={() =>
+                    setLines((cur) =>
+                      cur.length === 1
+                        ? [{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "Piece", quantity: "1", price: "0.00" }]
+                        : cur.filter((item) => item.key !== line.key),
+                    )
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
-            <Field label={tx("unit", "الوحدة")}>
-              <Input value={line.unit} disabled={locked} onChange={(e) => setLines((cur) => cur.map((item) => (item.key === line.key ? { ...item, unit: e.target.value } : item)))} />
-            </Field>
-            <Field label={tx("quantity", "الكمية")}>
-              <Input dir="ltr" inputMode="numeric" value={line.quantity} disabled={locked} onChange={(e) => setLines((cur) => cur.map((item) => (item.key === line.key ? { ...item, quantity: e.target.value } : item)))} />
-            </Field>
-            <Field label={tx("price", "السعر")}>
-              <Input dir="ltr" value={line.price} disabled={locked} onChange={(e) => setLines((cur) => cur.map((item) => (item.key === line.key ? { ...item, price: e.target.value } : item)))} />
-            </Field>
-            <Field label={tx("amount", "الإجمالي")}>
-              <Input dir="ltr" readOnly value={moneyText(lineAmount(line, currency), currency)} />
-            </Field>
-            <div className="flex items-end gap-2 md:col-span-6">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={locked}
-                onClick={() =>
-                  setLines((cur) =>
-                    cur.length === 1
-                      ? [{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "PCS", quantity: "1", price: "0.00" }]
-                      : cur.filter((item) => item.key !== line.key),
-                  )
-                }
-              >
-                {tx("tradeRemoveLine", "حذف البند")}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={locked || !line.description.trim()}
-                onClick={() =>
-                  void saveLineToCatalog(line)
-                    .then(() => {
-                      notifySuccess(tx("tradePresetSaved", "تم حفظ الصنف في الكتالوج"));
-                      return client.invalidateQueries({ queryKey: ["product-presets"] });
-                    })
-                    .catch(notifyError)
-                }
-              >
-                {tx("tradeSaveLineCatalog", "حفظ في الكتالوج")}
-              </Button>
-            </div>
+          ))}
+        </div>
+
+        {/* 3-Cell Financial Totals Footer */}
+        <div className="grid grid-cols-1 divide-y divide-line border-t border-line bg-slate-900/5 dark:bg-slate-900/50 md:grid-cols-3 md:divide-x md:divide-y-0 md:divide-x-reverse">
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-xs font-medium text-ink-muted">{tx("fobTotalLabel", "إجمالي البضاعة (FOB)")}</span>
+            <span className="text-sm font-semibold tabular-nums text-ink" dir="ltr">
+              {moneyText(fob, currency)} {currency}
+            </span>
           </div>
-        ))}
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-xs font-medium text-ink-muted">
+              {tx("seaFreightTotalLabel", "الشحن البحري (Freight)")}
+              {!freightOn ? <span className="ms-1 text-[11px] opacity-75">(غير مضاف على {shipping})</span> : null}
+            </span>
+            <span className={cn("text-sm font-semibold tabular-nums", freightOn ? "text-ink" : "text-ink-muted")} dir="ltr">
+              {freightOn ? `${moneyText(freightMinor, currency)} ${currency}` : `0.00 ${currency}`}
+            </span>
+          </div>
+          <div className="flex items-center justify-between bg-accent/[0.06] px-4 py-3">
+            <span className="text-xs font-bold text-ink">{tx("grandTotalLabel", `الإجمالي النهائي (${shipping})`)}</span>
+            <span className="text-base font-bold tabular-nums text-accent" dir="ltr">
+              {moneyText(grandTotalMinor, currency)} {currency}
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line bg-paper px-3 py-2">
-        <p className="text-sm font-semibold text-ink" dir="ltr">
-          TOTAL FOB {moneyText(fob, currency)}
-          {freightOn ? ` + SEA FREIGHT ${moneyText(freightMinor, currency)} = TOTAL ${shipping} ${moneyText(fob + freightMinor, currency)}` : ""}
-        </p>
+      {/* Proforma Action Strip */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper/60 px-4 py-3">
+        <span className="text-xs text-ink-muted">
+          {issued
+            ? tx("proformaStatusIssuedHint", "هذه الفاتورة المبدئية معتمدة ومصدرة. يمكنك تحميلها أو تحويلها مباشرة للفاتورة التجارية.")
+            : tx("proformaStatusDraftHint", "احفظ مسودة الفاتورة المبدئية أو اعتمدها وحوّل بنودها إلى الفاتورة التجارية للعملية.")}
+        </span>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" disabled={locked || busy || !customerId} onClick={() => void saveProforma()}>
+          <Button type="button" size="sm" variant="outline" disabled={locked || busy || !customerId} onClick={() => void saveProforma()}>
             {tx("tradeSaveDraft", "حفظ الفاتورة المبدئية")}
           </Button>
           {selectedId && selectedId !== "new" && !issued ? (
             <Button type="button" size="sm" variant="outline" disabled={locked || busy} onClick={() => void issueSelected()}>
+              <CheckCircle2 className="h-3.5 w-3.5" />
               {tx("proformaIssue", "إصدار الفاتورة المبدئية")}
             </Button>
           ) : null}
           {selectedId && selectedId !== "new" ? (
-            <Button type="button" size="sm" variant="outline" disabled={!canEdit || busy} onClick={() => void convertSelected()}>
+            <Button type="button" size="sm" disabled={!canEdit || busy} onClick={() => void convertSelected()}>
+              <ArrowLeftRight className="h-3.5 w-3.5" />
               {tx("proformaConvert", "تحويل إلى الفاتورة التجارية")}
             </Button>
           ) : null}
@@ -481,4 +687,3 @@ export function EmbeddedProformaTab({
     </div>
   );
 }
-

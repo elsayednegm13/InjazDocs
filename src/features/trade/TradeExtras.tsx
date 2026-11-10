@@ -1,5 +1,6 @@
-﻿import { useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -43,28 +44,42 @@ export function ShippingMethodField({
   const [open, setOpen] = useState(false);
   const selected = (methods.data ?? []).find((method) => method.code === value || method.label === value);
   return (
-    <div>
-      <Field label={tx("shippingMethod", "Shipping method")}>
-        <div className="flex gap-2">
-          <Select
-            value={selected?.id ?? ""}
-            disabled={disabled}
-            onChange={(event) => {
-              const method = (methods.data ?? []).find((item) => item.id === event.target.value);
-              if (method) onChange(method.label);
-            }}
-          >
-            <option value="">{tx("tradeCustomShipping", "Custom text")}</option>
-            {(methods.data ?? []).map((method) => (
-              <option key={method.id} value={method.id}>{method.label}</option>
-            ))}
-          </Select>
-          <Input dir="ltr" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} />
-        </div>
-      </Field>
-      <Button type="button" size="sm" variant="outline" className="mt-1" disabled={disabled} onClick={() => setOpen(true)}>
-        {tx("tradeManageShipping", "Manage shipping methods")}
-      </Button>
+    <div className="grid gap-1 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium text-ink">{tx("shippingMethod", "طريقة الشحن")}</span>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:underline disabled:opacity-50"
+        >
+          <Settings2 className="h-3 w-3" />
+          <span>{tx("tradeManageShipping", "إدارة طرق الشحن")}</span>
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Select
+          value={selected?.id ?? ""}
+          disabled={disabled}
+          className="h-10"
+          onChange={(event) => {
+            const method = (methods.data ?? []).find((item) => item.id === event.target.value);
+            if (method) onChange(method.label);
+          }}
+        >
+          <option value="">{tx("tradeCustomShipping", "مخصص")}</option>
+          {(methods.data ?? []).map((method) => (
+            <option key={method.id} value={method.id}>{method.label}</option>
+          ))}
+        </Select>
+        <Input
+          dir="ltr"
+          className="h-10"
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
       <ShippingMethodsDialog open={open} onClose={() => setOpen(false)} />
     </div>
   );

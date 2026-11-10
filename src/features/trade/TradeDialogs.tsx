@@ -1,11 +1,13 @@
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTitle } from "@radix-ui/react-dialog";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { cn } from "@/lib/utils";
 import {
   kgText,
   moneyMinor,
@@ -25,20 +27,109 @@ export const PAYMENT_PRESETS = [
   "100% L/C AT SIGHT",
 ];
 
-export function PaymentTermField({ value, onChange, disabled }: { value: string; onChange: (value: string) => void; disabled?: boolean }) {
+export function PaymentTermField({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const { tx } = useCopy();
+  const listId = useId();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <div className="relative grid gap-1 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium text-ink">{tx("paymentTermLabel", "نص شرط الدفع")}</span>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setMenuOpen((prev) => !prev)}
+          className="inline-flex items-center gap-0.5 text-xs font-medium text-accent transition-colors hover:underline disabled:opacity-50"
+        >
+          <span>{tx("paymentPresetsShort", "اقتراحات سريعة")}</span>
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </div>
+      <Input
+        dir="ltr"
+        list={listId}
+        value={value}
+        disabled={disabled}
+        className="h-10"
+        placeholder="100% ADVANCE"
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <datalist id={listId}>
+        {PAYMENT_PRESETS.map((preset) => (
+          <option key={preset} value={preset} />
+        ))}
+      </datalist>
+      {menuOpen && !disabled ? (
+        <div
+          className="absolute top-full z-30 mt-1 flex w-full flex-wrap gap-1.5 rounded-control border border-line bg-card p-2 shadow-card"
+          role="listbox"
+        >
+          {PAYMENT_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              dir="ltr"
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                value === preset
+                  ? "border-accent bg-accent/15 text-accent"
+                  : "border-line bg-paper/60 text-ink hover:border-accent/40 hover:bg-paper",
+              )}
+              onClick={() => {
+                onChange(preset);
+                setMenuOpen(false);
+              }}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function PaymentPresetStrip({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
   const { tx } = useCopy();
   return (
-    <div>
-      <Field label={tx("paymentTermLabel", "Payment term text")}>
-        <Input value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} />
-      </Field>
-      <div className="mt-1 flex flex-wrap gap-1">
-        {PAYMENT_PRESETS.map((preset) => (
-          <button key={preset} type="button" disabled={disabled} className="rounded-full border border-line px-2 py-0.5 text-[11px] text-ink" onClick={() => onChange(preset)}>
-            {preset}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[11px] font-medium text-ink-muted">
+        {tx("paymentPresetsHint", "شروط الدفع السريعة:")}
+      </span>
+      {PAYMENT_PRESETS.map((preset) => (
+        <button
+          key={preset}
+          type="button"
+          dir="ltr"
+          disabled={disabled}
+          className={cn(
+            "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50",
+            value === preset
+              ? "border-accent bg-accent/15 text-accent"
+              : "border-line bg-paper/60 text-ink-muted hover:border-accent/40 hover:text-ink",
+          )}
+          onClick={() => onChange(preset)}
+        >
+          {preset}
+        </button>
+      ))}
     </div>
   );
 }
