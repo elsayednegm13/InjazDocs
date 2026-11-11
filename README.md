@@ -1,5 +1,12 @@
 <div align="center" dir="rtl">
 
+[![🇸🇦 العربية (نشط)](https://img.shields.io/badge/🇸🇦_العربية-نشط-0F766E?style=for-the-badge)](./README.md)
+[![🇬🇧 English](https://img.shields.io/badge/🇬🇧_English-Read_in_English-334155?style=for-the-badge)](./README.en.md)
+
+**[🇸🇦 العربية (نشط)](./README.md)** | **[🇬🇧 English](./README.en.md)**
+
+---
+
 # 🚢 ExportFlow (`InjazDocs`)
 ### منصة إدارة عمليات التصدير، المستندات التجارية الجمركية، والمطابقة البنكية واللوجستية على الحافة السحابية
 
