@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookmarkPlus, Copy, FileDown, FilePlus2, ArrowLeftRight, CheckCircle2, Trash2 } from "lucide-react";
+import { BookmarkPlus, Copy, FileDown, FilePlus2, ArrowLeftRight, CheckCircle2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Ltr } from "@/components/ui/chrome";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
+import { clearLocalDraft, loadLocalDraft, saveLocalDraft } from "@/lib/offline-drafts";
 import { useCopy } from "@/lib/copy";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -90,10 +91,12 @@ export function EmbeddedProformaTab({
   const banks = useQuery({
     queryKey: ["exporter-banks"],
     queryFn: async () => (await api<BankAccount[]>("/api/v1/settings/exporter-bank-accounts")).data,
+    staleTime: 5 * 60_000,
   });
   const presets = useQuery({
     queryKey: ["product-presets"],
     queryFn: async () => (await api<ProductPreset[]>("/api/v1/product-presets")).data,
+    staleTime: 5 * 60_000,
   });
   const methods = useShippingMethods();
 
@@ -126,49 +129,181 @@ export function EmbeddedProformaTab({
     { key: newKey(), description: "", hsCode: "", barcode: "", unit: "Piece", quantity: "1", price: "0.00" },
   ]);
   const [busy, setBusy] = useState(false);
+  const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
+  const [resetTick, setResetTick] = useState(0);
+  const baselineRef = useRef<string>("");
+  const draftScopeKey = `proforma:${caseId || "standalone"}:${selectedId || "new"}`;
 
   useEffect(() => {
+    let baseNumber = "";
+    let baseReference = "";
+    let baseDate = "";
+    let basePaymentCode = "TT";
+    let basePaymentLabel = "100% ADVANCE";
+    let baseShipping = "CFR";
+    let baseOrigin = "EGYPT";
+    let basePortLoading = "";
+    let basePortDischarge = "";
+    let baseBankId = "";
+    let baseFreight = "0.00";
+    let baseLines: InvoiceDraftLine[] = [
+      { key: newKey(), description: "", hsCode: "", barcode: "", unit: "Piece", quantity: "1", price: "0.00" },
+    ];
+
     if (selectedId === "new") {
-      setNumber(defaultInvoiceNumber ? `PI-${defaultInvoiceNumber}` : "");
-      setReference(customerCode || "");
-      setDate(new Date().toISOString().slice(0, 10));
-      setPaymentCode("TT");
-      setPaymentLabel("100% ADVANCE");
-      setShipping("CFR");
-      setOrigin("EGYPT");
-      setPortLoading("");
-      setPortDischarge("");
-      setBankId(banks.data?.find((b) => b.is_default)?.id ?? "");
-      setFreight("0.00");
-      setLines([{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "Piece", quantity: "1", price: "0.00" }]);
-      return;
+      baseNumber = defaultInvoiceNumber ? `PI-${defaultInvoiceNumber}` : "";
+      baseReference = customerCode || "";
+      baseDate = new Date().toISOString().slice(0, 10);
+      baseBankId = banks.data?.find((b) => b.is_default)?.id ?? "";
+    } else {
+      if (!active) return;
+      baseNumber = active.invoice_number ?? "";
+      baseReference = active.print_reference ?? customerCode ?? "";
+      baseDate = active.invoice_date ?? new Date().toISOString().slice(0, 10);
+      basePaymentCode = active.payment_term_code ?? "TT";
+      basePaymentLabel = active.payment_term_label ?? "100% ADVANCE";
+      baseShipping = active.shipping_method_label ?? active.incoterm ?? "CFR";
+      baseOrigin = active.origin_of_goods ?? "EGYPT";
+      basePortLoading = active.port_of_loading ?? "";
+      basePortDischarge = active.port_of_discharge ?? "";
+      baseBankId = active.exporter_bank_account_id ?? "";
+      baseFreight = moneyText(active.sea_freight_minor ?? 0, currency);
+      if (active.lines?.length) {
+        baseLines = active.lines.map((line) => ({
+          key: newKey(),
+          description: line.description,
+          hsCode: line.hs_code ?? "",
+          barcode: line.barcode ?? "",
+          unit: line.unit_label ?? "Piece",
+          quantity: String(line.quantity),
+          price: moneyText(line.unit_price_minor, currency),
+        }));
+      }
     }
-    if (!active) return;
-    setNumber(active.invoice_number ?? "");
-    setReference(active.print_reference ?? customerCode ?? "");
-    setDate(active.invoice_date ?? new Date().toISOString().slice(0, 10));
-    setPaymentCode(active.payment_term_code ?? "TT");
-    setPaymentLabel(active.payment_term_label ?? "100% ADVANCE");
-    setShipping(active.shipping_method_label ?? active.incoterm ?? "CFR");
-    setOrigin(active.origin_of_goods ?? "EGYPT");
-    setPortLoading(active.port_of_loading ?? "");
-    setPortDischarge(active.port_of_discharge ?? "");
-    setBankId(active.exporter_bank_account_id ?? "");
-    setFreight(moneyText(active.sea_freight_minor ?? 0, currency));
-    setLines(
-      active.lines?.length
-        ? active.lines.map((line) => ({
-            key: newKey(),
-            description: line.description,
-            hsCode: line.hs_code ?? "",
-            barcode: line.barcode ?? "",
-            unit: line.unit_label ?? "Piece",
-            quantity: String(line.quantity),
-            price: moneyText(line.unit_price_minor, currency),
-          }))
-        : [{ key: newKey(), description: "", hsCode: "", barcode: "", unit: "Piece", quantity: "1", price: "0.00" }],
-    );
-  }, [selectedId, active, customerCode, currency, defaultInvoiceNumber, banks.data]);
+
+    baselineRef.current = JSON.stringify({
+      number: baseNumber,
+      reference: baseReference,
+      date: baseDate,
+      paymentCode: basePaymentCode,
+      paymentLabel: basePaymentLabel,
+      shipping: baseShipping,
+      origin: baseOrigin,
+      portLoading: basePortLoading,
+      portDischarge: basePortDischarge,
+      bankId: baseBankId,
+      freight: baseFreight,
+      lines: baseLines.map(({ key: _k, ...rest }) => rest),
+    });
+
+    if (!issued) {
+      const savedDraft = loadLocalDraft<{
+        number: string;
+        reference: string;
+        date: string;
+        paymentCode: string;
+        paymentLabel: string;
+        shipping: string;
+        origin: string;
+        portLoading: string;
+        portDischarge: string;
+        bankId: string;
+        freight: string;
+        lines: InvoiceDraftLine[];
+      }>(draftScopeKey);
+      if (savedDraft?.payload) {
+        setNumber(savedDraft.payload.number ?? baseNumber);
+        setReference(savedDraft.payload.reference ?? baseReference);
+        setDate(savedDraft.payload.date ?? baseDate);
+        setPaymentCode(savedDraft.payload.paymentCode ?? basePaymentCode);
+        setPaymentLabel(savedDraft.payload.paymentLabel ?? basePaymentLabel);
+        setShipping(savedDraft.payload.shipping ?? baseShipping);
+        setOrigin(savedDraft.payload.origin ?? baseOrigin);
+        setPortLoading(savedDraft.payload.portLoading ?? basePortLoading);
+        setPortDischarge(savedDraft.payload.portDischarge ?? basePortDischarge);
+        setBankId(savedDraft.payload.bankId ?? baseBankId);
+        setFreight(savedDraft.payload.freight ?? baseFreight);
+        setLines(savedDraft.payload.lines?.length ? savedDraft.payload.lines : baseLines);
+        setRestoredDraftAt(savedDraft.updatedAt);
+        return;
+      }
+    } else {
+      clearLocalDraft(draftScopeKey);
+    }
+
+    setNumber(baseNumber);
+    setReference(baseReference);
+    setDate(baseDate);
+    setPaymentCode(basePaymentCode);
+    setPaymentLabel(basePaymentLabel);
+    setShipping(baseShipping);
+    setOrigin(baseOrigin);
+    setPortLoading(basePortLoading);
+    setPortDischarge(basePortDischarge);
+    setBankId(baseBankId);
+    setFreight(baseFreight);
+    setLines(baseLines);
+    setRestoredDraftAt(null);
+  }, [selectedId, active, customerCode, currency, defaultInvoiceNumber, banks.data, draftScopeKey, issued, resetTick]);
+
+  useEffect(() => {
+    if (issued || !baselineRef.current) return;
+    const currentComparable = JSON.stringify({
+      number,
+      reference,
+      date,
+      paymentCode,
+      paymentLabel,
+      shipping,
+      origin,
+      portLoading,
+      portDischarge,
+      bankId,
+      freight,
+      lines: lines.map(({ key: _k, ...rest }) => rest),
+    });
+    if (currentComparable === baselineRef.current) return;
+    const timer = setTimeout(() => {
+      saveLocalDraft(draftScopeKey, active?.status ?? "DRAFT", {
+        number,
+        reference,
+        date,
+        paymentCode,
+        paymentLabel,
+        shipping,
+        origin,
+        portLoading,
+        portDischarge,
+        bankId,
+        freight,
+        lines,
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [
+    issued,
+    number,
+    reference,
+    date,
+    paymentCode,
+    paymentLabel,
+    shipping,
+    origin,
+    portLoading,
+    portDischarge,
+    bankId,
+    freight,
+    lines,
+    draftScopeKey,
+    active?.status,
+  ]);
+
+  function discardProformaLocalDraft() {
+    clearLocalDraft(draftScopeKey);
+    setRestoredDraftAt(null);
+    setResetTick((t) => t + 1);
+    notifySuccess(tx("localDraftDiscarded", "تم تجاهل المسودة المحلية واستعادة بيانات الخادم"));
+  }
 
   const freightOn = includesFreight(shipping, methods.data ?? []);
   const fob = lines.reduce((sum, line) => sum + lineAmount(line, currency), 0);
@@ -210,16 +345,32 @@ export function EmbeddedProformaTab({
     setBusy(true);
     try {
       if (selectedId && selectedId !== "new") {
-        await api(`/api/v1/proformas/${selectedId}`, { method: "PUT", body: JSON.stringify(buildPayload()) });
-        notifySuccess(tx("tradeDraftSaved", "تم حفظ مسودة الفاتورة المبدئية"));
-        await client.invalidateQueries({ queryKey: ["proforma", selectedId] });
+        const res = await api(`/api/v1/proformas/${selectedId}`, { method: "PUT", body: JSON.stringify(buildPayload()) });
+        if (res.meta?.queuedOffline) {
+          notifySuccess(
+            tx("proformaQueuedOffline", "تم حفظ الفاتورة المبدئية محلياً — ستتم مزامنتها تلقائياً فور عودة الاتصال"),
+          );
+        } else {
+          clearLocalDraft(draftScopeKey);
+          setRestoredDraftAt(null);
+          notifySuccess(tx("tradeDraftSaved", "تم حفظ مسودة الفاتورة المبدئية"));
+          await client.invalidateQueries({ queryKey: ["proforma", selectedId] });
+        }
       } else {
         const created = await api<CaseProformaRow>("/api/v1/proformas", {
           method: "POST",
           body: JSON.stringify(buildPayload()),
         });
-        notifySuccess(tx("tradeDraftSaved", "تم إنشاء الفاتورة المبدئية وحفظها"));
-        setSelectedId(created.data.id);
+        if (created.meta?.queuedOffline) {
+          notifySuccess(
+            tx("proformaQueuedOffline", "تم حفظ الفاتورة المبدئية محلياً — ستتم مزامنتها تلقائياً فور عودة الاتصال"),
+          );
+        } else {
+          clearLocalDraft(draftScopeKey);
+          setRestoredDraftAt(null);
+          notifySuccess(tx("tradeDraftSaved", "تم إنشاء الفاتورة المبدئية وحفظها"));
+          setSelectedId(created.data.id);
+        }
       }
       await client.invalidateQueries({ queryKey: ["proformas", "case", caseId] });
       await client.invalidateQueries({ queryKey: ["trade-sheet"] });
@@ -265,6 +416,27 @@ export function EmbeddedProformaTab({
 
   return (
     <div className="space-y-4">
+      {restoredDraftAt && !issued ? (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-2.5 text-xs"
+          data-testid="proforma-local-draft-banner"
+        >
+          <div className="flex items-center gap-2 font-medium text-ink">
+            <Sparkles className="h-4 w-4 shrink-0 text-accent" />
+            <span>
+              {tx("localDraftRestoredNotice", "تمت استعادة مسودة محلية غير محفوظة للفاتورة المبدئية تلقائياً.")}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => setRestoredDraftAt(null)}>
+              {tx("keepLocalDraft", "الاحتفاظ بالمسودة")}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={discardProformaLocalDraft}>
+              {tx("discardLocalDraft", "تجاهل المسودة المحلية")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {/* Top Proforma Selector Strip */}
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper/60 px-3.5 py-2.5">
         <div className="flex flex-wrap items-center gap-2">

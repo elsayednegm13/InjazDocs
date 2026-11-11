@@ -1,6 +1,7 @@
 import { Hono, type Hono as HonoType } from "hono";
 import { createAuth } from "../../auth";
 import { one } from "../../db/sql";
+import { invalidateActorCache } from "../../services/actor";
 import { writeAudit } from "../../services/audit";
 import { assertSchemaReady } from "../../services/schema";
 import { consumeRateLimit } from "../../services/tracking";
@@ -111,6 +112,7 @@ export function mountBootstrapRoutes(app: HonoType<AppEnv>, authFor: AuthFactory
     // Recovery rotates the credential; every session issued under the old
     // password must be revoked, including sessions on other devices.
     await c.env.DB.prepare("DELETE FROM session WHERE user_id = ?").bind(found.user.id).run();
+    invalidateActorCache(c.env.DB, found.user.id);
     await writeAudit(c.env.DB, {
       actorId: found.user.id,
       entityType: "user",
@@ -145,6 +147,7 @@ export function mountSessionRoutes(api: HonoType<AppEnv>, authFor: AuthFactory) 
     if (!name || name.length > 120) throw errors.validation("Enter a name of 120 characters or fewer.", { name: "Enter your name." });
     const actor = c.get("actor");
     await c.env.DB.prepare("UPDATE user SET name = ?, updated_at = ? WHERE id = ?").bind(name, Date.now(), actor.id).run();
+    invalidateActorCache(c.env.DB, actor.id);
     await writeAudit(c.env.DB, { actorId: actor.id, entityType: "user", entityId: actor.id, action: "profile.name", requestId: c.get("requestId") });
     return jsonSuccess({ ok: true, name }, c.get("requestId"));
   });
@@ -167,6 +170,7 @@ export function mountSessionRoutes(api: HonoType<AppEnv>, authFor: AuthFactory) 
     const taken = await one<{ id: string }>(c.env.DB, "SELECT id FROM user WHERE email = ? AND id != ?", email, actor.id);
     if (taken) throw errors.conflict("This email is already in use.", "EMAIL_IN_USE", { email: "Choose a different email." });
     await c.env.DB.prepare("UPDATE user SET email = ?, email_verified = 1, updated_at = ? WHERE id = ?").bind(email, Date.now(), actor.id).run();
+    invalidateActorCache(c.env.DB, actor.id);
     await writeAudit(c.env.DB, {
       actorId: actor.id,
       entityType: "user",
@@ -192,6 +196,7 @@ export function mountSessionRoutes(api: HonoType<AppEnv>, authFor: AuthFactory) 
       headers: c.req.raw.headers,
     });
     await c.env.DB.prepare("UPDATE user SET must_change_password = 0 WHERE id = ?").bind(c.get("actor").id).run();
+    invalidateActorCache(c.env.DB, c.get("actor").id);
     // A password change invalidates every other session. The session that made
     // the change stays signed in; all older cookies stop working.
     const sessionId = c.get("sessionId");

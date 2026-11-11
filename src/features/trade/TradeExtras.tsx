@@ -28,6 +28,7 @@ export function useShippingMethods() {
   return useQuery({
     queryKey: ["shipping-methods"],
     queryFn: async () => (await api<ShippingMethod[]>("/api/v1/shipping-methods")).data,
+    staleTime: 5 * 60_000,
   });
 }
 

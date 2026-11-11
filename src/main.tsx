@@ -9,7 +9,8 @@ import { AppRouter } from "@/app/router";
 import { Toasts } from "@/components/ui/toaster";
 import { ApiRequestError } from "@/lib/api";
 import { retryReadQuery } from "@/lib/query-retry";
-import { notifyError } from "@/lib/notify";
+import { notifyError, notifySuccess } from "@/lib/notify";
+import { initOfflineOutboxListeners, onOfflineSyncComplete } from "@/lib/offline-outbox";
 import "./app/i18n";
 import "./index.css";
 
@@ -27,7 +28,7 @@ const client = new QueryClient({
     queries: {
       retry: retryReadQuery,
       staleTime: 90_000,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false,
     },
   },
   queryCache: new QueryCache({
@@ -36,6 +37,12 @@ const client = new QueryClient({
       notifyError(error);
     },
   }),
+});
+
+initOfflineOutboxListeners();
+onOfflineSyncComplete((syncedCount) => {
+  void client.invalidateQueries();
+  notifySuccess(`تمت مزامنة ${syncedCount} تعديلات محفوظة محلياً مع الخادم بنجاح`);
 });
 
 window.addEventListener("unhandledrejection", (event) => {

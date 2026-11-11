@@ -35,6 +35,7 @@ const MIGRATIONS = [
   "0028_customer_bank_numbers.sql",
   "0029_packing_weights_and_accessories.sql",
   "0030_granular_rbac_permissions.sql",
+  "0031_performance_and_trade_indexes.sql",
 ];
 
 export type AuditDatabase = {
@@ -45,8 +46,19 @@ export type AuditDatabase = {
   close: () => void;
 };
 
+const migrationSqlCache = new Map<string, string>();
+
+function readMigrationSql(migration: string): string {
+  let sql = migrationSqlCache.get(migration);
+  if (!sql) {
+    sql = readFileSync(path.join(process.cwd(), "drizzle", "migrations", migration), "utf8");
+    migrationSqlCache.set(migration, sql);
+  }
+  return sql;
+}
+
 export function createAuditDatabase(options: { upTo?: string; seed?: boolean } = {}): AuditDatabase {
-  const upTo = options.upTo ?? "0030";
+  const upTo = options.upTo ?? "0031";
   const dir = mkdtempSync(path.join(os.tmpdir(), "et-20261021-"));
   const temporaryRoot = path.resolve(os.tmpdir()).toLowerCase();
   if (!path.resolve(dir).toLowerCase().startsWith(`${temporaryRoot}${path.sep}`)) {
@@ -54,10 +66,10 @@ export function createAuditDatabase(options: { upTo?: string; seed?: boolean } =
   }
   const file = path.join(dir, "audit.sqlite");
   const sqlite = new DatabaseSync(file);
-  sqlite.exec("PRAGMA foreign_keys = ON");
+  sqlite.exec("PRAGMA synchronous = OFF; PRAGMA journal_mode = MEMORY; PRAGMA temp_store = MEMORY; PRAGMA foreign_keys = ON");
   for (const migration of MIGRATIONS) {
     if (Number(migration.slice(0, 4)) > Number(upTo.slice(0, 4))) break;
-    sqlite.exec(readFileSync(path.join(process.cwd(), "drizzle", "migrations", migration), "utf8"));
+    sqlite.exec(readMigrationSql(migration));
   }
   const db = createAuditD1(sqlite);
   if (options.seed !== false) seedBase(sqlite);

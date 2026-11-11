@@ -13,6 +13,7 @@ import { DASHBOARD_BELL_DELAY_MS, DASHBOARD_BRAND_DELAY_MS, dashboardFollowUp } 
 import { revealTheme } from "@/app/theme-transition";
 import { themeRevealOrigin } from "@/app/theme";
 import { useThemeName } from "@/app/use-theme";
+import { ConnectionSyncPill } from "@/components/layout/ConnectionSyncPill";
 
 /** Milliseconds since `active` became true. Stays at 0 while inactive. */
 function useElapsedSince(active: boolean) {
@@ -205,6 +206,7 @@ export function AppShell() {
             </div>
           </form>
           <div className="ms-auto flex shrink-0 items-center gap-2">
+            <ConnectionSyncPill />
             <Link
               to="/notifications"
               aria-label={tx("notifications", "Notifications")}

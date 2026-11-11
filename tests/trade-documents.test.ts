@@ -12,6 +12,17 @@ import {
   reconcileTradeTotals,
 } from "../shared/trade-documents";
 import { hashToken } from "../server/services/tracking";
+import { edgeCache } from "../server/lib/cache";
+import {
+  clearOfflineOutbox,
+  enqueueOfflineMutation,
+  flushOfflineOutbox,
+  getOfflineSyncSnapshot,
+  isQueueableOfflineMutation,
+  setCustomReplayExecutor,
+  type OutboxItem,
+} from "../src/lib/offline-outbox";
+import { clearLocalDraft, loadLocalDraft, saveLocalDraft } from "../src/lib/offline-drafts";
 import { createTestHarness } from "./transition-2026-10-21/harness/app";
 import { createAuditDatabase, type AuditDatabase } from "./transition-2026-10-21/harness/db";
 
@@ -788,5 +799,139 @@ describe("trade document rules", () => {
       body: { isActive: false },
     });
     expect(statusPatch.status).toBe(200);
+  });
+
+  it("caches hot catalog and actor reads in edgeCache and purges immediately on write", async () => {
+    const audit = fresh();
+    const harness = createTestHarness(audit);
+
+    // 1. First read populates catalog:shipping_methods and actor:user-admin in edgeCache
+    const shipRead1 = await harness.request({ path: "/api/v1/shipping-methods" });
+    expect(shipRead1.status).toBe(200);
+    expect(edgeCache.get(audit.db, "catalog:shipping_methods")).toBeDefined();
+    expect(edgeCache.get(audit.db, "actor:user-admin")).toBeDefined();
+
+    // 2. Creating a new shipping method purges catalog:shipping_methods immediately
+    const shipCreate = await harness.request({
+      method: "POST",
+      path: "/api/v1/shipping-methods",
+      body: { code: "FAS", label: "FAS", includesFreight: false },
+    });
+    expect(shipCreate.status).toBe(201);
+    expect(edgeCache.get(audit.db, "catalog:shipping_methods")).toBeUndefined();
+
+    // Next read re-populates with the new FAS method included
+    const shipRead2 = await harness.request({ path: "/api/v1/shipping-methods" });
+    expect((shipRead2.json?.data as Array<{ code: string }>).some((m) => m.code === "FAS")).toBe(true);
+    expect(edgeCache.get(audit.db, "catalog:shipping_methods")).toBeDefined();
+
+    // 3. Product presets cache & instant purge on write
+    const presets1 = await harness.request({ path: "/api/v1/product-presets" });
+    expect(presets1.status).toBe(200);
+    expect(edgeCache.get(audit.db, "catalog:product_presets")).toBeDefined();
+
+    const presetAdd = await harness.request({
+      method: "POST",
+      path: "/api/v1/product-presets",
+      body: {
+        name: "Cached Blanket",
+        descriptionTemplate: "100% Mink Blanket",
+        unitLabel: "PCS",
+        defaultPriceMinor: 1500,
+      },
+    });
+    expect(presetAdd.status).toBe(201);
+    expect(edgeCache.get(audit.db, "catalog:product_presets")).toBeUndefined();
+  });
+
+  it("coalesces repeated offline edits, replays FIFO in order, and isolates 409/422 conflicts", async () => {
+    clearOfflineOutbox();
+    setCustomReplayExecutor(null);
+
+    expect(isQueueableOfflineMutation("PUT", "/api/v1/invoices/inv-1/lines")).toBe(true);
+    expect(isQueueableOfflineMutation("PUT", "/api/v1/invoices/inv-1/packing-lines")).toBe(true);
+    expect(isQueueableOfflineMutation("POST", "/api/v1/invoices/inv-1/issue-trade")).toBe(false);
+    expect(isQueueableOfflineMutation("DELETE", "/api/v1/proformas/pi-1")).toBe(false);
+
+    // 1. Enqueue header update, then two consecutive line updates (should coalesce into 1 line update!)
+    const itemHeader = enqueueOfflineMutation({
+      method: "PUT",
+      path: "/api/v1/invoices/inv-1/trade-header",
+      body: JSON.stringify({ paymentTermLabel: "100% ADVANCE" }),
+      idempotencyKey: "idem-header-1",
+    });
+    enqueueOfflineMutation({
+      method: "PUT",
+      path: "/api/v1/invoices/inv-1/lines",
+      body: JSON.stringify({ lines: [{ description: "Draft v1", quantity: 10 }] }),
+      idempotencyKey: "idem-lines-v1",
+    });
+    const itemLinesV2 = enqueueOfflineMutation({
+      method: "PUT",
+      path: "/api/v1/invoices/inv-1/lines",
+      body: JSON.stringify({ lines: [{ description: "Draft v2", quantity: 25 }] }),
+      idempotencyKey: "idem-lines-v2",
+    });
+    const itemPacking = enqueueOfflineMutation({
+      method: "PUT",
+      path: "/api/v1/invoices/inv-1/packing-lines",
+      body: JSON.stringify({ lines: [{ description: "Pack v1", packagesCount: 5 }] }),
+      idempotencyKey: "idem-pack-1",
+    });
+
+    const snapBefore = getOfflineSyncSnapshot();
+    // 3 items in queue (header, coalesced lines, packing), not 4
+    expect(snapBefore.queuedCount).toBe(3);
+    expect(snapBefore.items.map((i) => i.id)).toEqual([itemHeader.id, itemLinesV2.id, itemPacking.id]);
+    expect(snapBefore.items[1]?.body).toContain("Draft v2");
+
+    // 2. Replay FIFO: simulate 409 conflict on the middle item and verify the 3rd item still executes!
+    const replayedOrder: string[] = [];
+    setCustomReplayExecutor(async (item: OutboxItem) => {
+      replayedOrder.push(`${item.method} ${item.path} (${item.idempotencyKey})`);
+      if (item.path.endsWith("/lines")) {
+        return { ok: false, status: 409, errorMessage: "Version conflict on invoice lines" };
+      }
+      return { ok: true, status: 200 };
+    });
+
+    const result = await flushOfflineOutbox();
+    expect(replayedOrder).toEqual([
+      "PUT /api/v1/invoices/inv-1/trade-header (idem-header-1)",
+      "PUT /api/v1/invoices/inv-1/lines (idem-lines-v2)",
+      "PUT /api/v1/invoices/inv-1/packing-lines (idem-pack-1)",
+    ]);
+    expect(result.syncedCount).toBe(2);
+    expect(result.conflictCount).toBe(1);
+    expect(result.remainingQueued).toBe(0);
+
+    const snapAfter = getOfflineSyncSnapshot();
+    expect(snapAfter.items).toHaveLength(1);
+    expect(snapAfter.items[0]?.status).toBe("conflict");
+    expect(snapAfter.items[0]?.conflictStatus).toBe(409);
+
+    clearOfflineOutbox();
+    setCustomReplayExecutor(null);
+  });
+
+  it("saves, loads, and clears local auto-drafts in browser/memory storage", () => {
+    const scope = "trade:inv-test-99";
+    clearLocalDraft(scope);
+    expect(loadLocalDraft(scope)).toBeNull();
+
+    saveLocalDraft(scope, "DRAFT", {
+      paymentLabel: "50% ADVANCE",
+      lines: [{ description: "Local Blanket", quantity: "40" }],
+    });
+
+    const loaded = loadLocalDraft<{ paymentLabel: string; lines: Array<{ description: string; quantity: string }> }>(
+      scope,
+    );
+    expect(loaded).not.toBeNull();
+    expect(loaded?.payload.paymentLabel).toBe("50% ADVANCE");
+    expect(loaded?.payload.lines[0]?.description).toBe("Local Blanket");
+
+    clearLocalDraft(scope);
+    expect(loadLocalDraft(scope)).toBeNull();
   });
 });

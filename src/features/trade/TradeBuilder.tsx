@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookmarkPlus,
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
+import { clearLocalDraft, loadLocalDraft, saveLocalDraft } from "@/lib/offline-drafts";
 import { useCopy } from "@/lib/copy";
 import { usePermissions } from "@/lib/permissions";
 import { tradePdfFilename } from "@shared/trade-sheet";
@@ -186,14 +187,17 @@ export function TradeBuilder({
   const banks = useQuery({
     queryKey: ["exporter-banks"],
     queryFn: async () => (await api<BankAccount[]>("/api/v1/settings/exporter-bank-accounts")).data,
+    staleTime: 5 * 60_000,
   });
   const presets = useQuery({
     queryKey: ["product-presets"],
     queryFn: async () => (await api<ProductPreset[]>("/api/v1/product-presets")).data,
+    staleTime: 5 * 60_000,
   });
   const identity = useQuery({
     queryKey: ["exporter-identity"],
     queryFn: async () => (await api<Record<string, string | null> | null>("/api/v1/settings/exporter-identity")).data,
+    staleTime: 5 * 60_000,
   });
 
   const [section, setSection] = useState<TradeWorkspaceTab>("invoice");
@@ -222,6 +226,9 @@ export function TradeBuilder({
   const [newContainerNumber, setNewContainerNumber] = useState("");
   const [containerNumberEdits, setContainerNumberEdits] = useState<Record<string, string>>({});
   const [expandedWeights, setExpandedWeights] = useState<Record<string, boolean>>({});
+  const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
+  const baselineSnapshotRef = useRef<string>("");
+  const draftScopeKey = `trade:${invoiceId}`;
 
   const issued = sheet.data?.header.trade_status === "ISSUED";
   const canEditInvoice = !issued && canEdit && perms.has("invoices.edit");
@@ -249,10 +256,30 @@ export function TradeBuilder({
     const data = sheet.data;
     if (!data || ready) return;
     const defaultContainerId = (data.containers ?? containers).find((c) => c.status !== "CANCELLED")?.id ?? "";
-    setLines(data.lines.length ? data.lines.map(toInvoiceLine) : [blankInvoiceLine()]);
-    setPacking(data.packing.length ? data.packing.map(toPackingLine) : [blankPackingLine(defaultContainerId)]);
-    setPaymentLabel(data.header.payment_term_label ?? "");
-    setReference(data.header.print_reference || customerCode);
+    const serverLines = data.lines.length ? data.lines.map(toInvoiceLine) : [blankInvoiceLine()];
+    const serverPacking = data.packing.length ? data.packing.map(toPackingLine) : [blankPackingLine(defaultContainerId)];
+    const serverPaymentLabel = data.header.payment_term_label ?? "";
+    const serverReference = data.header.print_reference || customerCode;
+    const serverShippingLabel = data.header.shipping_method_label ?? "CFR";
+    const serverOrigin = data.header.origin_of_goods ?? "EGYPT";
+    const serverPortLoading = data.header.port_of_loading ?? "";
+    const serverPortDischarge = data.header.port_of_discharge ?? "";
+    const serverBankId = data.header.exporter_bank_account_id ?? "";
+    const serverFreight = moneyText(Number(data.header.invoiced_freight_minor ?? 0), currency);
+
+    baselineSnapshotRef.current = JSON.stringify({
+      lines: serverLines.map(({ key: _k, ...rest }) => rest),
+      packing: serverPacking.map(({ key: _k, ...rest }) => rest),
+      paymentLabel: serverPaymentLabel,
+      reference: serverReference,
+      shippingLabel: serverShippingLabel,
+      origin: serverOrigin,
+      portLoading: serverPortLoading,
+      portDischarge: serverPortDischarge,
+      bankId: serverBankId,
+      freight: serverFreight,
+    });
+
     setStamp(stampFromRow(data.header));
     setPackingStamp(
       stampFromRow({
@@ -264,17 +291,109 @@ export function TradeBuilder({
       }),
     );
     setPrintFields(parsePrintFields(data.header.print_fields_json) ?? defaultPrintFields());
-    setShippingLabel(data.header.shipping_method_label ?? "CFR");
-    setOrigin(data.header.origin_of_goods ?? "EGYPT");
-    setPortLoading(data.header.port_of_loading ?? "");
-    setPortDischarge(data.header.port_of_discharge ?? "");
-    setBankId(data.header.exporter_bank_account_id ?? "");
-    setFreight(moneyText(Number(data.header.invoiced_freight_minor ?? 0), currency));
     setPackages(Number(data.header.packages_count ?? 0));
     setGross(Number(data.header.gross_weight_grams ?? 0));
     setNet(Number(data.header.net_weight_grams ?? 0));
+
+    if (data.header.trade_status !== "ISSUED") {
+      const localDraft = loadLocalDraft<{
+        lines: InvoiceDraftLine[];
+        packing: PackingDraftLine[];
+        paymentLabel: string;
+        reference: string;
+        shippingLabel: string;
+        origin: string;
+        portLoading: string;
+        portDischarge: string;
+        bankId: string;
+        freight: string;
+      }>(draftScopeKey);
+      if (localDraft?.payload) {
+        setLines(localDraft.payload.lines?.length ? localDraft.payload.lines : serverLines);
+        setPacking(localDraft.payload.packing?.length ? localDraft.payload.packing : serverPacking);
+        setPaymentLabel(localDraft.payload.paymentLabel ?? serverPaymentLabel);
+        setReference(localDraft.payload.reference ?? serverReference);
+        setShippingLabel(localDraft.payload.shippingLabel ?? serverShippingLabel);
+        setOrigin(localDraft.payload.origin ?? serverOrigin);
+        setPortLoading(localDraft.payload.portLoading ?? serverPortLoading);
+        setPortDischarge(localDraft.payload.portDischarge ?? serverPortDischarge);
+        setBankId(localDraft.payload.bankId ?? serverBankId);
+        setFreight(localDraft.payload.freight ?? serverFreight);
+        setRestoredDraftAt(localDraft.updatedAt);
+        setReady(true);
+        return;
+      }
+    } else {
+      clearLocalDraft(draftScopeKey);
+    }
+
+    setLines(serverLines);
+    setPacking(serverPacking);
+    setPaymentLabel(serverPaymentLabel);
+    setReference(serverReference);
+    setShippingLabel(serverShippingLabel);
+    setOrigin(serverOrigin);
+    setPortLoading(serverPortLoading);
+    setPortDischarge(serverPortDischarge);
+    setBankId(serverBankId);
+    setFreight(serverFreight);
+    setRestoredDraftAt(null);
     setReady(true);
-  }, [sheet.data, ready, currency, customerCode, containers]);
+  }, [sheet.data, ready, currency, customerCode, containers, draftScopeKey]);
+
+  useEffect(() => {
+    if (!ready || issued) return;
+    const currentComparable = JSON.stringify({
+      lines: lines.map(({ key: _k, ...rest }) => rest),
+      packing: packing.map(({ key: _k, ...rest }) => rest),
+      paymentLabel,
+      reference,
+      shippingLabel,
+      origin,
+      portLoading,
+      portDischarge,
+      bankId,
+      freight,
+    });
+    if (currentComparable === baselineSnapshotRef.current) return;
+    const timer = setTimeout(() => {
+      saveLocalDraft(draftScopeKey, sheet.data?.header.trade_status ?? "DRAFT", {
+        lines,
+        packing,
+        paymentLabel,
+        reference,
+        shippingLabel,
+        origin,
+        portLoading,
+        portDischarge,
+        bankId,
+        freight,
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [
+    ready,
+    issued,
+    lines,
+    packing,
+    paymentLabel,
+    reference,
+    shippingLabel,
+    origin,
+    portLoading,
+    portDischarge,
+    bankId,
+    freight,
+    draftScopeKey,
+    sheet.data?.header.trade_status,
+  ]);
+
+  function discardLocalDraft() {
+    clearLocalDraft(draftScopeKey);
+    setRestoredDraftAt(null);
+    setReady(false);
+    notifySuccess(tx("localDraftDiscarded", "تم تجاهل المسودة المحلية واستعادة بيانات الخادم"));
+  }
 
   const summary = useMemo(
     () => liveReconciliation({ lines, packing, packages, grossGrams: gross, netGrams: net, currency }),
@@ -354,13 +473,36 @@ export function TradeBuilder({
         method: "PUT",
         body: JSON.stringify({ lines: packing.map(serializePacking) }),
       });
-      notifySuccess(
-        saved.data.reconciliation.matched
-          ? tx("tradeDraftSaved", "تم حفظ المسودة والمجاميع متطابقة")
-          : tx("tradeDraftDiffers", "تم حفظ المسودة. لا تزال هناك فروق في المطابقة."),
-      );
-      await client.invalidateQueries({ queryKey: ["trade-sheet", invoiceId] });
-      await client.invalidateQueries({ queryKey: ["case"] });
+      if (saved.meta?.queuedOffline) {
+        notifySuccess(
+          tx(
+            "tradeQueuedOffline",
+            "تم حفظ المسودة محلياً في طابور المزامنة — ستتم مزامنتها تلقائياً فور عودة الاتصال",
+          ),
+        );
+      } else {
+        clearLocalDraft(draftScopeKey);
+        setRestoredDraftAt(null);
+        baselineSnapshotRef.current = JSON.stringify({
+          lines: lines.map(({ key: _k, ...rest }) => rest),
+          packing: packing.map(({ key: _k, ...rest }) => rest),
+          paymentLabel,
+          reference,
+          shippingLabel,
+          origin,
+          portLoading,
+          portDischarge,
+          bankId,
+          freight,
+        });
+        notifySuccess(
+          saved.data.reconciliation.matched
+            ? tx("tradeDraftSaved", "تم حفظ المسودة والمجاميع متطابقة")
+            : tx("tradeDraftDiffers", "تم حفظ المسودة. لا تزال هناك فروق في المطابقة."),
+        );
+        await client.invalidateQueries({ queryKey: ["trade-sheet", invoiceId] });
+        await client.invalidateQueries({ queryKey: ["case"] });
+      }
     } catch (error) {
       notifyError(error);
     } finally {
@@ -395,6 +537,8 @@ export function TradeBuilder({
     try {
       await saveQuiet();
       await api(`/api/v1/invoices/${invoiceId}/issue-trade`, { method: "POST", body: "{}" });
+      clearLocalDraft(draftScopeKey);
+      setRestoredDraftAt(null);
       notifySuccess(tx("tradeIssued", "تم إصدار الفاتورة التجارية وبيان العبوة وإرفاقهما بالمستندات"));
       setReady(false);
       await client.invalidateQueries({ queryKey: ["trade-sheet", invoiceId] });
@@ -736,6 +880,40 @@ export function TradeBuilder({
 
   return (
     <div className="space-y-4" data-trade-workspace="unified">
+      {restoredDraftAt && !issued ? (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-2.5 text-xs"
+          data-testid="trade-local-draft-banner"
+        >
+          <div className="flex items-center gap-2 font-medium text-ink">
+            <Sparkles className="h-4 w-4 shrink-0 text-accent" />
+            <span>
+              {tx(
+                "localDraftRestoredNotice",
+                "تمت استعادة مسودة محلية غير محفوظة تلقائياً لحماية تعديلاتك وأوزان الباسكول.",
+              )}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setRestoredDraftAt(null)}
+            >
+              {tx("keepLocalDraft", "الاحتفاظ بالمسودة")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={discardLocalDraft}
+            >
+              {tx("discardLocalDraft", "تجاهل المسودة المحلية")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {/* 1. Executive KPI Strip (5 Equal-Height Cards) */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {/* KPI 1: Invoice Number & Customer */}

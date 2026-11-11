@@ -1,4 +1,15 @@
-export type ApiSuccess<T> = { data: T; meta: { requestId: string; page?: number; pageSize?: number; total?: number } };
+import {
+  buildOfflineOptimisticData,
+  enqueueOfflineMutation,
+  isQueueableOfflineMutation,
+  setOfflineOutboxScope,
+  setOfflineStatus,
+} from "./offline-outbox";
+
+export type ApiSuccess<T> = {
+  data: T;
+  meta: { requestId: string; page?: number; pageSize?: number; total?: number; queuedOffline?: boolean };
+};
 export type ApiError = { error: { code: string; message: string; fieldErrors?: Record<string, string>; requestId: string } };
 
 export type ApiInit = RequestInit & {
@@ -7,6 +18,10 @@ export type ApiInit = RequestInit & {
    * the same key is retried, so a timeout never creates a second record.
    */
   idempotencyKey?: string;
+  /**
+   * Set to true to disable offline outbox queueing for this specific call.
+   */
+  skipOfflineOutbox?: boolean;
 };
 
 export class ApiRequestError extends Error {
@@ -53,6 +68,11 @@ function sleep(ms: number) {
 const inFlightMutations = new Map<string, Promise<ApiSuccess<unknown>>>();
 
 /**
+ * Concurrent identical GET requests share a single network round-trip while in flight.
+ */
+const inFlightReads = new Map<string, Promise<ApiSuccess<unknown>>>();
+
+/**
  * The in-flight map is scoped to the signed-in user. When the session changes
  * the map is dropped, so a new user can never receive a previous user's
  * in-flight response.
@@ -60,31 +80,77 @@ const inFlightMutations = new Map<string, Promise<ApiSuccess<unknown>>>();
 let sessionScope = "anonymous";
 
 export function setApiSessionScope(scope: string) {
+  setOfflineOutboxScope(scope);
   if (sessionScope === scope) return;
   sessionScope = scope;
   inFlightMutations.clear();
+  inFlightReads.clear();
 }
 
 export async function api<T>(path: string, init: ApiInit = {}): Promise<ApiSuccess<T>> {
   const method = (init.method ?? "GET").toUpperCase();
-  if (!isMutation(method) || typeof init.body !== "string") {
+  if (!isMutation(method)) {
+    const readKey = `${sessionScope}\n${method} ${path}`;
+    const existingRead = inFlightReads.get(readKey);
+    if (existingRead) return existingRead as Promise<ApiSuccess<T>>;
+    const pendingRead = request<T>(path, init).finally(() => {
+      inFlightReads.delete(readKey);
+    });
+    inFlightReads.set(readKey, pendingRead as Promise<ApiSuccess<unknown>>);
+    return pendingRead;
+  }
+
+  if (typeof init.body !== "string") {
     return request<T>(path, init);
   }
 
-  const fingerprint = `${sessionScope}\n${method} ${path}\n${init.idempotencyKey ?? ""}\n${init.body}`;
+  const effectiveKey = init.idempotencyKey ?? newKey();
+  const normalizedInit: ApiInit = { ...init, idempotencyKey: effectiveKey };
+  const fingerprint = `${sessionScope}\n${method} ${path}\n${effectiveKey}\n${init.body}`;
   const existing = inFlightMutations.get(fingerprint);
   if (existing) return existing as Promise<ApiSuccess<T>>;
 
-  const pending = request<T>(path, init).finally(() => {
+  const pending = requestWithOfflineFallback<T>(path, normalizedInit, method, effectiveKey).finally(() => {
     inFlightMutations.delete(fingerprint);
   });
   inFlightMutations.set(fingerprint, pending as Promise<ApiSuccess<unknown>>);
   return pending;
 }
 
+async function requestWithOfflineFallback<T>(
+  path: string,
+  init: ApiInit,
+  method: string,
+  idempotencyKey: string,
+): Promise<ApiSuccess<T>> {
+  try {
+    return await request<T>(path, init);
+  } catch (error) {
+    if (
+      error instanceof ApiRequestError &&
+      error.code === "NETWORK_UNAVAILABLE" &&
+      !init.skipOfflineOutbox &&
+      typeof init.body === "string" &&
+      isQueueableOfflineMutation(method, path)
+    ) {
+      enqueueOfflineMutation({
+        method,
+        path,
+        body: init.body,
+        idempotencyKey,
+      });
+      return {
+        data: buildOfflineOptimisticData(method, path, init.body) as T,
+        meta: { requestId: "offline-queued", queuedOffline: true },
+      };
+    }
+    throw error;
+  }
+}
+
 async function request<T>(path: string, init: ApiInit, attempt = 0): Promise<ApiSuccess<T>> {
   const headers = new Headers(init.headers);
-  const { idempotencyKey, ...fetchInit } = init;
+  const { idempotencyKey, skipOfflineOutbox: _skip, ...fetchInit } = init;
   if (fetchInit.body && !(fetchInit.body instanceof FormData) && !(fetchInit.body instanceof ArrayBuffer)) {
     headers.set("content-type", "application/json");
   }
@@ -94,10 +160,12 @@ async function request<T>(path: string, init: ApiInit, attempt = 0): Promise<Api
   try {
     res = await fetch(path, { ...fetchInit, headers, credentials: "include" });
   } catch {
+    setOfflineStatus(false);
     throw new ApiRequestError(0, {
       error: { code: "NETWORK_UNAVAILABLE", message: "Could not reach the server.", requestId: "" },
     });
   }
+  setOfflineStatus(true);
   if (res.status === 204) return { data: undefined as T, meta: { requestId: res.headers.get("x-request-id") ?? "" } };
   const text = await res.text();
   if (looksLikeHtml(text)) {
@@ -138,6 +206,7 @@ export async function uploadFile(file: File, parentType: string, parentId: strin
   }>("/api/v1/files/uploads", {
     method: "POST",
     idempotencyKey: sessionKey,
+    skipOfflineOutbox: true,
     body: JSON.stringify({
       parentType,
       parentId,
@@ -153,6 +222,7 @@ export async function uploadFile(file: File, parentType: string, parentId: strin
     const blob = file.slice(i * partSize, Math.min(file.size, (i + 1) * partSize));
     const signed = await api<{ url: string; method: string }>(`/api/v1/files/uploads/${session.data.id}/sign`, {
       method: "POST",
+      skipOfflineOutbox: true,
       body: JSON.stringify({ partNumber: i + 1 }),
     });
     // A presigned R2 part URL carries its own authorization, so the app session
@@ -175,7 +245,7 @@ export async function uploadFile(file: File, parentType: string, parentId: strin
   }
   const done = await api<{ objectKey: string; byteSize: number; mime: string; filename: string }>(
     `/api/v1/files/uploads/${session.data.id}/complete`,
-    { method: "POST", idempotencyKey: completeKey, body: JSON.stringify({ parts }) },
+    { method: "POST", idempotencyKey: completeKey, skipOfflineOutbox: true, body: JSON.stringify({ parts }) },
   );
   return done.data;
 }

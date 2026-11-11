@@ -15,6 +15,7 @@ import { normalizePrintFields } from "../../shared/trade-print-fields";
 import { TRADE_PAGE_H, TRADE_PAGE_W } from "../../shared/trade-sheet";
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
+import { edgeCache } from "../lib/cache";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requireAny, requirePermission } from "./actor";
 import { assertSchemaReady } from "./schema";
@@ -189,27 +190,31 @@ function assertDraft(status: string) {
 export async function customerPrintProfile(db: D1Database, actor: Actor, customerId: string) {
   await ready(db);
   requirePermission(actor, "invoices.view");
-  const customer = await one<{ legal_name: string; tax_id: string | null; customer_code: string | null; country_code: string | null }>(
-    db,
-    "SELECT legal_name, tax_id, customer_code, country_code FROM customers WHERE id = ?",
-    customerId,
-  );
+  const [customerRes, addressRes, contactRes, bankRes] = await db.batch([
+    db.prepare("SELECT legal_name, tax_id, customer_code, country_code FROM customers WHERE id = ?").bind(customerId),
+    db
+      .prepare("SELECT line1, line2, city, region, postal_code, country_code FROM customer_addresses WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1")
+      .bind(customerId),
+    db
+      .prepare("SELECT phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1")
+      .bind(customerId),
+    db
+      .prepare(
+        "SELECT bank_name, account_name, account_number, account_number_last4, iban, iban_last4, swift FROM customer_bank_accounts WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1",
+      )
+      .bind(customerId),
+  ]);
+  const customer = customerRes.results?.[0] as
+    | { legal_name: string; tax_id: string | null; customer_code: string | null; country_code: string | null }
+    | undefined;
   if (!customer) throw errors.notFound("Customer not found");
-  const address = await one<{ line1: string; line2: string | null; city: string | null; region: string | null; postal_code: string | null; country_code: string | null }>(
-    db,
-    "SELECT line1, line2, city, region, postal_code, country_code FROM customer_addresses WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1",
-    customerId,
-  );
-  const contact = await one<{ phone: string | null; email: string | null }>(
-    db,
-    "SELECT phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1",
-    customerId,
-  );
-  const bank = await one<{ bank_name: string; account_name: string | null; account_number: string | null; account_number_last4: string | null; iban: string | null; iban_last4: string | null; swift: string | null }>(
-    db,
-    "SELECT bank_name, account_name, account_number, account_number_last4, iban, iban_last4, swift FROM customer_bank_accounts WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1",
-    customerId,
-  );
+  const address = addressRes.results?.[0] as
+    | { line1: string; line2: string | null; city: string | null; region: string | null; postal_code: string | null; country_code: string | null }
+    | undefined;
+  const contact = contactRes.results?.[0] as { phone: string | null; email: string | null } | undefined;
+  const bank = bankRes.results?.[0] as
+    | { bank_name: string; account_name: string | null; account_number: string | null; account_number_last4: string | null; iban: string | null; iban_last4: string | null; swift: string | null }
+    | undefined;
   return {
     name: customer.legal_name,
     address: [address?.line1, address?.line2, address?.city, address?.region, address?.postal_code, address?.country_code].filter(Boolean).join(", "),
@@ -229,7 +234,12 @@ export async function customerPrintProfile(db: D1Database, actor: Actor, custome
 export async function getExporterIdentity(db: D1Database, actor: Actor) {
   await ready(db);
   requireAny(actor, ["settings.manage", "invoices.view"]);
-  return (await one(db, "SELECT * FROM exporter_identity WHERE id = 'default'")) ?? null;
+  return edgeCache.getOrLoad(
+    db,
+    "exporter:identity",
+    async () => (await one(db, "SELECT * FROM exporter_identity WHERE id = 'default'")) ?? null,
+    5 * 60_000,
+  );
 }
 
 export async function saveExporterIdentity(db: D1Database, actor: Actor, input: Record<string, unknown>) {
@@ -257,13 +267,19 @@ export async function saveExporterIdentity(db: D1Database, actor: Actor, input: 
     )
     .bind(row.nameEn, row.nameAr, row.address, row.taxCard, row.taxFile, row.commercialRegistry, row.phone, row.email, now)
     .run();
+  edgeCache.del(db, "exporter:identity");
   return getExporterIdentity(db, actor);
 }
 
 export async function listExporterBanks(db: D1Database, actor: Actor) {
   await ready(db);
   requireAny(actor, ["settings.manage", "exporter.bank_accounts.manage", "invoices.view", "proformas.view"]);
-  return all(db, "SELECT * FROM exporter_bank_accounts ORDER BY is_default DESC, created_at");
+  return edgeCache.getOrLoad(
+    db,
+    "exporter:banks",
+    () => all(db, "SELECT * FROM exporter_bank_accounts ORDER BY is_default DESC, created_at"),
+    5 * 60_000,
+  );
 }
 
 export async function saveExporterBank(db: D1Database, actor: Actor, input: Record<string, unknown>, bankId?: string) {
@@ -302,6 +318,7 @@ export async function saveExporterBank(db: D1Database, actor: Actor, input: Reco
   if (isDefault) {
     await db.prepare("UPDATE exporter_bank_accounts SET is_default = 0, updated_at = ? WHERE id != ? AND is_default != 0").bind(now, id).run();
   }
+  edgeCache.del(db, "exporter:banks");
   return one(db, "SELECT * FROM exporter_bank_accounts WHERE id = ?", id);
 }
 
@@ -328,6 +345,7 @@ export async function uploadExporterMark(db: D1Database, bucket: R2Bucket, actor
     )
     .bind(key, now)
     .run();
+  edgeCache.del(db, "exporter:marks");
   return { key };
 }
 
@@ -341,7 +359,12 @@ function decodeBase64(value: string) {
 export async function getExporterMarks(db: D1Database, actor: Actor) {
   await ready(db);
   requirePermission(actor, "settings.manage");
-  return (await one(db, "SELECT * FROM exporter_marks WHERE id = 'default'")) ?? null;
+  return edgeCache.getOrLoad(
+    db,
+    "exporter:marks",
+    async () => (await one(db, "SELECT * FROM exporter_marks WHERE id = 'default'")) ?? null,
+    5 * 60_000,
+  );
 }
 
 export async function saveExporterMarks(db: D1Database, actor: Actor, input: Record<string, unknown>) {
@@ -358,13 +381,19 @@ export async function saveExporterMarks(db: D1Database, actor: Actor, input: Rec
     )
     .bind(text(input.logoR2Key, "logoR2Key", 300), text(input.stampR2Key, "stampR2Key", 300), text(input.stampLabelEn, "stampLabelEn", 200), text(input.stampLabelAr, "stampLabelAr", 200), now)
     .run();
+  edgeCache.del(db, "exporter:marks");
   return getExporterMarks(db, actor);
 }
 
 export async function listProductPresets(db: D1Database, actor: Actor) {
   await ready(db);
   requireAny(actor, ["invoices.view", "proformas.view", "catalog.products.manage"]);
-  return all(db, "SELECT * FROM product_presets WHERE active = 1 ORDER BY name");
+  return edgeCache.getOrLoad(
+    db,
+    "catalog:product_presets",
+    () => all(db, "SELECT * FROM product_presets WHERE active = 1 ORDER BY name"),
+    5 * 60_000,
+  );
 }
 
 export async function saveProductPreset(db: D1Database, actor: Actor, input: Record<string, unknown>, presetId?: string) {
@@ -452,6 +481,7 @@ export async function saveProductPreset(db: D1Database, actor: Actor, input: Rec
       )
       .run();
   }
+  edgeCache.del(db, "catalog:product_presets");
   return one(db, "SELECT * FROM product_presets WHERE id = ?", id);
 }
 
@@ -461,6 +491,7 @@ export async function deleteProductPreset(db: D1Database, actor: Actor, presetId
   const existing = await one(db, "SELECT id FROM product_presets WHERE id = ?", presetId);
   if (!existing) throw errors.notFound("Preset not found");
   await db.prepare("DELETE FROM product_presets WHERE id = ?").bind(presetId).run();
+  edgeCache.del(db, "catalog:product_presets");
   return { deleted: true };
 }
 
@@ -487,6 +518,7 @@ export async function saveShippingMethod(db: D1Database, actor: Actor, input: Re
       .prepare("UPDATE shipping_methods SET code = ?, label = ?, includes_freight = ?, sort_order = ?, updated_at = ? WHERE id = ?")
       .bind(code, label, includes, sort, now, methodId)
       .run();
+    edgeCache.del(db, "catalog:shipping_methods");
     return one(db, "SELECT * FROM shipping_methods WHERE id = ?", methodId);
   }
   const id = newId();
@@ -497,6 +529,7 @@ export async function saveShippingMethod(db: D1Database, actor: Actor, input: Re
     )
     .bind(id, code, label, includes, sort, now, now)
     .run();
+  edgeCache.del(db, "catalog:shipping_methods");
   return one(db, "SELECT * FROM shipping_methods WHERE id = ?", id);
 }
 
@@ -506,6 +539,7 @@ export async function deleteShippingMethod(db: D1Database, actor: Actor, methodI
   const existing = await one(db, "SELECT id FROM shipping_methods WHERE id = ?", methodId);
   if (!existing) throw errors.notFound("Shipping method not found");
   await db.prepare("DELETE FROM shipping_methods WHERE id = ?").bind(methodId).run();
+  edgeCache.del(db, "catalog:shipping_methods");
   return { deleted: true };
 }
 
@@ -623,22 +657,20 @@ export async function reconciliationFor(db: D1Database, actor: Actor, invoiceId:
   return loadReconciliation(db, head);
 }
 
-async function loadReconciliation(db: D1Database, head: InvoiceHead) {
-  const commercial = await all<{ quantity: number }>(db, "SELECT quantity FROM invoice_lines WHERE invoice_id = ?", head.id);
-  const packing = await all<{
-    pieces_count: number;
-    packages_count: number;
-    gross_weight_grams: number;
-    net_weight_grams: number;
-    line_type: string | null;
-    include_pieces_in_reconciliation: number | null;
-  }>(
-    db,
-    "SELECT pieces_count, packages_count, gross_weight_grams, net_weight_grams, line_type, include_pieces_in_reconciliation FROM packing_lines WHERE invoice_id = ?",
-    head.id,
-  );
+function computeReconciliationFromRows(
+  head: Pick<InvoiceHead, "packages_count" | "gross_weight_grams" | "net_weight_grams">,
+  commercial: Array<{ quantity?: unknown }>,
+  packing: Array<{
+    pieces_count?: unknown;
+    packages_count?: unknown;
+    gross_weight_grams?: unknown;
+    net_weight_grams?: unknown;
+    line_type?: string | null;
+    include_pieces_in_reconciliation?: number | null;
+  }>,
+) {
   const invoice: TradeTotals = {
-    pieces: sumNumbers(commercial.map((row) => Number(row.quantity))),
+    pieces: sumNumbers(commercial.map((row) => Number(row.quantity ?? 0))),
     packages: Number(head.packages_count),
     grossGrams: Number(head.gross_weight_grams),
     netGrams: Number(head.net_weight_grams),
@@ -647,13 +679,34 @@ async function loadReconciliation(db: D1Database, head: InvoiceHead) {
     pieces: sumNumbers(
       packing
         .filter((row) => shouldIncludePiecesInReconciliation(row.line_type, row.include_pieces_in_reconciliation))
-        .map((row) => Number(row.pieces_count)),
+        .map((row) => Number(row.pieces_count ?? 0)),
     ),
-    packages: sumNumbers(packing.map((row) => Number(row.packages_count))),
-    grossGrams: sumNumbers(packing.map((row) => Number(row.gross_weight_grams))),
-    netGrams: sumNumbers(packing.map((row) => Number(row.net_weight_grams))),
+    packages: sumNumbers(packing.map((row) => Number(row.packages_count ?? 0))),
+    grossGrams: sumNumbers(packing.map((row) => Number(row.gross_weight_grams ?? 0))),
+    netGrams: sumNumbers(packing.map((row) => Number(row.net_weight_grams ?? 0))),
   };
   return reconcileTradeTotals(invoice, packed);
+}
+
+async function loadReconciliation(db: D1Database, head: InvoiceHead) {
+  const [commRes, packRes] = await db.batch([
+    db.prepare("SELECT quantity FROM invoice_lines WHERE invoice_id = ?").bind(head.id),
+    db
+      .prepare(
+        "SELECT pieces_count, packages_count, gross_weight_grams, net_weight_grams, line_type, include_pieces_in_reconciliation FROM packing_lines WHERE invoice_id = ?",
+      )
+      .bind(head.id),
+  ]);
+  const commercial = (commRes.results ?? []) as Array<{ quantity: number }>;
+  const packing = (packRes.results ?? []) as Array<{
+    pieces_count: number;
+    packages_count: number;
+    gross_weight_grams: number;
+    net_weight_grams: number;
+    line_type: string | null;
+    include_pieces_in_reconciliation: number | null;
+  }>;
+  return computeReconciliationFromRows(head, commercial, packing);
 }
 
 export async function replaceInvoiceLines(db: D1Database, actor: Actor, invoiceId: string, rawLines: unknown) {
@@ -767,19 +820,40 @@ export async function issueTradeDocuments(db: D1Database, bucket: R2Bucket, acto
   requirePermission(actor, "invoices.issue");
   const head = await invoiceHead(db, actor, invoiceId);
   assertDraft(head.trade_status);
-  const commercial = await all<{ hs_code: string | null }>(db, "SELECT hs_code FROM invoice_lines WHERE invoice_id = ? ORDER BY line_no", invoiceId);
+  const [commRes, packRes, contRes] = await db.batch([
+    db.prepare("SELECT hs_code, quantity FROM invoice_lines WHERE invoice_id = ? ORDER BY line_no").bind(invoiceId),
+    db
+      .prepare(
+        "SELECT container_id, pieces_count, packages_count, gross_weight_grams, net_weight_grams, line_type, include_pieces_in_reconciliation FROM packing_lines WHERE invoice_id = ?",
+      )
+      .bind(invoiceId),
+    db.prepare("SELECT id, case_id, status FROM containers WHERE case_id = ?").bind(head.case_id),
+  ]);
+  const commercial = (commRes.results ?? []) as Array<{ hs_code: string | null; quantity: number }>;
   if (commercial.length === 0) throw errors.conflict("Add the commercial lines before issuing.", "TRADE_LINES_REQUIRED");
   if (commercial.some((line) => !line.hs_code?.trim())) throw errors.conflict("Every commercial line needs an HS code before issue.", "HS_CODE_REQUIRED");
-  const packed = await all<{ container_id: string | null }>(db, "SELECT container_id FROM packing_lines WHERE invoice_id = ?", invoiceId);
+  const packed = (packRes.results ?? []) as Array<{
+    container_id: string | null;
+    pieces_count: number;
+    packages_count: number;
+    gross_weight_grams: number;
+    net_weight_grams: number;
+    line_type: string | null;
+    include_pieces_in_reconciliation: number | null;
+  }>;
   if (packed.length === 0) throw errors.conflict("Add the packing lines before issuing.", "TRADE_LINES_REQUIRED");
+  const validContainers = new Map<string, { case_id: string; status: string }>();
+  for (const c of (contRes.results ?? []) as Array<{ id: string; case_id: string; status: string }>) {
+    validContainers.set(c.id, c);
+  }
   for (const line of packed) {
     if (!line.container_id) throw errors.conflict("Every packing line must name a container before issue.", "PACKING_CONTAINER_REQUIRED");
-    const container = await one<{ case_id: string; status: string }>(db, "SELECT case_id, status FROM containers WHERE id = ?", line.container_id);
+    const container = validContainers.get(line.container_id);
     if (!container || container.case_id !== head.case_id || container.status === "CANCELLED") {
       throw errors.conflict("Every packing line must use a live container on this operation.", "PACKING_CONTAINER_REQUIRED");
     }
   }
-  const summary = await loadReconciliation(db, head);
+  const summary = computeReconciliationFromRows(head, commercial, packed);
   if (!summary.matched) throw errors.conflict("Invoice and packing totals do not match.", "TRADE_TOTALS_DIFFER");
   const revision = Number(head.trade_revision) + 1;
   await storeIssuedTradePdfs(db, bucket, actor, invoiceId, revision);
@@ -1114,8 +1188,19 @@ export async function tradeSheet(db: D1Database, actor: Actor, invoiceId: string
   await ready(db);
   requirePermission(actor, "invoices.view");
   const head = await invoiceHead(db, actor, invoiceId);
-  const lines = await all(db, "SELECT * FROM invoice_lines WHERE invoice_id = ? ORDER BY line_no", invoiceId);
-  const packing = await all<{
+  const [linesRes, packingRes, containersRes, bookingsRes, proformasRes] = await db.batch([
+    db.prepare("SELECT * FROM invoice_lines WHERE invoice_id = ? ORDER BY line_no").bind(invoiceId),
+    db.prepare("SELECT * FROM packing_lines WHERE invoice_id = ? ORDER BY line_no").bind(invoiceId),
+    db
+      .prepare("SELECT id, booking_id, slot_index, official_number, status, version FROM containers WHERE case_id = ? AND status != 'CANCELLED' ORDER BY slot_index")
+      .bind(head.case_id),
+    db
+      .prepare("SELECT id, booking_number, expected_containers, status, version FROM bookings WHERE case_id = ? AND status != 'CANCELLED' ORDER BY created_at DESC")
+      .bind(head.case_id),
+    db.prepare("SELECT * FROM proforma_invoices WHERE case_id = ? ORDER BY created_at DESC").bind(head.case_id),
+  ]);
+  const lines = (linesRes.results ?? []) as Array<Record<string, unknown>>;
+  const packing = (packingRes.results ?? []) as Array<{
     id: string;
     container_id: string | null;
     line_no: number;
@@ -1135,35 +1220,23 @@ export async function tradeSheet(db: D1Database, actor: Actor, invoiceId: string
     include_pieces_in_reconciliation: number;
     gross_weight_grams: number;
     net_weight_grams: number;
-  }>(db, "SELECT * FROM packing_lines WHERE invoice_id = ? ORDER BY line_no", invoiceId);
-  const containers = await all<{
+  }>;
+  const containers = (containersRes.results ?? []) as Array<{
     id: string;
     booking_id: string;
     slot_index: number;
     official_number: string | null;
     status: string;
     version: number;
-  }>(
-    db,
-    "SELECT id, booking_id, slot_index, official_number, status, version FROM containers WHERE case_id = ? AND status != 'CANCELLED' ORDER BY slot_index",
-    head.case_id,
-  );
-  const bookings = await all<{
+  }>;
+  const bookings = (bookingsRes.results ?? []) as Array<{
     id: string;
     booking_number: string;
     expected_containers: number;
     status: string;
     version: number;
-  }>(
-    db,
-    "SELECT id, booking_number, expected_containers, status, version FROM bookings WHERE case_id = ? AND status != 'CANCELLED' ORDER BY created_at DESC",
-    head.case_id,
-  );
-  const proformas = await all(
-    db,
-    "SELECT * FROM proforma_invoices WHERE case_id = ? ORDER BY created_at DESC",
-    head.case_id,
-  );
+  }>;
+  const proformas = (proformasRes.results ?? []) as Array<Record<string, unknown>>;
   const containerGroups = groupPackingByContainer(
     containers.map((c) => ({
       id: c.id,
@@ -1191,7 +1264,7 @@ export async function tradeSheet(db: D1Database, actor: Actor, invoiceId: string
     bookings,
     proformas,
     containerGroups,
-    reconciliation: await loadReconciliation(db, head),
+    reconciliation: computeReconciliationFromRows(head, lines, packing),
   };
 }
 

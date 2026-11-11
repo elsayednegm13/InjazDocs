@@ -1,8 +1,9 @@
 import { PERMISSIONS, resolveEffectivePermissions, type OverrideEffect, type PermissionKey } from "../../shared/permissions";
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
+import { edgeCache } from "../lib/cache";
 import type { Actor } from "./actor";
-import { requirePermission } from "./actor";
+import { invalidateActorCache, invalidateAllActorsCache, requirePermission } from "./actor";
 import { writeAudit } from "./audit";
 
 const ROOT_PERMISSIONS = ["users.manage", "roles.manage"] as const;
@@ -217,6 +218,7 @@ export async function setUserRoles(db: D1Database, actor: Actor, userId: string,
     after: { roleKeys },
     requestId,
   });
+  invalidateActorCache(db, userId);
 }
 
 export async function setOverrides(
@@ -281,6 +283,7 @@ export async function setOverrides(
     after: overrides,
     requestId,
   });
+  invalidateActorCache(db, userId);
 }
 
 export async function setUserActive(db: D1Database, actor: Actor, userId: string, active: boolean, requestId: string) {
@@ -353,23 +356,38 @@ export async function setUserActive(db: D1Database, actor: Actor, userId: string
     action: active ? "user.enable" : "user.disable",
     requestId,
   });
+  invalidateActorCache(db, userId);
 }
 
 export async function listRoles(db: D1Database) {
-  const roles = await all<{ id: string; key: string; name_en: string; name_ar: string }>(
+  return edgeCache.getOrLoad(
     db,
-    "SELECT id, key, name_en, name_ar FROM roles ORDER BY key",
+    "rbac:roles",
+    async () => {
+      const roles = await all<{ id: string; key: string; name_en: string; name_ar: string }>(
+        db,
+        "SELECT id, key, name_en, name_ar FROM roles ORDER BY key",
+      );
+      const allPerms = await all<{ role_id: string; permission_key: string }>(
+        db,
+        "SELECT role_id, permission_key FROM role_permissions",
+      );
+      const permsByRole = new Map<string, string[]>();
+      for (const row of allPerms) {
+        let list = permsByRole.get(row.role_id);
+        if (!list) {
+          list = [];
+          permsByRole.set(row.role_id, list);
+        }
+        list.push(row.permission_key);
+      }
+      return roles.map((role) => ({
+        ...role,
+        permissions: permsByRole.get(role.id) ?? [],
+      }));
+    },
+    300_000,
   );
-  const result = [];
-  for (const role of roles) {
-    const perms = await all<{ permission_key: string }>(
-      db,
-      "SELECT permission_key FROM role_permissions WHERE role_id = ?",
-      role.id,
-    );
-    result.push({ ...role, permissions: perms.map((p) => p.permission_key) });
-  }
-  return result;
 }
 
 export async function replaceRolePermissions(
@@ -428,6 +446,8 @@ export async function replaceRolePermissions(
     after: { keys },
     requestId,
   });
+  edgeCache.del(db, "rbac:roles");
+  invalidateAllActorsCache(db);
 }
 
 export async function createRole(
@@ -465,8 +485,10 @@ export async function createRole(
     // The role row must not survive a rejected permission write. It has no
     // users yet, so deleting it cannot remove an assignment.
     await db.prepare("DELETE FROM roles WHERE id = ?").bind(id).run().catch(() => undefined);
+    edgeCache.del(db, "rbac:roles");
     throw error;
   }
+  edgeCache.del(db, "rbac:roles");
   return { id, key: input.key };
 }
 
@@ -479,5 +501,6 @@ export async function ensureAdminRole(db: D1Database, userId: string) {
     .prepare("INSERT OR REPLACE INTO user_preferences (user_id, language, timezone, updated_at) VALUES (?, 'en', 'Africa/Cairo', ?)")
     .bind(userId, nowIso())
     .run();
+  invalidateActorCache(db, userId);
   void newId;
 }

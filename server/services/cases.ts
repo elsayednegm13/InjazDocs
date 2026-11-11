@@ -101,8 +101,21 @@ export async function listCases(
 
 export async function getCaseOverview(db: D1Database, actor: Actor, id: string) {
   const current = await assertCaseAccess(db, actor, id);
-  const [customerResult, snapshotResult, invoiceResult, requirementResult, bookingResult, containerResult, reminderResult, versionResult] = await db.batch([
+  const [
+    customerResult,
+    contactResult,
+    snapshotResult,
+    invoiceResult,
+    requirementResult,
+    bookingResult,
+    containerResult,
+    reminderResult,
+    versionResult,
+  ] = await db.batch([
     db.prepare("SELECT id, legal_name, trade_name, customer_code, country_code FROM customers WHERE id = ?").bind(current.customer_id),
+    db
+      .prepare("SELECT phone FROM customer_contacts WHERE customer_id = ? AND phone IS NOT NULL AND trim(phone) != '' ORDER BY is_primary DESC LIMIT 1")
+      .bind(current.customer_id),
     db.prepare("SELECT * FROM export_case_customer_snapshots WHERE case_id = ?").bind(id),
     db.prepare("SELECT * FROM export_invoices WHERE case_id = ? ORDER BY invoice_date").bind(id),
     db.prepare(
@@ -126,15 +139,14 @@ export async function getCaseOverview(db: D1Database, actor: Actor, id: string) 
        ORDER BY v.created_at DESC`,
     ).bind(id),
   ]);
-  const contact = await one<{ phone: string | null }>(
-    db,
-    "SELECT phone FROM customer_contacts WHERE customer_id = ? AND phone IS NOT NULL AND trim(phone) != '' ORDER BY is_primary DESC LIMIT 1",
-    current.customer_id,
-  );
+  const contact = (contactResult.results?.[0] as { phone: string | null } | undefined) ?? null;
   const customer = customerResult.results?.[0] as Record<string, unknown> | undefined;
-  const customerShares = await customerSharesForCase(db, id);
-  const archived = await archivedVersionIds(db, id);
-  const archivedRequirements = await requirementIdsWithArchive(db, id);
+  const [customerShares, archived, archivedRequirements, customFields] = await Promise.all([
+    customerSharesForCase(db, id),
+    archivedVersionIds(db, id),
+    requirementIdsWithArchive(db, id),
+    readCustomFields(db, actor, "EXPORT_CASE", id),
+  ]);
   const documentVersions = ((versionResult.results ?? []) as Array<{ id: string }>)
     .filter((version) => !archived?.has(version.id))
     .map((version) => withCustomerShare(version, customerShares.rows.find((share) => share.version_id === version.id), customerShares.ready));
@@ -153,7 +165,7 @@ export async function getCaseOverview(db: D1Database, actor: Actor, id: string) 
     reminders: reminderResult.results ?? [],
     documentVersions,
     customerFileShareReady: customerShares.ready,
-    customFields: await readCustomFields(db, actor, "EXPORT_CASE", id),
+    customFields,
   };
 }
 
