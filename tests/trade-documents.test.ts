@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  DEFAULT_ROLE_PERMISSIONS,
+  PERMISSIONS,
+  PERMISSION_CATALOG,
+  PERMISSION_GROUPS,
+} from "../shared/permissions";
+import {
   calculatePackingLineWeights,
   groupPackingByContainer,
   netAboveGross,
@@ -633,5 +639,154 @@ describe("trade document rules", () => {
     });
     expect(issued.status).toBe(200);
     expect(issued.json?.data?.tradeStatus).toBe("ISSUED");
+  });
+
+  it("enforces the 59 granular RBAC permissions and per-user GRANT/DENY overrides across trade and catalog routes", async () => {
+    expect(PERMISSIONS).toHaveLength(59);
+    expect(PERMISSION_GROUPS).toHaveLength(12);
+    expect(Object.keys(PERMISSION_CATALOG)).toHaveLength(59);
+    expect(DEFAULT_ROLE_PERMISSIONS.administrator).toHaveLength(59);
+    expect(DEFAULT_ROLE_PERMISSIONS.operations_manager).toHaveLength(49);
+    expect(DEFAULT_ROLE_PERMISSIONS.export_officer).toHaveLength(34);
+    expect(DEFAULT_ROLE_PERMISSIONS.viewer).toHaveLength(12);
+
+    const audit = fresh();
+    seedCaseInvoice(audit);
+    const harness = createTestHarness(audit);
+
+    // 1. Verify GET /api/v1/users returns enriched rolePermissions, overrides, and effectivePermissionsCount
+    const usersRes = await harness.request({ path: "/api/v1/users" });
+    expect(usersRes.status).toBe(200);
+    const usersList = usersRes.json?.data as Array<{
+      id: string;
+      roleKeys: string[];
+      rolePermissions: string[];
+      overrides: Array<{ permissionKey: string; effect: string }>;
+      effectivePermissions: string[];
+      effectivePermissionsCount: number;
+    }>;
+    const officerRow = usersList.find((u) => u.id === "user-officer");
+    expect(officerRow).toBeDefined();
+    expect(officerRow?.roleKeys).toEqual(["export_officer"]);
+    expect(officerRow?.effectivePermissionsCount).toBe(34);
+
+    // 2. Officer cannot add shipping methods or delete draft proformas by default
+    const deniedShipAdd = await harness.request({
+      actor: "user-officer",
+      method: "POST",
+      path: "/api/v1/shipping-methods",
+      body: { code: "AIR", label: "AIR", includesFreight: false },
+    });
+    expect(deniedShipAdd.status).toBe(403);
+
+    const createdPi = await harness.request({
+      actor: "user-officer",
+      method: "POST",
+      path: "/api/v1/proformas",
+      body: {
+        caseId: "case-1",
+        customerId: "customer-1",
+        invoiceNumber: "PI-RBAC-001",
+        invoiceDate: "2026-11-10",
+        paymentTermCode: "TT",
+        incoterm: "FOB",
+        lines: [{ description: "Blanket", unit: "Piece", quantity: 1, unitPriceMinor: 100 }],
+      },
+    });
+    expect(createdPi.status).toBe(201);
+    const piId = createdPi.json?.data?.id as string;
+
+    const deniedPiDelete = await harness.request({
+      actor: "user-officer",
+      method: "DELETE",
+      path: `/api/v1/proformas/${piId}`,
+    });
+    expect(deniedPiDelete.status).toBe(403);
+
+    // 3. Apply per-user overrides via PUT /api/v1/users/:id/overrides:
+    //    +GRANT proformas.delete & catalog.shipping.manage
+    //    -DENY packing.weights_override & invoices.issue
+    const overrideRes = await harness.request({
+      actor: "user-admin",
+      method: "PUT",
+      path: "/api/v1/users/user-officer/overrides",
+      body: {
+        overrides: [
+          { permissionKey: "proformas.delete", effect: "GRANT" },
+          { permissionKey: "catalog.shipping.manage", effect: "GRANT" },
+          { permissionKey: "packing.weights_override", effect: "DENY" },
+          { permissionKey: "invoices.issue", effect: "DENY" },
+        ],
+      },
+    });
+    expect(overrideRes.status).toBe(200);
+
+    // Verify effective permissions count stayed 34 (34 + 2 grants - 2 denies = 34)
+    const usersAfter = await harness.request({ path: "/api/v1/users" });
+    const officerAfter = (usersAfter.json?.data as typeof usersList).find((u) => u.id === "user-officer");
+    expect(officerAfter?.overrides).toHaveLength(4);
+    expect(officerAfter?.effectivePermissionsCount).toBe(34);
+    expect(officerAfter?.effectivePermissions).toContain("proformas.delete");
+    expect(officerAfter?.effectivePermissions).toContain("catalog.shipping.manage");
+    expect(officerAfter?.effectivePermissions).not.toContain("packing.weights_override");
+    expect(officerAfter?.effectivePermissions).not.toContain("invoices.issue");
+
+    // 4. Now officer CAN add a shipping method and delete the draft proforma
+    const allowedShipAdd = await harness.request({
+      actor: "user-officer",
+      method: "POST",
+      path: "/api/v1/shipping-methods",
+      body: { code: "AIR", label: "AIR", includesFreight: false },
+    });
+    expect(allowedShipAdd.status).toBe(201);
+
+    const allowedPiDelete = await harness.request({
+      actor: "user-officer",
+      method: "DELETE",
+      path: `/api/v1/proformas/${piId}`,
+    });
+    expect(allowedPiDelete.status).toBe(200);
+
+    // 5. And officer is BLOCKED from manual weight override (manualWeightOverride = true) and /issue-trade
+    const blockedManualWeight = await harness.request({
+      actor: "user-officer",
+      method: "PUT",
+      path: "/api/v1/invoices/invoice-trade/packing-lines",
+      body: {
+        lines: [
+          {
+            description: "Cloud Blanket",
+            containerId: "container-a",
+            lineType: "PRODUCT",
+            packagesCount: 10,
+            packingPerPackage: 10,
+            unitNetWeightGrams: 2000,
+            bagWeightGrams: 100,
+            posterWeightGrams: 50,
+            manualWeightOverride: true,
+            netWeightGrams: 205_000,
+            grossWeightGrams: 215_000,
+          },
+        ],
+      },
+    });
+    expect(blockedManualWeight.status).toBe(403);
+
+    const blockedIssue = await harness.request({
+      actor: "user-officer",
+      method: "POST",
+      path: "/api/v1/invoices/invoice-trade/issue-trade",
+      body: {},
+    });
+    expect(blockedIssue.status).toBe(403);
+
+    // 6. Verify PATCH /api/v1/users/:id/status works
+    const statusPatch = await harness.request({
+      actor: "user-admin",
+      method: "PATCH",
+      path: "/api/v1/users/user-viewer/status",
+      body: { isActive: false },
+    });
+    expect(statusPatch.status).toBe(200);
   });
 });

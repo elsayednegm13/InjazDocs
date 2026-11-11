@@ -1,4 +1,4 @@
-import { PERMISSIONS, type PermissionKey } from "../../shared/permissions";
+import { PERMISSIONS, resolveEffectivePermissions, type OverrideEffect, type PermissionKey } from "../../shared/permissions";
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
@@ -85,7 +85,15 @@ async function restoreIfLastRootRemoved(db: D1Database, restore: () => Promise<v
 }
 
 export async function listUsers(db: D1Database) {
-  return all(
+  const users = await all<{
+    id: string;
+    name: string;
+    email: string;
+    is_active: number;
+    must_change_password: number;
+    created_at: number | string;
+    roles: string | null;
+  }>(
     db,
     `SELECT u.id, u.name, u.email, u.is_active, u.must_change_password, u.created_at,
             GROUP_CONCAT(r.key) AS roles
@@ -95,6 +103,64 @@ export async function listUsers(db: D1Database) {
      GROUP BY u.id
      ORDER BY u.created_at DESC`,
   );
+
+  const roleGrantRows = await all<{ user_id: string; permission_key: string }>(
+    db,
+    `SELECT ur.user_id, rp.permission_key
+     FROM user_roles ur
+     JOIN role_permissions rp ON rp.role_id = ur.role_id`,
+  );
+
+  const overrideRows = await all<{ user_id: string; permission_key: string; effect: OverrideEffect }>(
+    db,
+    `SELECT user_id, permission_key, effect
+     FROM user_permission_overrides
+     ORDER BY permission_key ASC`,
+  );
+
+  const roleGrantsByUser = new Map<string, Set<PermissionKey>>();
+  for (const row of roleGrantRows) {
+    if (!(PERMISSIONS as readonly string[]).includes(row.permission_key)) continue;
+    let set = roleGrantsByUser.get(row.user_id);
+    if (!set) {
+      set = new Set<PermissionKey>();
+      roleGrantsByUser.set(row.user_id, set);
+    }
+    set.add(row.permission_key as PermissionKey);
+  }
+
+  const overridesByUser = new Map<string, Array<{ permissionKey: PermissionKey; effect: OverrideEffect }>>();
+  for (const row of overrideRows) {
+    if (!(PERMISSIONS as readonly string[]).includes(row.permission_key)) continue;
+    let list = overridesByUser.get(row.user_id);
+    if (!list) {
+      list = [];
+      overridesByUser.set(row.user_id, list);
+    }
+    list.push({ permissionKey: row.permission_key as PermissionKey, effect: row.effect });
+  }
+
+  return users.map((u) => {
+    const roleKeys = String(u.roles ?? "")
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+    const rolePermissions = [...(roleGrantsByUser.get(u.id) ?? new Set<PermissionKey>())];
+    const overrides = overridesByUser.get(u.id) ?? [];
+    const effectiveSet = resolveEffectivePermissions({
+      roleGrants: rolePermissions,
+      overrides,
+    });
+    const effectivePermissions = [...effectiveSet];
+    return {
+      ...u,
+      roleKeys,
+      rolePermissions,
+      overrides,
+      effectivePermissions,
+      effectivePermissionsCount: effectivePermissions.length,
+    };
+  });
 }
 
 export async function setUserRoles(db: D1Database, actor: Actor, userId: string, roleKeys: string[], requestId: string) {

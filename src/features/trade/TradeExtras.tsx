@@ -6,6 +6,7 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { usePermissions } from "@/lib/permissions";
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTitle } from "@radix-ui/react-dialog";
 
 export type ShippingMethod = {
@@ -40,22 +41,26 @@ export function ShippingMethodField({
   onChange: (value: string) => void;
 }) {
   const { tx } = useCopy();
+  const perms = usePermissions();
   const methods = useShippingMethods();
   const [open, setOpen] = useState(false);
   const selected = (methods.data ?? []).find((method) => method.code === value || method.label === value);
+  const canManageShipping = perms.has("catalog.shipping.manage");
   return (
     <div className="grid gap-1 text-sm">
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium text-ink">{tx("shippingMethod", "طريقة الشحن")}</span>
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:underline disabled:opacity-50"
-        >
-          <Settings2 className="h-3 w-3" />
-          <span>{tx("tradeManageShipping", "إدارة طرق الشحن")}</span>
-        </button>
+        {canManageShipping ? (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:underline disabled:opacity-50"
+          >
+            <Settings2 className="h-3 w-3" />
+            <span>{tx("tradeManageShipping", "إدارة طرق الشحن")}</span>
+          </button>
+        ) : null}
       </div>
       <div className="grid grid-cols-2 gap-1.5">
         <Select

@@ -7,6 +7,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { tradePdfFilename } from "@shared/trade-sheet";
 import {
@@ -75,7 +76,12 @@ export function EmbeddedProformaTab({
   onOpenCatalog?: () => void;
 }) {
   const { tx } = useCopy();
+  const perms = usePermissions();
   const client = useQueryClient();
+  const canEditProforma = canEdit && perms.has("proformas.edit");
+  const canIssueProforma = canEdit && perms.has("proformas.issue");
+  const canDeleteProforma = canEdit && perms.has("proformas.delete");
+  const canManageCatalog = perms.has("catalog.products.manage");
   const listQuery = useQuery({
     queryKey: ["proformas", "case", caseId],
     enabled: Boolean(caseId),
@@ -103,7 +109,7 @@ export function EmbeddedProformaTab({
 
   const active = selectedId !== "new" ? detailQuery.data : undefined;
   const issued = active?.status === "ISSUED";
-  const locked = !canEdit || issued;
+  const locked = !canEditProforma || issued;
 
   const [number, setNumber] = useState("");
   const [reference, setReference] = useState(customerCode);
@@ -277,7 +283,7 @@ export function EmbeddedProformaTab({
               </span>
             </Button>
           ))}
-          {canEdit ? (
+          {canEditProforma ? (
             <Button
               type="button"
               size="sm"
@@ -310,10 +316,33 @@ export function EmbeddedProformaTab({
               <FileDown className="h-3.5 w-3.5" />
               {tx("proformaDownload", "PDF المبدئية")}
             </Button>
-            {canEdit ? (
+            {canEditProforma ? (
               <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void convertSelected()}>
                 <ArrowLeftRight className="h-3.5 w-3.5" />
                 {tx("proformaConvert", "اعتماد وتحويل إلى الفاتورة التجارية")}
+              </Button>
+            ) : null}
+            {!issued && canDeleteProforma ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await api(`/api/v1/proformas/${selectedId}`, { method: "DELETE" });
+                    notifySuccess(tx("proformaDeleted", "تم حذف مسودة الفاتورة المبدئية"));
+                    setSelectedId("");
+                    await client.invalidateQueries({ queryKey: ["proformas", "case", caseId] });
+                  } catch (error) {
+                    notifyError(error);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-danger" />
               </Button>
             ) : null}
           </div>
@@ -599,7 +628,7 @@ export function EmbeddedProformaTab({
                 </button>
                 <button
                   type="button"
-                  disabled={locked || !line.description.trim()}
+                  disabled={locked || !canManageCatalog || !line.description.trim()}
                   title={tx("tradeSaveLineCatalog", "حفظ في الكتالوج")}
                   className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line bg-card text-ink-muted transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-40"
                   onClick={() =>
@@ -665,14 +694,14 @@ export function EmbeddedProformaTab({
           <Button type="button" variant="outline" disabled={locked || busy || !customerId} onClick={() => void saveProforma()}>
             {tx("tradeSaveDraft", "حفظ كمسودة")}
           </Button>
-          {selectedId && selectedId !== "new" && !issued ? (
-            <Button type="button" variant="outline" disabled={locked || busy} onClick={() => void issueSelected()}>
+          {selectedId && selectedId !== "new" && !issued && canIssueProforma ? (
+            <Button type="button" variant="outline" disabled={busy} onClick={() => void issueSelected()}>
               <CheckCircle2 className="h-4 w-4" />
               {tx("proformaIssue", "إصدار الفاتورة المبدئية")}
             </Button>
           ) : null}
-          {selectedId && selectedId !== "new" ? (
-            <Button type="button" disabled={!canEdit || busy} onClick={() => void convertSelected()}>
+          {selectedId && selectedId !== "new" && canEditProforma ? (
+            <Button type="button" disabled={busy} onClick={() => void convertSelected()}>
               <ArrowLeftRight className="h-4 w-4" />
               {tx("proformaConvert", "اعتماد وتحويل إلى الفاتورة التجارية")}
             </Button>

@@ -100,7 +100,19 @@ export function mountUserRoutes(api: Hono<AppEnv>, authFor: AuthFactory, recover
     await setUserRoles(c.env.DB, c.get("actor"), c.req.param("id"), body.roleKeys, c.get("requestId"));
     return jsonSuccess({ ok: true }, c.get("requestId"));
   });
+  api.put("/users/:id/roles", async (c) => {
+    requirePermission(c.get("actor"), "roles.manage");
+    const body = await c.req.json<{ roleKeys: string[] }>();
+    await setUserRoles(c.env.DB, c.get("actor"), c.req.param("id"), body.roleKeys, c.get("requestId"));
+    return jsonSuccess({ ok: true }, c.get("requestId"));
+  });
   api.post("/users/:id/overrides", async (c) => {
+    requirePermission(c.get("actor"), "roles.manage");
+    const body = await c.req.json<{ overrides: { permissionKey: never; effect: "GRANT" | "DENY" }[] }>();
+    await setOverrides(c.env.DB, c.get("actor"), c.req.param("id"), body.overrides, c.get("requestId"));
+    return jsonSuccess({ ok: true }, c.get("requestId"));
+  });
+  api.put("/users/:id/overrides", async (c) => {
     requirePermission(c.get("actor"), "roles.manage");
     const body = await c.req.json<{ overrides: { permissionKey: never; effect: "GRANT" | "DENY" }[] }>();
     await setOverrides(c.env.DB, c.get("actor"), c.req.param("id"), body.overrides, c.get("requestId"));
@@ -110,6 +122,13 @@ export function mountUserRoutes(api: Hono<AppEnv>, authFor: AuthFactory, recover
     requirePermission(c.get("actor"), "users.manage");
     const body = await c.req.json<{ active: boolean }>();
     await setUserActive(c.env.DB, c.get("actor"), c.req.param("id"), body.active, c.get("requestId"));
+    return jsonSuccess({ ok: true }, c.get("requestId"));
+  });
+  api.patch("/users/:id/status", async (c) => {
+    requirePermission(c.get("actor"), "users.manage");
+    const body = await c.req.json<{ active?: boolean; isActive?: boolean }>();
+    const active = typeof body.active === "boolean" ? body.active : Boolean(body.isActive);
+    await setUserActive(c.env.DB, c.get("actor"), c.req.param("id"), active, c.get("requestId"));
     return jsonSuccess({ ok: true }, c.get("requestId"));
   });
   api.post("/roles", async (c) => {

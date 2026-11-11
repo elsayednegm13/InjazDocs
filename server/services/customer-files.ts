@@ -4,7 +4,7 @@ import { assertDocumentTransition } from "../domain/transitions";
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
-import { assertCaseAccess, requireAny, requirePermission } from "./actor";
+import { assertCaseAccess, requirePermission } from "./actor";
 import { writeAudit, writeCaseEvent } from "./audit";
 import { recomputeRemindersForCase } from "./reminders";
 import { downloadObject } from "./uploads";
@@ -103,7 +103,7 @@ export async function publishedCustomerFiles(db: D1Database, caseId: string): Pr
 }
 
 export async function setCustomerFileShare(db: D1Database, actor: Actor, versionId: string, publish: boolean, requestId: string) {
-  requireAny(actor, ["documents.review", "tracking_links.manage"]);
+  requirePermission(actor, "customer_files.manage");
   const version = await one<{ id: string; requirement_id: string; case_id: string; version: number }>(
     db,
     `SELECT v.id, v.requirement_id, v.version, r.case_id
@@ -163,7 +163,7 @@ export async function setCustomerFileShare(db: D1Database, actor: Actor, version
 }
 
 export async function reopenCustomerRevision(db: D1Database, actor: Actor, versionId: string, requestId: string) {
-  requireAny(actor, ["documents.review", "tracking_links.manage"]);
+  requirePermission(actor, "customer_files.manage");
   const version = await one<{ id: string; case_id: string }>(
     db,
     `SELECT v.id, r.case_id

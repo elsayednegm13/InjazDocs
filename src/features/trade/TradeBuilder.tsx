@@ -24,6 +24,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { usePermissions } from "@/lib/permissions";
 import { tradePdfFilename } from "@shared/trade-sheet";
 import {
   groupPackingByContainer,
@@ -176,6 +177,7 @@ export function TradeBuilder({
   invoiceNumber?: string;
 }) {
   const { tx } = useCopy();
+  const perms = usePermissions();
   const client = useQueryClient();
   const sheet = useQuery({
     queryKey: ["trade-sheet", invoiceId],
@@ -222,7 +224,13 @@ export function TradeBuilder({
   const [expandedWeights, setExpandedWeights] = useState<Record<string, boolean>>({});
 
   const issued = sheet.data?.header.trade_status === "ISSUED";
-  const locked = issued || !canEdit;
+  const canEditInvoice = !issued && canEdit && perms.has("invoices.edit");
+  const canIssueInvoice = !issued && canEdit && perms.has("invoices.issue");
+  const canEditPacking = !issued && canEdit && perms.has("packing.edit");
+  const canOverrideWeights = !issued && canEdit && perms.has("packing.weights_override");
+  const canManageCatalog = perms.has("catalog.products.manage");
+  const canManageCompanyOrBank = perms.hasAny(["settings.manage", "exporter.bank_accounts.manage"]);
+  const locked = issued || !canEdit || (section === "packing" ? !canEditPacking : !canEditInvoice);
   const effectiveCaseId = caseId || sheet.data?.header.case_id || "";
 
   const liveContainers = useMemo(() => {
@@ -885,12 +893,16 @@ export function TradeBuilder({
               </Button>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              <Button type="button" size="sm" variant="outline" onClick={() => setCatalogOpen(true)}>
-                {tx("tradeManageCatalog", "كتالوج الأصناف والأوزان")}
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => setCompanyOpen(true)}>
-                {tx("tradeCompanyDialog", "بيانات الشركة والبنك")}
-              </Button>
+              {canManageCatalog ? (
+                <Button type="button" size="sm" variant="outline" onClick={() => setCatalogOpen(true)}>
+                  {tx("tradeManageCatalog", "كتالوج الأصناف والأوزان")}
+                </Button>
+              ) : null}
+              {canManageCompanyOrBank ? (
+                <Button type="button" size="sm" variant="outline" onClick={() => setCompanyOpen(true)}>
+                  {tx("tradeCompanyDialog", "بيانات الشركة والبنك")}
+                </Button>
+              ) : null}
             </div>
           </div>
 
@@ -1135,7 +1147,7 @@ export function TradeBuilder({
                         </button>
                         <button
                           type="button"
-                          disabled={locked || !line.description.trim()}
+                          disabled={locked || !canManageCatalog || !line.description.trim()}
                           title={tx("tradeSaveLineCatalog", "حفظ في الكتالوج")}
                           className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line bg-card text-ink-muted transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-40"
                           onClick={() =>
@@ -1506,7 +1518,7 @@ export function TradeBuilder({
                                         heavy ? "border-danger text-danger" : "",
                                       )}
                                       value={line.netKg}
-                                      disabled={locked}
+                                      disabled={locked || (!isAccessory && !canOverrideWeights)}
                                       onChange={(event) =>
                                         updatePackingLine(line.key, { netKg: event.target.value, manualOverride: true })
                                       }
@@ -1520,7 +1532,7 @@ export function TradeBuilder({
                                       inputMode="decimal"
                                       className="h-9 px-2 text-center text-xs font-bold tabular-nums text-accent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                       value={line.grossKg}
-                                      disabled={locked}
+                                      disabled={locked || (!isAccessory && !canOverrideWeights)}
                                       onChange={(event) =>
                                         updatePackingLine(line.key, { grossKg: event.target.value, manualOverride: true })
                                       }
@@ -1532,7 +1544,7 @@ export function TradeBuilder({
                                     {!isAccessory ? (
                                       <button
                                         type="button"
-                                        disabled={locked || !line.description.trim()}
+                                        disabled={locked || !canManageCatalog || !line.description.trim()}
                                         title={tx("saveWeightsToCatalog", "حفظ الصنف وأوزانه بالكتالوج")}
                                         className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line bg-card text-ink-muted transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-40"
                                         onClick={() =>
@@ -1763,7 +1775,7 @@ export function TradeBuilder({
                                         <input
                                           type="checkbox"
                                           checked={line.manualOverride}
-                                          disabled={locked}
+                                          disabled={locked || !canOverrideWeights}
                                           onChange={(e) =>
                                             updatePackingLine(line.key, { manualOverride: e.target.checked })
                                           }
@@ -1879,10 +1891,12 @@ export function TradeBuilder({
               <Button type="button" variant="outline" disabled={locked || busy} onClick={() => void saveDraft()}>
                 {tx("tradeSaveDraft", "حفظ كمسودة")}
               </Button>
-              <Button type="button" disabled={locked || busy} onClick={() => void issue()}>
-                <CheckCircle2 className="h-4 w-4" />
-                {tx("tradeIssue", "إصدار نهائي وإرفاق بالمستندات")}
-              </Button>
+              {canIssueInvoice ? (
+                <Button type="button" disabled={busy} onClick={() => void issue()}>
+                  <CheckCircle2 className="h-4 w-4" />
+                  {tx("tradeIssue", "إصدار نهائي وإرفاق بالمستندات")}
+                </Button>
+              ) : null}
             </div>
 
             {/* Left Side (in RTL): Joined PDF Export Button Group */}

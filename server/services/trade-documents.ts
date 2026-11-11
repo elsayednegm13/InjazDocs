@@ -262,13 +262,13 @@ export async function saveExporterIdentity(db: D1Database, actor: Actor, input: 
 
 export async function listExporterBanks(db: D1Database, actor: Actor) {
   await ready(db);
-  requireAny(actor, ["settings.manage", "invoices.view"]);
+  requireAny(actor, ["settings.manage", "exporter.bank_accounts.manage", "invoices.view", "proformas.view"]);
   return all(db, "SELECT * FROM exporter_bank_accounts ORDER BY is_default DESC, created_at");
 }
 
 export async function saveExporterBank(db: D1Database, actor: Actor, input: Record<string, unknown>, bankId?: string) {
   await ready(db);
-  requirePermission(actor, "settings.manage");
+  requirePermission(actor, "exporter.bank_accounts.manage");
   const now = nowIso();
   const id = bankId ?? newId();
   const accountName = text(input.accountName, "accountName", 200, true);
@@ -307,7 +307,11 @@ export async function saveExporterBank(db: D1Database, actor: Actor, input: Reco
 
 export async function uploadExporterMark(db: D1Database, bucket: R2Bucket, actor: Actor, kind: "logo" | "stamp", dataUrl: string) {
   await ready(db);
-  requireAny(actor, ["settings.manage", "invoices.edit"]);
+  if (kind === "stamp") {
+    requirePermission(actor, "trade.stamp.manage");
+  } else {
+    requirePermission(actor, "settings.manage");
+  }
   const match = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/=\s]+)$/.exec(dataUrl.trim());
   if (!match) throw errors.validation("Choose a JPEG or PNG image.", { image: "JPEG or PNG." }, "TRADE_IMAGE_INVALID");
   const bytes = decodeBase64(match[2].replace(/\s/g, ""));
@@ -359,13 +363,13 @@ export async function saveExporterMarks(db: D1Database, actor: Actor, input: Rec
 
 export async function listProductPresets(db: D1Database, actor: Actor) {
   await ready(db);
-  requirePermission(actor, "invoices.view");
+  requireAny(actor, ["invoices.view", "proformas.view", "catalog.products.manage"]);
   return all(db, "SELECT * FROM product_presets WHERE active = 1 ORDER BY name");
 }
 
 export async function saveProductPreset(db: D1Database, actor: Actor, input: Record<string, unknown>, presetId?: string) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "catalog.products.manage");
   const now = nowIso();
   const id = presetId ?? newId();
   const name = text(input.name, "name", 200, true);
@@ -453,7 +457,7 @@ export async function saveProductPreset(db: D1Database, actor: Actor, input: Rec
 
 export async function deleteProductPreset(db: D1Database, actor: Actor, presetId: string) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "catalog.products.manage");
   const existing = await one(db, "SELECT id FROM product_presets WHERE id = ?", presetId);
   if (!existing) throw errors.notFound("Preset not found");
   await db.prepare("DELETE FROM product_presets WHERE id = ?").bind(presetId).run();
@@ -462,13 +466,13 @@ export async function deleteProductPreset(db: D1Database, actor: Actor, presetId
 
 export async function listShippingMethods(db: D1Database, actor: Actor) {
   await ready(db);
-  requireAny(actor, ["settings.manage", "invoices.view"]);
+  requireAny(actor, ["settings.manage", "catalog.shipping.manage", "invoices.view", "proformas.view"]);
   return listShippingMethodRows(db);
 }
 
 export async function saveShippingMethod(db: D1Database, actor: Actor, input: Record<string, unknown>, methodId?: string) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "catalog.shipping.manage");
   const now = nowIso();
   const code = (text(input.code, "code", 20, true) ?? "").toUpperCase();
   const label = text(input.label, "label", 40, true) ?? code;
@@ -498,7 +502,7 @@ export async function saveShippingMethod(db: D1Database, actor: Actor, input: Re
 
 export async function deleteShippingMethod(db: D1Database, actor: Actor, methodId: string) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "catalog.shipping.manage");
   const existing = await one(db, "SELECT id FROM shipping_methods WHERE id = ?", methodId);
   if (!existing) throw errors.notFound("Shipping method not found");
   await db.prepare("DELETE FROM shipping_methods WHERE id = ?").bind(methodId).run();
@@ -507,7 +511,7 @@ export async function deleteShippingMethod(db: D1Database, actor: Actor, methodI
 
 export async function readExporterMarkFile(db: D1Database, bucket: R2Bucket, actor: Actor, kind: "logo" | "stamp") {
   await ready(db);
-  requireAny(actor, ["settings.manage", "invoices.view"]);
+  requireAny(actor, ["settings.manage", "trade.stamp.manage", "trade.stamp.apply", "invoices.view", "proformas.view"]);
   const row = await one<{ logo_r2_key: string | null; stamp_r2_key: string | null }>(
     db,
     "SELECT logo_r2_key, stamp_r2_key FROM exporter_marks WHERE id = 'default'",
@@ -686,10 +690,13 @@ export async function replaceInvoiceLines(db: D1Database, actor: Actor, invoiceI
 
 export async function replacePackingLines(db: D1Database, actor: Actor, invoiceId: string, rawLines: unknown) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "packing.edit");
   const head = await invoiceHead(db, actor, invoiceId);
   assertDraft(head.trade_status);
   const lines = packingLines(rawLines);
+  if (lines.some((line) => line.lineType === "PRODUCT" && line.manualWeightOverride === 1)) {
+    requirePermission(actor, "packing.weights_override");
+  }
   await db.batch([
     db.prepare("DELETE FROM packing_lines WHERE invoice_id = ?").bind(invoiceId),
     ...lines.map((line, index) =>
@@ -733,7 +740,7 @@ export async function replacePackingLines(db: D1Database, actor: Actor, invoiceI
 
 export async function syncPackingTotals(db: D1Database, actor: Actor, invoiceId: string) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "packing.edit");
   const head = await invoiceHead(db, actor, invoiceId);
   assertDraft(head.trade_status);
   const sums = await one<{ packages: number; gross: number; net: number }>(
@@ -757,7 +764,7 @@ export async function syncPackingTotals(db: D1Database, actor: Actor, invoiceId:
 
 export async function issueTradeDocuments(db: D1Database, bucket: R2Bucket, actor: Actor, invoiceId: string) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "invoices.issue");
   const head = await invoiceHead(db, actor, invoiceId);
   assertDraft(head.trade_status);
   const commercial = await all<{ hs_code: string | null }>(db, "SELECT hs_code FROM invoice_lines WHERE invoice_id = ? ORDER BY line_no", invoiceId);
@@ -794,7 +801,7 @@ function proformaLines(raw: unknown): ProformaLineInput[] {
 
 export async function createProforma(db: D1Database, actor: Actor, input: Record<string, unknown>) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "proformas.edit");
   const customerId = text(input.customerId, "customerId", 80, true);
   const customer = await one(db, "SELECT id FROM customers WHERE id = ?", customerId);
   if (!customer) throw errors.notFound("Customer not found");
@@ -806,6 +813,9 @@ export async function createProforma(db: D1Database, actor: Actor, input: Record
   const shippingLabel = text(input.shippingMethodLabel, "shippingMethodLabel", 40);
   const includeFreight = await shippingIncludesFreight(db, shippingLabel ?? "");
   const stamp = stampFields(input);
+  if (stamp.stamped === 1) {
+    requirePermission(actor, "trade.stamp.apply");
+  }
   const now = nowIso();
   const id = newId();
   const number = text(input.invoiceNumber, "invoiceNumber", 40, true);
@@ -869,7 +879,7 @@ export async function createProforma(db: D1Database, actor: Actor, input: Record
 
 export async function getProforma(db: D1Database, actor: Actor, id: string) {
   await ready(db);
-  requirePermission(actor, "invoices.view");
+  requirePermission(actor, "proformas.view");
   const header = await one<Record<string, unknown> & { status: string; case_id: string | null }>(db, "SELECT * FROM proforma_invoices WHERE id = ?", id);
   if (!header) throw errors.notFound("Proforma not found");
   if (header.case_id) await assertCaseAccess(db, actor, header.case_id);
@@ -879,7 +889,7 @@ export async function getProforma(db: D1Database, actor: Actor, id: string) {
 
 export async function updateProforma(db: D1Database, actor: Actor, id: string, input: Record<string, unknown>) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "proformas.edit");
   const current = await one<{ status: string; case_id: string | null; version: number }>(db, "SELECT status, case_id, version FROM proforma_invoices WHERE id = ?", id);
   if (!current) throw errors.notFound("Proforma not found");
   assertDraft(current.status);
@@ -892,6 +902,9 @@ export async function updateProforma(db: D1Database, actor: Actor, id: string, i
   const shippingLabel = text(input.shippingMethodLabel, "shippingMethodLabel", 40);
   const includeFreight = await shippingIncludesFreight(db, shippingLabel ?? "");
   const stamp = stampFields(input);
+  if (stamp.stamped === 1) {
+    requirePermission(actor, "trade.stamp.apply");
+  }
   const now = nowIso();
   await db.batch([
     db
@@ -946,7 +959,7 @@ export async function updateProforma(db: D1Database, actor: Actor, id: string, i
 
 export async function issueProforma(db: D1Database, bucket: R2Bucket, actor: Actor, id: string) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "proformas.issue");
   const current = await getProforma(db, actor, id);
   assertDraft(String(current.status));
   const snapshot = JSON.stringify({ ...current, issuedAt: nowIso() });
@@ -960,7 +973,7 @@ export async function issueProforma(db: D1Database, bucket: R2Bucket, actor: Act
 
 export async function convertProforma(db: D1Database, actor: Actor, id: string) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "proformas.edit");
   const proforma = await one<{
     id: string;
     customer_id: string;
@@ -1072,7 +1085,7 @@ export async function convertProforma(db: D1Database, actor: Actor, id: string) 
 
 export async function listProformas(db: D1Database, actor: Actor, caseId?: string) {
   await ready(db);
-  requirePermission(actor, "invoices.view");
+  requirePermission(actor, "proformas.view");
   if (caseId) await assertCaseAccess(db, actor, caseId);
   return all(
     db,
@@ -1088,7 +1101,7 @@ export async function listProformas(db: D1Database, actor: Actor, caseId?: strin
 
 export async function deleteProforma(db: D1Database, actor: Actor, id: string) {
   await ready(db);
-  requirePermission(actor, "invoices.edit");
+  requirePermission(actor, "proformas.delete");
   const current = await one<{ status: string; case_id: string | null }>(db, "SELECT status, case_id FROM proforma_invoices WHERE id = ?", id);
   if (!current) throw errors.notFound("Proforma not found");
   if (current.case_id) await assertCaseAccess(db, actor, current.case_id);
@@ -1198,6 +1211,9 @@ export async function saveTradeHeader(db: D1Database, actor: Actor, invoiceId: s
     stampScale: input.packingStampScale,
     stampRotation: input.packingStampRotation,
   });
+  if (stamp.stamped === 1 || packingStamp.stamped === 1) {
+    requirePermission(actor, "trade.stamp.apply");
+  }
   const goods = await one<{ goods_value_minor: number }>(db, "SELECT goods_value_minor FROM export_invoices WHERE id = ?", invoiceId);
   await db
     .prepare(

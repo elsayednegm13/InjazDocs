@@ -7,6 +7,7 @@ import { Field, Input, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import {
   kgText,
@@ -136,6 +137,7 @@ export function PaymentPresetStrip({
 
 export function CompanyDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { tx } = useCopy();
+  const perms = usePermissions();
   const client = useQueryClient();
   const identity = useQuery({
     queryKey: ["exporter-identity"],
@@ -146,34 +148,40 @@ export function CompanyDialog({ open, onClose }: { open: boolean; onClose: () =>
   const [busy, setBusy] = useState(false);
   const row = identity.data;
   const bank = (banks.data ?? []).find((item) => item.is_default) ?? banks.data?.[0];
+  const canEditIdentity = perms.has("settings.manage");
+  const canEditBank = perms.has("exporter.bank_accounts.manage");
 
   async function save(form: FormData) {
     setBusy(true);
     try {
-      await api("/api/v1/settings/exporter-identity", {
-        method: "PUT",
-        body: JSON.stringify({
-          nameEn: form.get("nameEn"),
-          nameAr: form.get("nameAr"),
-          address: form.get("address"),
-          taxCard: form.get("taxCard"),
-          taxFile: form.get("taxFile"),
-          commercialRegistry: form.get("commercialRegistry"),
-          phone: form.get("phone"),
-          email: form.get("email"),
-        }),
-      });
-      const bankBody = {
-        accountName: form.get("accountName"),
-        iban: form.get("iban"),
-        bankName: form.get("bankName"),
-        bankAddress: form.get("bankAddress"),
-        swiftCode: form.get("swiftCode"),
-        currency: "USD",
-        isDefault: true,
-      };
-      if (bank?.id) await api(`/api/v1/settings/exporter-bank-accounts/${bank.id}`, { method: "PATCH", body: JSON.stringify(bankBody) });
-      else await api("/api/v1/settings/exporter-bank-accounts", { method: "POST", body: JSON.stringify(bankBody) });
+      if (canEditIdentity) {
+        await api("/api/v1/settings/exporter-identity", {
+          method: "PUT",
+          body: JSON.stringify({
+            nameEn: form.get("nameEn"),
+            nameAr: form.get("nameAr"),
+            address: form.get("address"),
+            taxCard: form.get("taxCard"),
+            taxFile: form.get("taxFile"),
+            commercialRegistry: form.get("commercialRegistry"),
+            phone: form.get("phone"),
+            email: form.get("email"),
+          }),
+        });
+      }
+      if (canEditBank) {
+        const bankBody = {
+          accountName: form.get("accountName"),
+          iban: form.get("iban"),
+          bankName: form.get("bankName"),
+          bankAddress: form.get("bankAddress"),
+          swiftCode: form.get("swiftCode"),
+          currency: "USD",
+          isDefault: true,
+        };
+        if (bank?.id) await api(`/api/v1/settings/exporter-bank-accounts/${bank.id}`, { method: "PATCH", body: JSON.stringify(bankBody) });
+        else await api("/api/v1/settings/exporter-bank-accounts", { method: "POST", body: JSON.stringify(bankBody) });
+      }
       notifySuccess(tx("tradeIdentitySaved", "Exporter identity saved"));
       await client.invalidateQueries({ queryKey: ["exporter-identity"] });
       await client.invalidateQueries({ queryKey: ["exporter-banks"] });
@@ -193,21 +201,21 @@ export function CompanyDialog({ open, onClose }: { open: boolean; onClose: () =>
           <DialogTitle className="text-base font-semibold text-ink">{tx("tradeCompanyDialog", "Company and bank")}</DialogTitle>
           {row && !banks.isLoading ? (
             <form className="mt-3 grid gap-3 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }}>
-              <Field label={tx("tradeNameEn", "English name")}><Input name="nameEn" defaultValue={row.name_en ?? ""} /></Field>
-              <Field label={tx("tradeNameAr", "Arabic name")}><Input name="nameAr" defaultValue={row.name_ar ?? ""} /></Field>
-              <div className="md:col-span-2"><Field label={tx("tradeAddress", "Address")}><Textarea name="address" className="min-h-16" defaultValue={row.address ?? ""} /></Field></div>
-              <Field label={tx("taxCard", "Tax card")}><Input name="taxCard" dir="ltr" defaultValue={row.tax_card ?? ""} /></Field>
-              <Field label={tx("taxFile", "Tax file")}><Input name="taxFile" dir="ltr" defaultValue={row.tax_file ?? ""} /></Field>
-              <Field label={tx("commercialRegistry", "Commercial registry")}><Input name="commercialRegistry" dir="ltr" defaultValue={row.commercial_registry ?? ""} /></Field>
-              <Field label={tx("phone", "Phone")}><Input name="phone" dir="ltr" defaultValue={row.phone ?? ""} /></Field>
-              <Field label={tx("email", "Email")}><Input name="email" dir="ltr" defaultValue={row.email ?? ""} /></Field>
-              <Field label={tx("accountName", "Account name")}><Input name="accountName" defaultValue={bank?.account_name ?? ""} /></Field>
-              <Field label={tx("iban", "IBAN")}><Input name="iban" dir="ltr" defaultValue={bank?.iban ?? ""} /></Field>
-              <Field label={tx("bankName", "Bank name")}><Input name="bankName" defaultValue={bank?.bank_name ?? ""} /></Field>
-              <Field label={tx("swift", "SWIFT code")}><Input name="swiftCode" dir="ltr" defaultValue={bank?.swift_code ?? ""} /></Field>
-              <div className="md:col-span-2"><Field label={tx("bankAddress", "Bank address")}><Input name="bankAddress" defaultValue={bank?.bank_address ?? ""} /></Field></div>
+              <Field label={tx("tradeNameEn", "English name")}><Input name="nameEn" disabled={!canEditIdentity} defaultValue={row.name_en ?? ""} /></Field>
+              <Field label={tx("tradeNameAr", "Arabic name")}><Input name="nameAr" disabled={!canEditIdentity} defaultValue={row.name_ar ?? ""} /></Field>
+              <div className="md:col-span-2"><Field label={tx("tradeAddress", "Address")}><Textarea name="address" disabled={!canEditIdentity} className="min-h-16" defaultValue={row.address ?? ""} /></Field></div>
+              <Field label={tx("taxCard", "Tax card")}><Input name="taxCard" dir="ltr" disabled={!canEditIdentity} defaultValue={row.tax_card ?? ""} /></Field>
+              <Field label={tx("taxFile", "Tax file")}><Input name="taxFile" dir="ltr" disabled={!canEditIdentity} defaultValue={row.tax_file ?? ""} /></Field>
+              <Field label={tx("commercialRegistry", "Commercial registry")}><Input name="commercialRegistry" dir="ltr" disabled={!canEditIdentity} defaultValue={row.commercial_registry ?? ""} /></Field>
+              <Field label={tx("phone", "Phone")}><Input name="phone" dir="ltr" disabled={!canEditIdentity} defaultValue={row.phone ?? ""} /></Field>
+              <Field label={tx("email", "Email")}><Input name="email" dir="ltr" disabled={!canEditIdentity} defaultValue={row.email ?? ""} /></Field>
+              <Field label={tx("accountName", "Account name")}><Input name="accountName" disabled={!canEditBank} defaultValue={bank?.account_name ?? ""} /></Field>
+              <Field label={tx("iban", "IBAN")}><Input name="iban" dir="ltr" disabled={!canEditBank} defaultValue={bank?.iban ?? ""} /></Field>
+              <Field label={tx("bankName", "Bank name")}><Input name="bankName" disabled={!canEditBank} defaultValue={bank?.bank_name ?? ""} /></Field>
+              <Field label={tx("swift", "SWIFT code")}><Input name="swiftCode" dir="ltr" disabled={!canEditBank} defaultValue={bank?.swift_code ?? ""} /></Field>
+              <div className="md:col-span-2"><Field label={tx("bankAddress", "Bank address")}><Input name="bankAddress" disabled={!canEditBank} defaultValue={bank?.bank_address ?? ""} /></Field></div>
               <div className="flex gap-2 md:col-span-2">
-                <Button type="submit" disabled={busy}>{tx("save", "Save")}</Button>
+                <Button type="submit" disabled={busy || (!canEditIdentity && !canEditBank)}>{tx("save", "Save")}</Button>
                 <Button type="button" variant="outline" onClick={onClose}>{tx("cancel", "Cancel")}</Button>
               </div>
             </form>
@@ -234,11 +242,13 @@ const EMPTY_CATALOG_DRAFT = {
 
 export function CatalogDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { tx } = useCopy();
+  const perms = usePermissions();
   const client = useQueryClient();
   const presets = useQuery({ queryKey: ["product-presets"], queryFn: async () => (await api<ProductPreset[]>("/api/v1/product-presets")).data, enabled: open });
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(EMPTY_CATALOG_DRAFT);
+  const canManageCatalog = perms.has("catalog.products.manage");
 
   function editPreset(preset: ProductPreset) {
     setEditingId(preset.id);
@@ -321,7 +331,9 @@ export function CatalogDialog({ open, onClose }: { open: boolean; onClose: () =>
                       {preset.hs_code || "—"} · Net {kgText(netG)} kg · Bag {kgText(bagG)} kg · Poster {kgText(posterG)} kg · Gross/pc {kgText(grossG)} kg
                     </span>
                   </button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/product-presets/${preset.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradePresetDeleted", "Catalog item deleted")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("delete", "Delete")}</Button>
+                  {canManageCatalog ? (
+                    <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/product-presets/${preset.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradePresetDeleted", "Catalog item deleted")); return client.invalidateQueries({ queryKey: ["product-presets"] }); }).catch(notifyError)}>{tx("delete", "Delete")}</Button>
+                  ) : null}
                 </li>
               );
             })}
@@ -356,7 +368,9 @@ export function CatalogDialog({ open, onClose }: { open: boolean; onClose: () =>
               <Input dir="ltr" readOnly value={kgText(unitGrossPreviewGrams)} />
             </Field>
             <div className="flex gap-2 md:col-span-3">
-              <Button type="submit" disabled={busy}>{editingId ? tx("save", "Save") : tx("tradeAddPreset", "Add catalog item")}</Button>
+              {canManageCatalog ? (
+                <Button type="submit" disabled={busy}>{editingId ? tx("save", "Save") : tx("tradeAddPreset", "Add catalog item")}</Button>
+              ) : null}
               {editingId ? (
                 <Button type="button" variant="outline" onClick={() => { setEditingId(null); setDraft(EMPTY_CATALOG_DRAFT); }}>
                   {tx("tradeNewPreset", "New item")}

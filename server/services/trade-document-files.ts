@@ -24,7 +24,7 @@ const EMPTY_IDENTITY: TradeIdentity = {
 };
 
 export async function proformaPdfBytes(db: D1Database, bucket: R2Bucket, actor: Actor, id: string) {
-  requirePermission(actor, "invoices.view");
+  requirePermission(actor, "proformas.view");
   const row = await one<{ case_id: string | null; status: string; issued_snapshot_json: string | null }>(
     db,
     "SELECT case_id, status, issued_snapshot_json FROM proforma_invoices WHERE id = ?",

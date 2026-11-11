@@ -4,7 +4,7 @@ import { assertDocumentTransition, assertRouteChange, initialRouteStatus } from 
 import { all, newId, nowIso, one } from "../db/sql";
 import { errors } from "../http/errors";
 import type { Actor } from "./actor";
-import { assertCaseAccess, requireAny, requirePermission } from "./actor";
+import { assertCaseAccess, requirePermission } from "./actor";
 import { writeAudit, writeCaseEvent } from "./audit";
 import { retireReplacedVersions } from "./customer-files";
 import { recomputeRemindersForCase } from "./reminders";
@@ -92,7 +92,7 @@ export async function addRequirement(
 }
 
 export async function restorePreviousDocument(db: D1Database, actor: Actor, caseId: string, documentId: string, requestId: string) {
-  requireAny(actor, ["documents.upload", "documents.review"]);
+  requirePermission(actor, "documents.restore_version");
   const requirement = await one<{ id: string; case_id: string }>(
     db,
     "SELECT id, case_id FROM operation_document_requirements WHERE id = ? AND case_id = ?",

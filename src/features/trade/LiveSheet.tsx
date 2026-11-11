@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
+import { usePermissions } from "@/lib/permissions";
 import { TRADE_PAGE_H, TRADE_PAGE_W, TRADE_STAMP_BASE } from "@shared/trade-sheet";
 import { stampPngDataUrl, useStampPreview } from "./TradeExtras";
 
@@ -61,6 +62,7 @@ export function LiveInvoiceView({
   onChange: (stamp: LiveStamp) => void;
 }) {
   const { tx } = useCopy();
+  const perms = usePermissions();
   const client = useQueryClient();
   const preview = useStampPreview();
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -68,6 +70,9 @@ export function LiveInvoiceView({
   const [ghost, setGhost] = useState<{ xRatio: number; yRatio: number } | null>(null);
   const [hit, setHit] = useState(0);
   const [drag, setDrag] = useState(false);
+
+  const canApplyStamp = !disabled && perms.has("trade.stamp.apply");
+  const canManageStamp = !disabled && perms.hasAny(["trade.stamp.manage", "settings.manage"]);
 
   function ratios(event: { clientX: number; clientY: number }) {
     const rect = sheetRef.current?.getBoundingClientRect();
@@ -105,24 +110,28 @@ export function LiveInvoiceView({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant={arm ? "default" : "outline"} disabled={disabled} onClick={() => setArm((value) => !value)}>
+        <Button type="button" size="sm" variant={arm ? "default" : "outline"} disabled={!canApplyStamp} onClick={() => setArm((value) => !value)}>
           {tx("tradeArmStamp", "Stamp with the mouse")}
         </Button>
-        <label className="inline-flex cursor-pointer items-center">
-          <input className="sr-only" type="file" accept="image/png,image/jpeg" disabled={disabled} onChange={(event) => void upload(event.target.files?.[0])} />
-          <span className="rounded-control border border-line px-2 py-1 text-xs text-ink">{tx("tradeReplaceStamp", "Change stamp image")}</span>
-        </label>
-        <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => void template("round")}>{tx("tradeRoundStamp", "Round stamp")}</Button>
-        <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => void template("rect")}>{tx("tradeRectStamp", "Rectangular stamp")}</Button>
+        {canManageStamp ? (
+          <>
+            <label className="inline-flex cursor-pointer items-center">
+              <input className="sr-only" type="file" accept="image/png,image/jpeg" disabled={!canManageStamp} onChange={(event) => void upload(event.target.files?.[0])} />
+              <span className="rounded-control border border-line px-2 py-1 text-xs text-ink">{tx("tradeReplaceStamp", "Change stamp image")}</span>
+            </label>
+            <Button type="button" size="sm" variant="outline" disabled={!canManageStamp} onClick={() => void template("round")}>{tx("tradeRoundStamp", "Round stamp")}</Button>
+            <Button type="button" size="sm" variant="outline" disabled={!canManageStamp} onClick={() => void template("rect")}>{tx("tradeRectStamp", "Rectangular stamp")}</Button>
+          </>
+        ) : null}
         <label className="flex items-center gap-1 text-xs text-ink-muted">
           {tx("tradeStampScale", "Size")}
-          <input type="range" min="0.4" max="2" step="0.05" disabled={disabled} value={stamp.scale} onChange={(event) => onChange({ ...stamp, scale: Number(event.target.value) })} />
+          <input type="range" min="0.4" max="2" step="0.05" disabled={!canApplyStamp} value={stamp.scale} onChange={(event) => onChange({ ...stamp, scale: Number(event.target.value) })} />
         </label>
         <label className="flex items-center gap-1 text-xs text-ink-muted">
           {tx("tradeStampAngle", "Angle")}
-          <input type="range" min="-30" max="30" step="1" disabled={disabled} value={stamp.rotation} onChange={(event) => onChange({ ...stamp, rotation: Number(event.target.value) })} />
+          <input type="range" min="-30" max="30" step="1" disabled={!canApplyStamp} value={stamp.rotation} onChange={(event) => onChange({ ...stamp, rotation: Number(event.target.value) })} />
         </label>
-        <Button type="button" size="sm" variant="outline" disabled={disabled || !stamp.stamped} onClick={() => onChange({ ...stamp, stamped: false })}>{tx("tradeClearStamp", "Clear stamp")}</Button>
+        <Button type="button" size="sm" variant="outline" disabled={!canApplyStamp || !stamp.stamped} onClick={() => onChange({ ...stamp, stamped: false })}>{tx("tradeClearStamp", "Clear stamp")}</Button>
       </div>
       <div className="overflow-auto rounded-card border border-line bg-paper p-3">
           <div className="flex flex-col gap-4">
@@ -139,7 +148,7 @@ export function LiveInvoiceView({
                 } : undefined}
                 onMouseLeave={pageIndex === 0 ? () => { setGhost(null); setDrag(false); } : undefined}
                 onClick={pageIndex === 0 ? (event) => {
-                  if (!arm || disabled || drag) return;
+                  if (!arm || !canApplyStamp || drag) return;
                   const target = event.target as HTMLElement;
                   if (target.dataset.stamp === "placed") return;
                   onChange({ ...stamp, ...ratios(event), stamped: true });
@@ -222,7 +231,7 @@ export function LiveInvoiceView({
                     rotation={stamp.rotation}
                     hit={hit}
                     onPointerDown={(event) => {
-                      if (disabled) return;
+                      if (!canApplyStamp) return;
                       event.stopPropagation();
                       event.currentTarget.setPointerCapture(event.pointerId);
                       setDrag(true);
