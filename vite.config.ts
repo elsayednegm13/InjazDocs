@@ -210,8 +210,6 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
       "@shared": path.resolve(__dirname, "shared"),
       "@server": path.resolve(__dirname, "server"),
-      "@workspace/boosthis-runtime-web": path.resolve(__dirname, "lib/boosthis-runtime-web/src/index.ts"),
-      "@workspace/boosthis-edge": path.resolve(__dirname, "lib/boosthis-edge/src/index.ts"),
     },
   },
   server: {

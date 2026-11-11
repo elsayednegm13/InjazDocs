@@ -13,7 +13,9 @@ export type Actor = {
   roleKeys: string[];
 };
 
-const ACTOR_CACHE_TTL_MS = 60_000;
+// Short window: coalesces parallel requests from one page load while keeping
+// cross-isolate staleness after a permission/override/disable change to ≤5s.
+const ACTOR_CACHE_TTL_MS = 5_000;
 
 export function invalidateActorCache(db: D1Database, userId: string): void {
   edgeCache.del(db, `actor:${userId}`);

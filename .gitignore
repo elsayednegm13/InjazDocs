@@ -29,8 +29,6 @@ dist-ssr
 # Agent tooling
 .cursor
 .opencode
-# Duplicate screenshot bundle (folder is tracked)
-docs/qa-screenshots/checkpoint-06-7.zip
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
@@ -57,3 +55,6 @@ dist
 .w1-run-id*
 .w1final-evidence-dir.txt
 .mimosa/
+output.txt
+*.tmp
+*.bak

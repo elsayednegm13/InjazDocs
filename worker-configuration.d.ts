@@ -25,8 +25,6 @@ interface CloudflareBindings {
   EXPORTFLOW_TRACE?: string;
   /** Non-secret fixture label used to prove which local vars file a diagnostic worker loaded. */
   EXPORTFLOW_FIXTURE?: string;
-  /** Boosthis project key. Local value lives in .dev.vars; production is a Worker secret. */
-  BOOSTHIS_PROJECT_KEY?: string;
 }
 
 declare namespace Cloudflare {

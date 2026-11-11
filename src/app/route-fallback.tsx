@@ -18,10 +18,6 @@ export class RouteErrorBoundary extends Component<BoundaryProps, BoundaryState> 
     return { failed: true };
   }
 
-  componentDidCatch(error: Error) {
-    import("@workspace/boosthis-runtime-web").then((kit) => kit.reportCaughtError(error), () => undefined);
-  }
-
   render() {
     if (this.state.failed) return <RouteLoadError onRetry={() => window.location.reload()} />;
     return this.props.children;
