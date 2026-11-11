@@ -408,6 +408,49 @@ export function UsersPage() {
   );
 }
 
+function PermissionSwitch({
+  checked,
+  disabled,
+  tone = "default",
+  onToggle,
+  label,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  tone?: "default" | "grant" | "deny";
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      dir="ltr"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onToggle}
+      className={cn(
+        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:cursor-not-allowed disabled:opacity-50",
+        checked
+          ? tone === "grant"
+            ? "bg-emerald-600 dark:bg-emerald-500"
+            : "bg-accent"
+          : tone === "deny"
+            ? "bg-rose-200 ring-1 ring-rose-400/60 dark:bg-rose-950/80 dark:ring-rose-500/50"
+            : "bg-slate-300 dark:bg-slate-700",
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-xs transition-transform duration-150",
+          checked ? "translate-x-5" : "translate-x-0.5",
+        )}
+      />
+    </button>
+  );
+}
+
 function UserPermissionCustomizerModal({
   user,
   roles,
@@ -423,6 +466,7 @@ function UserPermissionCustomizerModal({
   const client = useQueryClient();
   const [selectedRoleKey, setSelectedRoleKey] = useState<string>("export_officer");
   const [overrideMap, setOverrideMap] = useState<Record<string, OverrideEffect>>({});
+  const [activeGroupKey, setActiveGroupKey] = useState<string>(PERMISSION_GROUPS[0]?.key ?? "ALL");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<CustomizerFilter>("all");
   const [busy, setBusy] = useState(false);
@@ -442,6 +486,7 @@ function UserPermissionCustomizerModal({
       nextMap[item.permissionKey] = item.effect;
     }
     setOverrideMap(nextMap);
+    setActiveGroupKey(PERMISSION_GROUPS[0]?.key ?? "ALL");
     setSearch("");
     setFilter("all");
   }, [user]);
@@ -490,6 +535,37 @@ function UserPermissionCustomizerModal({
     });
   }
 
+  function toggleSmartPermission(key: PermissionKey) {
+    const isCurrentlyEffective = effectiveSet.has(key);
+    const inheritedFromRole = roleGrantSet.has(key);
+    if (!isCurrentlyEffective) {
+      // Turning ON: if already in role, return to INHERIT; otherwise GRANT
+      setPermissionState(key, inheritedFromRole ? "INHERIT" : "GRANT");
+    } else {
+      // Turning OFF: if not in role, return to INHERIT; otherwise DENY
+      setPermissionState(key, inheritedFromRole ? "DENY" : "INHERIT");
+    }
+  }
+
+  function applyBulkGroupState(keys: PermissionKey[], mode: "ENABLE_ALL" | "DISABLE_ALL" | "RESET_ROLE") {
+    setOverrideMap((current) => {
+      const next = { ...current };
+      for (const k of keys) {
+        const inRole = roleGrantSet.has(k);
+        if (mode === "RESET_ROLE") {
+          delete next[k];
+        } else if (mode === "ENABLE_ALL") {
+          if (inRole) delete next[k];
+          else next[k] = "GRANT";
+        } else {
+          if (inRole) next[k] = "DENY";
+          else delete next[k];
+        }
+      }
+      return next;
+    });
+  }
+
   async function saveChanges() {
     if (!user) return;
     setBusy(true);
@@ -517,22 +593,52 @@ function UserPermissionCustomizerModal({
   }
 
   const normalizedQuery = search.trim().toLowerCase();
+  const isGlobalView = activeGroupKey === "ALL" || normalizedQuery.length > 0 || filter === "overridden";
+  const selectedGroupObj = PERMISSION_GROUPS.find((g) => g.key === activeGroupKey) ?? PERMISSION_GROUPS[0];
+
+  const scopedPermissions = useMemo(() => {
+    const base = isGlobalView
+      ? [...PERMISSIONS]
+      : PERMISSIONS.filter((k) => PERMISSION_CATALOG[k]?.groupKey === activeGroupKey);
+    return base.filter((key) => {
+      const meta = PERMISSION_CATALOG[key];
+      const override = overrideMap[key] as OverrideEffect | undefined;
+      const isEffective = effectiveSet.has(key);
+      if (filter === "overridden" && !override) return false;
+      if (filter === "granted" && !isEffective) return false;
+      if (filter === "denied" && isEffective) return false;
+      if (!normalizedQuery) return true;
+      const haystack = `${key} ${meta.labelAr} ${meta.labelEn} ${meta.descriptionAr} ${meta.descriptionEn}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [isGlobalView, activeGroupKey, overrideMap, effectiveSet, filter, normalizedQuery]);
+
+  const rawSectionPerms = useMemo(
+    () =>
+      isGlobalView
+        ? [...PERMISSIONS]
+        : PERMISSIONS.filter((k) => PERMISSION_CATALOG[k]?.groupKey === activeGroupKey),
+    [isGlobalView, activeGroupKey],
+  );
+
+  const sectionActiveCount = rawSectionPerms.filter((k) => effectiveSet.has(k)).length;
+  const sectionOverridesCount = rawSectionPerms.filter((k) => Boolean(overrideMap[k])).length;
 
   return (
     <Dialog open={Boolean(user)} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogPortal>
         <DialogOverlay className="fixed inset-0 z-40 bg-ink/50 backdrop-blur-[1px]" />
-        <DialogContent className="fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[min(100%-1.5rem,68rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-line bg-card text-start shadow-card focus:outline-none">
+        <DialogContent className="fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[min(100%-1.5rem,72rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-line bg-card text-start shadow-card focus:outline-none">
           {user ? (
             <>
               {/* Modal Header */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-paper/70 px-5 py-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-paper/70 px-5 py-3">
                 <div className="flex items-center gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-2 text-xs font-bold text-white">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-2 text-xs font-bold text-white">
                     {initialsOf(user.name)}
                   </span>
                   <div>
-                    <DialogTitle className="text-base font-bold text-ink">
+                    <DialogTitle className="text-sm font-bold text-ink">
                       {tx("customizeUserTitle", "تخصيص الصلاحيات الفردية والدور")} — {user.name}
                     </DialogTitle>
                     <p className="text-xs text-ink-muted">
@@ -562,250 +668,341 @@ function UserPermissionCustomizerModal({
                 </div>
               </div>
 
-              {/* A. Executive Entitlement Summary Banner */}
-              <div className="border-b border-line bg-slate-50/90 px-5 py-3.5 dark:bg-slate-900/50">
-                <div className="grid gap-3 lg:grid-cols-[18rem_1fr_auto] lg:items-center">
-                  {/* Base Role Selector */}
-                  <Field label={tx("baseRoleLabel", "الدور الأساسي للمستخدم (Base Role)")}>
-                    <Select
-                      value={selectedRoleKey}
-                      disabled={busy}
-                      className="h-9 bg-card text-xs font-semibold"
-                      onChange={(e) => setSelectedRoleKey(e.target.value)}
-                    >
-                      {roles.map((r) => (
-                        <option key={r.key} value={r.key}>
-                          {ar && r.name_ar ? r.name_ar : r.name_en} ({r.permissions.length} صلاحية)
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-
-                  {/* Live Entitlement Formula Strip */}
-                  <div className="rounded-xl border border-line bg-card p-3 shadow-2xs">
-                    <div className="text-[11px] font-semibold text-ink-muted">
-                      {tx("effectiveFormulaTitle", "معادلة الصلاحيات الفعلية المحسوبة لحظياً:")}
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink">
-                      <span className="rounded-md border border-line bg-paper px-2 py-0.5">
-                        {tx("roleLabelShort", "الدور")}:{" "}
-                        <strong className="text-accent">
-                          {roleObj ? (ar && roleObj.name_ar ? roleObj.name_ar : roleObj.name_en) : selectedRoleKey}
-                        </strong>{" "}
-                        ({roleGrantSet.size} {tx("basePermsShort", "أساسية")})
+              {/* Compact Control Strip (Role + Summary Badges + Search + Quick Filters) */}
+              <div className="border-b border-line bg-slate-50/90 px-5 py-3 dark:bg-slate-900/50">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/* Base Role + Live Summary Pills */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-ink-muted">
+                        {tx("baseRoleShort", "الدور الأساسي:")}
                       </span>
-                      <span>+</span>
-                      <span className="rounded-md border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/20 dark:text-emerald-300">
-                        {grantsCount} {tx("extraGrantsLabel", "صلاحيات إضافية مخصصة (+Grant)")}
-                      </span>
-                      <span>−</span>
-                      <span className="rounded-md border border-rose-300 bg-rose-100 px-2 py-0.5 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/20 dark:text-rose-300">
-                        {deniesCount} {tx("revokedPermsLabel", "صلاحيات محجوبة (-Deny)")}
-                      </span>
-                      <span>=</span>
-                      <span className="rounded-md border border-accent/40 bg-accent/15 px-2.5 py-0.5 font-extrabold text-accent">
-                        {effectiveSet.size} / {PERMISSIONS.length} {tx("effectiveActivePerms", "صلاحية فعلية نشطة")}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Reset Overrides Button */}
-                  <div className="flex items-center justify-end">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={busy || overrideList.length === 0}
-                      onClick={() => setOverrideMap({})}
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span>{tx("resetOverridesToRole", "إعادة ضبط الاستثناءات للوضع الافتراضي للدور")}</span>
-                    </Button>
-                  </div>
-                </div>
-
-                {/* B. Search & Quick Filter Bar */}
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5 border-t border-line/60 pt-3">
-                  <div className="relative min-w-[16rem] flex-1">
-                    <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
-                    <Input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder={tx("searchPermissionsPlaceholder", "ابحث باسم الصلاحية بالعربية أو الإنجليزية أو الكود البرمجي...")}
-                      className="h-9 bg-card ps-9 text-xs"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={tx("filterPermissionsGroup", "فلترة الصلاحيات")}>
-                    {(
-                      [
-                        ["all", `الكل (${PERMISSIONS.length})`],
-                        ["overridden", `المستثناة فقط (${overrideList.length})`],
-                        ["granted", `الممنوحة فعلياً (${effectiveSet.size})`],
-                        ["denied", `غير الممنوحة (${PERMISSIONS.length - effectiveSet.size})`],
-                      ] as const
-                    ).map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setFilter(id)}
-                        className={cn(
-                          "rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors",
-                          filter === id
-                            ? "border-accent bg-accent text-white"
-                            : "border-line bg-card text-ink-muted hover:border-accent/40 hover:text-ink",
-                        )}
+                      <Select
+                        value={selectedRoleKey}
+                        disabled={busy}
+                        className="h-8 min-w-[12rem] bg-card text-xs font-semibold"
+                        onChange={(e) => setSelectedRoleKey(e.target.value)}
                       >
-                        {label}
+                        {roles.map((r) => (
+                          <option key={r.key} value={r.key}>
+                            {ar && r.name_ar ? r.name_ar : r.name_en} ({r.permissions.length})
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+
+                    <span className="rounded-full border border-accent/30 bg-accent/15 px-2.5 py-1 text-xs font-bold tabular-nums text-accent">
+                      {effectiveSet.size} / {PERMISSIONS.length} {tx("activePermsBadge", "مفعلة")}
+                    </span>
+
+                    {grantsCount > 0 ? (
+                      <span className="rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/20 dark:text-emerald-300">
+                        +{grantsCount} {tx("addedGrantsShort", "مضافة")}
+                      </span>
+                    ) : null}
+
+                    {deniesCount > 0 ? (
+                      <span className="rounded-full border border-rose-300 bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/20 dark:text-rose-300">
+                        −{deniesCount} {tx("revokedDeniesShort", "محجوبة")}
+                      </span>
+                    ) : null}
+
+                    {overrideList.length > 0 ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setOverrideMap({})}
+                        className="inline-flex items-center gap-1 rounded-lg border border-line bg-card px-2.5 py-1 text-xs font-semibold text-ink-muted transition-colors hover:border-accent/40 hover:text-ink"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        <span>{tx("restoreRoleDefaultsBtn", "استعادة افتراضي الدور")}</span>
                       </button>
-                    ))}
+                    ) : null}
+                  </div>
+
+                  {/* Search + Quick Filters */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative w-56 sm:w-64">
+                      <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
+                      <Input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder={tx("searchPermissionsShort", "بحث في الصلاحيات...")}
+                        className="h-8 bg-card ps-8 text-xs"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1" role="group" aria-label={tx("filterPermissionsGroup", "فلترة الصلاحيات")}>
+                      {(
+                        [
+                          ["all", `الكل`],
+                          ["overridden", `المعدّلة (${overrideList.length})`],
+                          ["granted", `المفعّلة (${effectiveSet.size})`],
+                          ["denied", `المحجوبة (${PERMISSIONS.length - effectiveSet.size})`],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setFilter(id)}
+                          className={cn(
+                            "rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors",
+                            filter === id
+                              ? "border-accent bg-accent text-white"
+                              : "border-line bg-card text-ink-muted hover:border-accent/40 hover:text-ink",
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* C. 12 Categorized Functional Groups Scrollable Body */}
-              <div className="flex-1 space-y-4 overflow-y-auto p-5">
-                {PERMISSION_GROUPS.map((group) => {
-                  const groupPerms = PERMISSIONS.filter((key) => PERMISSION_CATALOG[key]?.groupKey === group.key);
-                  const visiblePerms = groupPerms.filter((key) => {
-                    const meta = PERMISSION_CATALOG[key];
-                    const override = overrideMap[key];
-                    const isEffective = effectiveSet.has(key);
-                    if (filter === "overridden" && !override) return false;
-                    if (filter === "granted" && !isEffective) return false;
-                    if (filter === "denied" && isEffective) return false;
-                    if (!normalizedQuery) return true;
-                    const haystack = `${key} ${meta.labelAr} ${meta.labelEn} ${meta.descriptionAr} ${meta.descriptionEn}`.toLowerCase();
-                    return haystack.includes(normalizedQuery);
-                  });
+              {/* 2-Column Master-Detail Permissions Body */}
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[260px_1fr]">
+                  {/* Right Column (RTL): Category Navigation Sidebar */}
+                  <div className="rounded-xl border border-line bg-card p-1.5 shadow-2xs">
+                    <div className="px-2.5 py-1.5 text-[11px] font-bold text-ink-muted">
+                      {tx("permissionCategoriesHeading", "الأقسام الوظيفية (12)")}
+                    </div>
+                    <div className="space-y-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveGroupKey("ALL");
+                          setSearch("");
+                        }}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-start text-xs font-semibold transition-colors",
+                          activeGroupKey === "ALL" && !normalizedQuery
+                            ? "bg-accent text-white shadow-2xs"
+                            : "text-ink hover:bg-paper/80",
+                        )}
+                      >
+                        <span className="truncate">{tx("allPermissionCategories", "جميع الأقسام (59)")}</span>
+                        <span className="flex items-center gap-1.5">
+                          {overrideList.length > 0 ? (
+                            <span
+                              className={cn(
+                                "h-2 w-2 rounded-full",
+                                activeGroupKey === "ALL" && !normalizedQuery ? "bg-white" : "bg-amber-500",
+                              )}
+                              title={tx("hasManualOverridesDot", "يحتوي على استثناءات يدوية")}
+                            />
+                          ) : null}
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
+                              activeGroupKey === "ALL" && !normalizedQuery
+                                ? "bg-white/20 text-white"
+                                : effectiveSet.size === PERMISSIONS.length
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300"
+                                  : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+                            )}
+                          >
+                            {effectiveSet.size}/{PERMISSIONS.length}
+                          </span>
+                        </span>
+                      </button>
 
-                  if (visiblePerms.length === 0) return null;
+                      {PERMISSION_GROUPS.map((group) => {
+                        const groupPerms = PERMISSIONS.filter((k) => PERMISSION_CATALOG[k]?.groupKey === group.key);
+                        const activeCount = groupPerms.filter((k) => effectiveSet.has(k)).length;
+                        const isComplete = activeCount === groupPerms.length;
+                        const hasOverride = groupPerms.some((k) => Boolean(overrideMap[k]));
+                        const isSelected = activeGroupKey === group.key && !normalizedQuery && filter !== "overridden";
 
-                  const groupActiveCount = groupPerms.filter((k) => effectiveSet.has(k)).length;
+                        return (
+                          <button
+                            key={group.key}
+                            type="button"
+                            onClick={() => {
+                              setActiveGroupKey(group.key);
+                              setSearch("");
+                              if (filter === "overridden") setFilter("all");
+                            }}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-start text-xs font-semibold transition-colors",
+                              isSelected
+                                ? "bg-accent text-white shadow-2xs"
+                                : "text-ink hover:bg-paper/80",
+                            )}
+                          >
+                            <span className="truncate">{ar ? group.titleAr : group.titleEn}</span>
+                            <span className="flex shrink-0 items-center gap-1.5">
+                              {hasOverride ? (
+                                <span
+                                  className={cn(
+                                    "h-2 w-2 rounded-full",
+                                    isSelected ? "bg-white" : "bg-amber-500",
+                                  )}
+                                  title={tx("hasManualOverridesDot", "يحتوي على استثناء يدوي (منح أو حجب)")}
+                                />
+                              ) : null}
+                              <span
+                                className={cn(
+                                  "rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
+                                  isSelected
+                                    ? "bg-white/20 text-white"
+                                    : isComplete
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300"
+                                      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+                                )}
+                              >
+                                {activeCount}/{groupPerms.length}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                  return (
-                    <div key={group.key} className="overflow-hidden rounded-xl border border-line bg-card shadow-2xs">
-                      {/* Group Header */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-slate-100/90 px-4 py-2.5 text-slate-800 dark:bg-slate-900/70 dark:text-slate-100">
-                        <span className="text-xs font-bold">{ar ? group.titleAr : group.titleEn}</span>
-                        <span className="rounded-full border border-line bg-card px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink">
-                          {groupActiveCount} / {groupPerms.length} {tx("activeInGroup", "مفعّلة")}
+                  {/* Left Column (RTL): Active Category Permissions Card */}
+                  <div className="overflow-hidden rounded-xl border border-line bg-card shadow-2xs">
+                    {/* Active Category Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-slate-100/90 px-4 py-3 text-slate-800 dark:bg-slate-900/70 dark:text-slate-100">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-sm font-bold">
+                          {normalizedQuery
+                            ? tx("searchResultsAcrossCategories", "نتائج البحث في جميع الأقسام")
+                            : activeGroupKey === "ALL" || filter === "overridden"
+                              ? tx("allPermissionCategories", "جميع الأقسام (59)")
+                              : ar
+                                ? selectedGroupObj?.titleAr
+                                : selectedGroupObj?.titleEn}
+                        </h4>
+                        <span className="rounded-full border border-line bg-card px-2.5 py-0.5 text-xs font-bold tabular-nums text-ink">
+                          {sectionActiveCount} / {rawSectionPerms.length} {tx("activeInGroup", "مفعّلة")}
                         </span>
                       </div>
 
-                      {/* Permission Rows */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => applyBulkGroupState(rawSectionPerms, "ENABLE_ALL")}
+                          className="rounded-lg border border-line bg-card px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:border-emerald-400 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+                        >
+                          {tx("enableAllSection", "تفعيل كل القسم")}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => applyBulkGroupState(rawSectionPerms, "DISABLE_ALL")}
+                          className="rounded-lg border border-line bg-card px-2.5 py-1 text-xs font-semibold text-rose-700 transition-colors hover:border-rose-400 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                        >
+                          {tx("disableAllSection", "إلغاء الكل")}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy || sectionOverridesCount === 0}
+                          onClick={() => applyBulkGroupState(rawSectionPerms, "RESET_ROLE")}
+                          className="inline-flex items-center gap-1 rounded-lg border border-line bg-card px-2.5 py-1 text-xs font-semibold text-ink-muted transition-colors hover:border-accent/40 hover:text-ink disabled:opacity-40"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          <span>{tx("resetSectionToRole", "إعادة ضبط القسم للدور")}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Permission Rows */}
+                    {scopedPermissions.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-ink-muted">
+                        {tx("noMatchingPermissionsInFilter", "لا توجد صلاحيات مطابقة للبحث أو الفلتر المحدد.")}
+                      </div>
+                    ) : (
                       <div className="divide-y divide-line/70">
-                        {visiblePerms.map((key) => {
+                        {scopedPermissions.map((key) => {
                           const meta = PERMISSION_CATALOG[key];
                           const inheritedFromRole = roleGrantSet.has(key);
                           const override = overrideMap[key] as OverrideEffect | undefined;
-                          const state: "INHERIT" | "GRANT" | "DENY" = override ?? "INHERIT";
                           const isEffective = effectiveSet.has(key);
+                          const isExtraGrant = override === "GRANT" && !inheritedFromRole;
+                          const isExplicitDeny = override === "DENY" && inheritedFromRole;
+                          const hasAnyOverride = Boolean(override);
 
                           return (
                             <div
                               key={key}
+                              title={key}
                               className={cn(
-                                "flex flex-col justify-between gap-3 px-4 py-3 transition-colors md:flex-row md:items-center",
-                                state === "GRANT"
+                                "flex flex-col justify-between gap-3 px-4 py-3 transition-colors sm:flex-row sm:items-center",
+                                isExtraGrant
                                   ? "bg-emerald-50/50 dark:bg-emerald-500/[0.06]"
-                                  : state === "DENY"
+                                  : isExplicitDeny
                                     ? "bg-rose-50/50 dark:bg-rose-500/[0.06]"
-                                    : "hover:bg-paper/40",
+                                    : isEffective
+                                      ? "bg-accent/[0.02] hover:bg-paper/40"
+                                      : "hover:bg-paper/40",
                               )}
                             >
-                              {/* Permission Info */}
+                              {/* Permission Arabic Title & Description (English key hidden in title attribute) */}
                               <div className="min-w-0 flex-1 space-y-0.5">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span
-                                    className={cn(
-                                      "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
-                                      isEffective
-                                        ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                                        : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-                                    )}
-                                  >
-                                    {isEffective ? "✓" : "—"}
-                                  </span>
                                   <span className="text-sm font-semibold text-ink">
                                     {ar ? meta.labelAr : meta.labelEn}
                                   </span>
-                                  <code className="rounded border border-line bg-paper px-1.5 py-0.5 font-mono text-[10px] text-ink-muted" dir="ltr">
-                                    {key}
-                                  </code>
+                                  {isGlobalView ? (
+                                    <span className="rounded-md border border-line bg-paper px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+                                      {ar ? meta.groupTitleAr : meta.groupTitleEn}
+                                    </span>
+                                  ) : null}
                                 </div>
-                                <p className="ps-7 text-xs text-ink-muted">
+                                <p className="text-xs text-ink-muted">
                                   {ar ? meta.descriptionAr : meta.descriptionEn}
                                 </p>
                               </div>
 
-                              {/* 3-State Segmented Control */}
-                              <div
-                                className="inline-flex shrink-0 overflow-hidden rounded-lg border border-line bg-paper p-0.5 shadow-2xs"
-                                role="radiogroup"
-                                aria-label={meta.labelAr}
-                              >
-                                {/* State 1: Inherit from Role */}
-                                <button
-                                  type="button"
-                                  role="radio"
-                                  aria-checked={state === "INHERIT"}
-                                  onClick={() => setPermissionState(key, "INHERIT")}
-                                  className={cn(
-                                    "rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors",
-                                    state === "INHERIT"
-                                      ? "bg-card text-ink shadow-2xs"
-                                      : "text-ink-muted hover:text-ink",
-                                  )}
-                                >
-                                  {tx("inheritStateLabel", "موروث من الدور")}{" "}
-                                  <span className={cn("font-bold", inheritedFromRole ? "text-emerald-600 dark:text-emerald-400" : "text-ink-muted")}>
-                                    {inheritedFromRole ? "(✓ من الدور)" : "(— غير مشمولة)"}
+                              {/* Status Badge + Reset Button + Smart Toggle Switch */}
+                              <div className="flex shrink-0 items-center gap-2.5 self-end sm:self-center">
+                                {isExtraGrant ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/20 dark:text-emerald-300">
+                                    <span>{tx("extraGrantedBadge", "ممنوحة إضافياً")}</span>
                                   </span>
-                                </button>
+                                ) : isExplicitDeny ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/20 dark:text-rose-300">
+                                    <span>{tx("explicitDeniedBadge", "محجوبة استثنائياً")}</span>
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full border border-line bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                                    {tx("roleDefaultBadge", "افتراضي الدور")}
+                                  </span>
+                                )}
 
-                                {/* State 2: Explicit GRANT */}
-                                <button
-                                  type="button"
-                                  role="radio"
-                                  aria-checked={state === "GRANT"}
-                                  onClick={() => setPermissionState(key, "GRANT")}
-                                  className={cn(
-                                    "rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors",
-                                    state === "GRANT"
-                                      ? "bg-emerald-600 text-white shadow-2xs"
-                                      : "text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400",
-                                  )}
-                                >
-                                  + {tx("grantStateLabel", "منح خاص")}
-                                </button>
+                                {hasAnyOverride ? (
+                                  <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => setPermissionState(key, "INHERIT")}
+                                    title={tx("resetSinglePermToRole", "إعادة لافتراضي الدور")}
+                                    className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line bg-card text-xs font-bold text-ink-muted transition-colors hover:border-accent/50 hover:text-ink"
+                                  >
+                                    ↺
+                                  </button>
+                                ) : null}
 
-                                {/* State 3: Explicit DENY */}
-                                <button
-                                  type="button"
-                                  role="radio"
-                                  aria-checked={state === "DENY"}
-                                  onClick={() => setPermissionState(key, "DENY")}
-                                  className={cn(
-                                    "rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors",
-                                    state === "DENY"
-                                      ? "bg-rose-600 text-white shadow-2xs"
-                                      : "text-rose-700 hover:bg-rose-500/10 dark:text-rose-400",
-                                  )}
-                                >
-                                  - {tx("denyStateLabel", "حجب خاص")}
-                                </button>
+                                <PermissionSwitch
+                                  checked={isEffective}
+                                  disabled={busy}
+                                  tone={isExtraGrant ? "grant" : isExplicitDeny ? "deny" : "default"}
+                                  label={ar ? meta.labelAr : meta.labelEn}
+                                  onToggle={() => toggleSmartPermission(key)}
+                                />
                               </div>
                             </div>
                           );
                         })}
                       </div>
-                    </div>
-                  );
-                })}
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Modal Footer */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-slate-50/90 px-5 py-3.5 dark:bg-slate-900/80">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-slate-50/90 px-5 py-3 dark:bg-slate-900/80">
                 <span className="text-xs text-ink-muted">
                   {tx(
                     "overridesAuditHint",
@@ -843,6 +1040,7 @@ function RoleTemplatesWorkspace({ roles }: { roles: AdminRoleRow[] }) {
   );
 
   const [draftPerms, setDraftPerms] = useState<Set<string>>(new Set());
+  const [activeGroupKey, setActiveGroupKey] = useState<string>(PERMISSION_GROUPS[0]?.key ?? "ALL");
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -854,6 +1052,30 @@ function RoleTemplatesWorkspace({ roles }: { roles: AdminRoleRow[] }) {
 
   const isAdminRole = activeRole?.key === "administrator";
   const normalizedQuery = search.trim().toLowerCase();
+  const isGlobalView = activeGroupKey === "ALL" || normalizedQuery.length > 0;
+  const selectedGroupObj = PERMISSION_GROUPS.find((g) => g.key === activeGroupKey) ?? PERMISSION_GROUPS[0];
+
+  const scopedPermissions = useMemo(() => {
+    const base = isGlobalView
+      ? [...PERMISSIONS]
+      : PERMISSIONS.filter((k) => PERMISSION_CATALOG[k]?.groupKey === activeGroupKey);
+    return base.filter((k) => {
+      if (!normalizedQuery) return true;
+      const meta = PERMISSION_CATALOG[k];
+      const haystack = `${k} ${meta.labelAr} ${meta.labelEn} ${meta.descriptionAr} ${meta.descriptionEn}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [isGlobalView, activeGroupKey, normalizedQuery]);
+
+  const rawSectionPerms = useMemo(
+    () =>
+      isGlobalView
+        ? [...PERMISSIONS]
+        : PERMISSIONS.filter((k) => PERMISSION_CATALOG[k]?.groupKey === activeGroupKey),
+    [isGlobalView, activeGroupKey],
+  );
+
+  const sectionCheckedCount = rawSectionPerms.filter((k) => draftPerms.has(k)).length;
 
   function togglePerm(key: PermissionKey) {
     if (isAdminRole) return;
@@ -1002,15 +1224,12 @@ function RoleTemplatesWorkspace({ roles }: { roles: AdminRoleRow[] }) {
           {/* Role Matrix Header */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-slate-50/90 px-4 py-3 dark:bg-slate-900/50">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" title={activeRole.key}>
                 <h3 className="text-sm font-bold text-ink">
                   {ar && activeRole.name_ar ? activeRole.name_ar : activeRole.name_en}
                 </h3>
-                <code className="rounded border border-line bg-card px-1.5 py-0.5 font-mono text-[11px] text-ink-muted" dir="ltr">
-                  {activeRole.key}
-                </code>
-                <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-bold text-accent">
-                  {draftPerms.size} / {PERMISSIONS.length} {tx("activePermsUnit", "صلاحية")}
+                <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-bold tabular-nums text-accent">
+                  {draftPerms.size} / {PERMISSIONS.length} {tx("activePermsUnit", "صلاحية مفعلة")}
                 </span>
               </div>
               {isAdminRole ? (
@@ -1040,80 +1259,185 @@ function RoleTemplatesWorkspace({ roles }: { roles: AdminRoleRow[] }) {
             </div>
           </div>
 
-          {/* 12 Groups Grid */}
-          <div className="space-y-4 p-4">
-            {PERMISSION_GROUPS.map((group) => {
-              const groupPerms = PERMISSIONS.filter((k) => PERMISSION_CATALOG[k]?.groupKey === group.key);
-              const visiblePerms = groupPerms.filter((k) => {
-                if (!normalizedQuery) return true;
-                const meta = PERMISSION_CATALOG[k];
-                const haystack = `${k} ${meta.labelAr} ${meta.labelEn} ${meta.descriptionAr} ${meta.descriptionEn}`.toLowerCase();
-                return haystack.includes(normalizedQuery);
-              });
-              if (visiblePerms.length === 0) return null;
+          {/* 2-Column Master-Detail Permissions Body */}
+          <div className="p-4">
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[260px_1fr]">
+              {/* Right Column (RTL): Category Navigation Sidebar */}
+              <div className="rounded-xl border border-line bg-card p-1.5 shadow-2xs">
+                <div className="px-2.5 py-1.5 text-[11px] font-bold text-ink-muted">
+                  {tx("permissionCategoriesHeading", "الأقسام الوظيفية (12)")}
+                </div>
+                <div className="space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveGroupKey("ALL");
+                      setSearch("");
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-start text-xs font-semibold transition-colors",
+                      activeGroupKey === "ALL" && !normalizedQuery
+                        ? "bg-accent text-white shadow-2xs"
+                        : "text-ink hover:bg-paper/80",
+                    )}
+                  >
+                    <span className="truncate">{tx("allPermissionCategories", "جميع الأقسام (59)")}</span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
+                        activeGroupKey === "ALL" && !normalizedQuery
+                          ? "bg-white/20 text-white"
+                          : draftPerms.size === PERMISSIONS.length
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300"
+                            : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+                      )}
+                    >
+                      {draftPerms.size}/{PERMISSIONS.length}
+                    </span>
+                  </button>
 
-              const checkedCount = groupPerms.filter((k) => draftPerms.has(k)).length;
-              const allChecked = checkedCount === groupPerms.length;
+                  {PERMISSION_GROUPS.map((group) => {
+                    const groupPerms = PERMISSIONS.filter((k) => PERMISSION_CATALOG[k]?.groupKey === group.key);
+                    const checkedCount = groupPerms.filter((k) => draftPerms.has(k)).length;
+                    const isComplete = checkedCount === groupPerms.length;
+                    const isSelected = activeGroupKey === group.key && !normalizedQuery;
 
-              return (
-                <div key={group.key} className="overflow-hidden rounded-xl border border-line bg-card">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-slate-100/90 px-3.5 py-2 text-slate-800 dark:bg-slate-900/70 dark:text-slate-100">
-                    <span className="text-xs font-bold">{ar ? group.titleAr : group.titleEn}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-semibold tabular-nums text-ink-muted">
-                        {checkedCount} / {groupPerms.length}
-                      </span>
-                      {!isAdminRole ? (
-                        <button
-                          type="button"
-                          onClick={() => toggleGroup(groupPerms, !allChecked)}
-                          className="rounded border border-line bg-card px-2 py-0.5 text-[11px] font-semibold text-accent hover:border-accent/50"
+                    return (
+                      <button
+                        key={group.key}
+                        type="button"
+                        onClick={() => {
+                          setActiveGroupKey(group.key);
+                          setSearch("");
+                        }}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-start text-xs font-semibold transition-colors",
+                          isSelected
+                            ? "bg-accent text-white shadow-2xs"
+                            : "text-ink hover:bg-paper/80",
+                        )}
+                      >
+                        <span className="truncate">{ar ? group.titleAr : group.titleEn}</span>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
+                            isSelected
+                              ? "bg-white/20 text-white"
+                              : isComplete
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300"
+                                : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+                          )}
                         >
-                          {allChecked ? tx("unselectGroup", "إلغاء تحديد المجموعة") : tx("selectGroup", "تحديد كل المجموعة")}
-                        </button>
-                      ) : null}
-                    </div>
+                          {checkedCount}/{groupPerms.length}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Left Column (RTL): Active Category Permissions Card */}
+              <div className="overflow-hidden rounded-xl border border-line bg-card shadow-2xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-slate-100/90 px-4 py-3 text-slate-800 dark:bg-slate-900/70 dark:text-slate-100">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-sm font-bold">
+                      {normalizedQuery
+                        ? tx("searchResultsAcrossCategories", "نتائج البحث في جميع الأقسام")
+                        : activeGroupKey === "ALL"
+                          ? tx("allPermissionCategories", "جميع الأقسام (59)")
+                          : ar
+                            ? selectedGroupObj?.titleAr
+                            : selectedGroupObj?.titleEn}
+                    </h4>
+                    <span className="rounded-full border border-line bg-card px-2.5 py-0.5 text-xs font-bold tabular-nums text-ink">
+                      {sectionCheckedCount} / {rawSectionPerms.length} {tx("activeInGroup", "مفعّلة")}
+                    </span>
                   </div>
-                  <div className="grid gap-2 p-3 sm:grid-cols-2">
-                    {visiblePerms.map((key) => {
+
+                  {!isAdminRole ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => toggleGroup(rawSectionPerms, true)}
+                        className="rounded-lg border border-line bg-card px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:border-emerald-400 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+                      >
+                        {tx("enableAllSection", "تفعيل كل القسم")}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => toggleGroup(rawSectionPerms, false)}
+                        className="rounded-lg border border-line bg-card px-2.5 py-1 text-xs font-semibold text-rose-700 transition-colors hover:border-rose-400 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                      >
+                        {tx("disableAllSection", "إلغاء الكل")}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                {scopedPermissions.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-ink-muted">
+                    {tx("noMatchingPermissionsInFilter", "لا توجد صلاحيات مطابقة للبحث.")}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-line/70">
+                    {scopedPermissions.map((key) => {
                       const meta = PERMISSION_CATALOG[key];
                       const checked = draftPerms.has(key);
                       return (
-                        <label
+                        <div
                           key={key}
+                          title={key}
                           className={cn(
-                            "flex cursor-pointer items-start gap-2.5 rounded-xl border p-2.5 text-sm transition-colors",
+                            "flex items-center justify-between gap-3 px-4 py-3 transition-colors",
                             checked
-                              ? "border-accent/40 bg-accent/[0.05] text-ink"
-                              : "border-line bg-paper/30 text-ink-muted hover:bg-paper/60",
-                            isAdminRole ? "cursor-default opacity-90" : "",
+                              ? "bg-emerald-50/40 dark:bg-emerald-500/[0.05]"
+                              : "hover:bg-paper/40",
                           )}
                         >
-                          <input
-                            type="checkbox"
-                            className="mt-1 h-4 w-4 accent-accent"
-                            checked={checked}
-                            disabled={isAdminRole}
-                            onChange={() => togglePerm(key)}
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex flex-wrap items-center gap-1.5 font-semibold text-ink">
-                              <span>{ar ? meta.labelAr : meta.labelEn}</span>
-                              <code className="rounded border border-line bg-card px-1 py-0.2 font-mono text-[10px] text-ink-muted" dir="ltr">
-                                {key}
-                              </code>
-                            </span>
-                            <span className="mt-0.5 block text-xs text-ink-muted">
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-ink">
+                                {ar ? meta.labelAr : meta.labelEn}
+                              </span>
+                              {isGlobalView ? (
+                                <span className="rounded-md border border-line bg-paper px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+                                  {ar ? meta.groupTitleAr : meta.groupTitleEn}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-xs text-ink-muted">
                               {ar ? meta.descriptionAr : meta.descriptionEn}
+                            </p>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-2.5">
+                            <span
+                              className={cn(
+                                "rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                                checked
+                                  ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/20 dark:text-emerald-300"
+                                  : "border-line bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+                              )}
+                            >
+                              {checked ? tx("permEnabledBadge", "مفعّلة") : tx("permDisabledBadge", "غير مفعّلة")}
                             </span>
-                          </span>
-                        </label>
+                            <PermissionSwitch
+                              checked={checked}
+                              disabled={isAdminRole || busy}
+                              tone={checked ? "grant" : "default"}
+                              label={ar ? meta.labelAr : meta.labelEn}
+                              onToggle={() => togglePerm(key)}
+                            />
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
-                </div>
-              );
-            })}
+                )}
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
