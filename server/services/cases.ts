@@ -950,3 +950,176 @@ function priceInvoice(input: InvoiceWrite, editionDefault: string | undefined) {
   if (!check.ok) throw errors.validation(check.message, check.code === "GROSS_LT_NET" ? { grossWeight: check.message } : undefined, check.code);
   return { goods, invoicedFreight, actualFreight, total, gross, net, edition: input.incotermsEdition ?? editionDefault ?? "Incoterms 2020" };
 }
+
+
+/**
+ * Picks a document number that is free in `table.invoice_number`, derived from
+ * the source number with a COPY suffix. Respects the UNIQUE index on both
+ * export_invoices and proforma_invoices and keeps the result within `max`.
+ */
+export async function uniqueCopyNumber(db: D1Database, table: "export_invoices" | "proforma_invoices", source: string, max = 40) {
+  const base = (source || "DOC").trim().slice(0, Math.max(8, max - 8));
+  for (let attempt = 1; attempt <= 60; attempt += 1) {
+    const candidate = attempt === 1 ? `${base}-COPY` : `${base}-COPY${attempt}`;
+    const taken = await one(db, `SELECT id FROM ${table} WHERE invoice_number = ?`, candidate);
+    if (!taken) return candidate;
+  }
+  return `${base}-${newId().slice(0, 6).toUpperCase()}`;
+}
+
+/**
+ * Repeat shipment: creates a fresh DRAFT export case for the same customer,
+ * route and destination, a live customer snapshot, the standard checklist
+ * reset to MISSING, and (when the source has one) the first commercial
+ * invoice with its terms and lines as a new DRAFT under a unique number.
+ *
+ * Never copied: case reference, statuses, bookings, containers, courier,
+ * files, customer shares, reminders, stamps, edit windows, weights and the
+ * old shipment's actual freight cost.
+ */
+export async function cloneCase(db: D1Database, actor: Actor, env: Env, sourceId: string, requestId: string) {
+  requirePermission(actor, "export_cases.create");
+  const source = await assertCaseAccess(db, actor, sourceId);
+  const meta = await one<{ case_reference: string; destination_country: string | null }>(
+    db,
+    "SELECT case_reference, destination_country FROM export_cases WHERE id = ?",
+    sourceId,
+  );
+  const customer = await one<{ id: string; legal_name: string; trade_name: string | null; country_code: string | null }>(
+    db,
+    "SELECT id, legal_name, trade_name, country_code FROM customers WHERE id = ?",
+    source.customer_id,
+  );
+  if (!meta || !customer) throw errors.notFound("Case not found");
+  const [contactRes, addressRes, reqRes, invoiceRes] = await db.batch([
+    db
+      .prepare("SELECT full_name, phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1")
+      .bind(customer.id),
+    db
+      .prepare("SELECT line1, city, country_code FROM customer_addresses WHERE customer_id = ? ORDER BY is_primary DESC LIMIT 1")
+      .bind(customer.id),
+    db
+      .prepare("SELECT document_type_id, required FROM operation_document_requirements WHERE case_id = ? ORDER BY created_at ASC, id ASC")
+      .bind(sourceId),
+    db
+      .prepare("SELECT id, invoice_number FROM export_invoices WHERE case_id = ? ORDER BY invoice_date ASC, created_at ASC, id ASC LIMIT 1")
+      .bind(sourceId),
+  ]);
+  const contact = contactRes.results?.[0] as { full_name: string; phone: string | null; email: string | null } | undefined;
+  const address = addressRes.results?.[0] as { line1: string; city: string | null; country_code: string | null } | undefined;
+  const requirements = (reqRes.results ?? []) as Array<{ document_type_id: string; required: number }>;
+  const sourceInvoice = invoiceRes.results?.[0] as { id: string; invoice_number: string } | undefined;
+  const sourceLines = sourceInvoice
+    ? await all<{ line_no: number; description: string; hs_code: string | null; barcode: string | null; unit_label: string | null; quantity: number; unit_price_minor: number; line_total_minor: number }>(
+        db,
+        "SELECT line_no, description, hs_code, barcode, unit_label, quantity, unit_price_minor, line_total_minor FROM invoice_lines WHERE invoice_id = ? ORDER BY line_no",
+        sourceInvoice.id,
+      )
+    : [];
+
+  const route = source.document_route as DocumentRoute;
+  const routeStatus = initialRouteStatus(route);
+  const year = new Date().getUTCFullYear();
+  const id = newId();
+  const now = nowIso();
+  const today = now.slice(0, 10);
+  const invoiceId = sourceInvoice ? newId() : null;
+  const invoiceNumber = sourceInvoice ? await uniqueCopyNumber(db, "export_invoices", sourceInvoice.invoice_number) : null;
+
+  let caseReference = "";
+  for (let attempt = 0; attempt < 8 && !caseReference; attempt += 1) {
+    const last = await one<{ n: number | null }>(
+      db,
+      "SELECT MAX(CAST(substr(case_reference, 9) AS INTEGER)) AS n FROM export_cases WHERE case_reference LIKE ?",
+      `EF-${year}-%`,
+    );
+    const candidate = `EF-${year}-${String((last?.n ?? 0) + 1).padStart(4, "0")}`;
+    const statements: D1PreparedStatement[] = [
+      db
+        .prepare(
+          `INSERT INTO export_cases (
+            id, case_reference, customer_id, status, document_route, bank_path_status, direct_path_status,
+            assigned_to, destination_country, next_action, version, created_at, updated_at, created_by
+          ) VALUES (?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, 'Complete commercial details and document checklist', 1, ?, ?, ?)`,
+        )
+        .bind(id, candidate, customer.id, route, routeStatus.bank, routeStatus.direct, actor.id, meta.destination_country ?? customer.country_code, now, now, actor.id),
+      db
+        .prepare(
+          `INSERT INTO export_case_customer_snapshots (
+            case_id, legal_name, trade_name, contact_name, contact_phone, contact_email, address_line1, city, country_code, captured_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          id,
+          customer.legal_name,
+          customer.trade_name,
+          contact?.full_name ?? null,
+          contact?.phone ?? null,
+          contact?.email ?? null,
+          address?.line1 ?? null,
+          address?.city ?? null,
+          address?.country_code ?? customer.country_code,
+          now,
+        ),
+      ...requirements.map((req) =>
+        db
+          .prepare(
+            `INSERT INTO operation_document_requirements (id, case_id, document_type_id, required, status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, 'MISSING', ?, ?)`,
+          )
+          .bind(newId(), id, req.document_type_id, req.required, now, now),
+      ),
+    ];
+    if (sourceInvoice && invoiceId && invoiceNumber) {
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO export_invoices (
+               id, case_id, invoice_number, invoice_date, customer_id, port_of_loading, port_of_discharge, destination_country,
+               payment_term_code, payment_term_details, due_days, due_date, incoterm, incoterms_edition, named_place,
+               currency, currency_decimals, goods_value_minor, invoiced_freight_minor, actual_freight_expense_minor, invoice_total_minor,
+               gross_weight_grams, net_weight_grams, units, notes, version, created_at, updated_at,
+               packages_count, payment_term_label, shipping_method_label, origin_of_goods, exporter_bank_account_id,
+               trade_revision, trade_status, print_reference, is_stamped, packing_is_stamped, print_fields_json, edit_open
+             )
+             SELECT ?, ?, ?, ?, ?, port_of_loading, port_of_discharge, destination_country,
+               payment_term_code, payment_term_details, due_days, NULL, incoterm, incoterms_edition, named_place,
+               currency, currency_decimals, goods_value_minor, invoiced_freight_minor, 0, invoice_total_minor,
+               0, 0, units, notes, 1, ?, ?,
+               0, payment_term_label, shipping_method_label, origin_of_goods, exporter_bank_account_id,
+               0, 'DRAFT', print_reference, 0, 0, print_fields_json, 0
+             FROM export_invoices WHERE id = ?`,
+          )
+          .bind(invoiceId, id, invoiceNumber, today, customer.id, now, now, sourceInvoice.id),
+        ...sourceLines.map((line) =>
+          db
+            .prepare(
+              `INSERT INTO invoice_lines (id, invoice_id, line_no, description, hs_code, barcode, unit_label, quantity, unit_price_minor, line_total_minor)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            )
+            .bind(newId(), invoiceId, line.line_no, line.description, line.hs_code, line.barcode, line.unit_label, line.quantity, line.unit_price_minor, line.line_total_minor),
+        ),
+        auditInsert(db, { actorId: actor.id, entityType: "invoice", entityId: invoiceId, action: "invoice.clone", after: { sourceInvoiceId: sourceInvoice.id }, requestId }),
+      );
+    }
+    statements.push(
+      caseEventInsert(db, id, "CASE_CREATED", `Created ${candidate} as a repeat of ${meta.case_reference}`, actor.id),
+      auditInsert(db, { actorId: actor.id, entityType: "export_case", entityId: id, action: "case.clone", after: { sourceCaseId: sourceId }, requestId }),
+    );
+    try {
+      await db.batch(statements);
+      caseReference = candidate;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/UNIQUE constraint failed: export_invoices\.invoice_number/i.test(message)) {
+        throw errors.conflict("Invoice number already exists", "INVOICE_NUMBER_TAKEN");
+      }
+      if (!/UNIQUE constraint failed: export_cases\.case_reference/i.test(message) || attempt === 7) {
+        throw error;
+      }
+    }
+  }
+  if (!caseReference) throw errors.conflict("Could not allocate a case reference. Try again.", "CASE_REFERENCE_BUSY");
+  await recomputeRemindersForCase(db, env, id);
+  return { id, caseReference, invoiceId, invoiceNumber, sourceCaseId: sourceId };
+}

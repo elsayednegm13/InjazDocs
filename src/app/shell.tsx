@@ -14,6 +14,7 @@ import { revealTheme } from "@/app/theme-transition";
 import { themeRevealOrigin } from "@/app/theme";
 import { useThemeName } from "@/app/use-theme";
 import { ConnectionSyncPill } from "@/components/layout/ConnectionSyncPill";
+import { CommandSpotlight } from "@/components/layout/CommandSpotlight";
 
 /** Milliseconds since `active` became true. Stays at 0 while inactive. */
 function useElapsedSince(active: boolean) {
@@ -85,6 +86,7 @@ export function AppShell() {
   const [params] = useSearchParams();
   const headerQuery = params.get("q") ?? "";
   const [open, setOpen] = useState(false);
+  const [spotlightOpen, setSpotlightOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const ar = i18n.language.startsWith("ar");
   const initials = (user?.name ?? "").trim().charAt(0).toUpperCase();
@@ -199,12 +201,25 @@ export function AppShell() {
                 key={headerQuery}
                 name="q"
                 defaultValue={headerQuery}
+                onFocus={() => setSpotlightOpen(true)}
                 aria-label={tx("search", "Search by case, invoice, booking, container, or customer")}
                 placeholder={tx("search", "Search by case, invoice, booking, container, or customer")}
-                className="border-line bg-paper ps-9 text-ink"
+                className="border-line bg-paper ps-9 pe-16 text-ink"
               />
+              <button
+                type="button"
+                onClick={() => setSpotlightOpen(true)}
+                aria-label={ar ? "فتح البحث الشامل (Ctrl+K)" : "Open global search (Ctrl+K)"}
+                title={ar ? "البحث الشامل والانتقال الفوري (Ctrl+K)" : "Global Spotlight Search (Ctrl+K)"}
+                className="absolute end-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded border border-line bg-card px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink-muted shadow-2xs transition hover:border-accent/40 hover:text-accent"
+                dir="ltr"
+                data-testid="topbar-spotlight-trigger"
+              >
+                <kbd>Ctrl+K</kbd>
+              </button>
             </div>
           </form>
+          <CommandSpotlight open={spotlightOpen} onOpenChange={setSpotlightOpen} initialQuery={headerQuery} />
           <div className="ms-auto flex shrink-0 items-center gap-2">
             <ConnectionSyncPill />
             <Link

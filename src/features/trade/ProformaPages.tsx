@@ -1,6 +1,8 @@
+import { Copy } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { can, useSession } from "@/app/access";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Ltr, PageHeader } from "@/components/ui/chrome";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
@@ -51,10 +53,36 @@ type Proforma = {
 };
 
 export function ProformaListPage() {
-  const { tx } = useCopy();
+  const { tx, i18n } = useCopy();
+  const isAr = i18n.language.startsWith("ar");
+  const user = useSession();
+  const navigate = useNavigate();
   const client = useQueryClient();
+  const [cloningId, setCloningId] = useState<string | null>(null);
   const listQuery = useQuery({ queryKey: ["proformas"], queryFn: async () => (await api<Proforma[]>("/api/v1/proformas")).data });
   const rawRows = listQuery.data ?? [];
+
+  async function handleClone(proformaId: string) {
+    if (cloningId) return;
+    setCloningId(proformaId);
+    try {
+      const created = await api<Proforma>(`/api/v1/proformas/${proformaId}/clone`, {
+        method: "POST",
+        body: "{}",
+      });
+      notifySuccess(
+        isAr
+          ? `تم تكرار الفاتورة المبدئية كمسودة (${created.data.invoice_number})`
+          : `Proforma cloned as a new draft (${created.data.invoice_number})`,
+      );
+      await client.invalidateQueries({ queryKey: ["proformas"] });
+      void navigate(`/proformas/${created.data.id}`);
+    } catch (error) {
+      notifyError(error);
+    } finally {
+      setCloningId(null);
+    }
+  }
 
   const list = useListController(rawRows, {
     storageKey: "proformas",
@@ -144,6 +172,20 @@ export function ProformaListPage() {
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
                       <Button asChild size="sm" variant="outline"><Link to={`/proformas/${row.id}`}>{tx("tradeOpen", "Open")}</Link></Button>
+                      {can(user, "proformas.edit") ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={cloningId === row.id}
+                          onClick={() => void handleClone(row.id)}
+                          className="gap-1"
+                          data-testid={`clone-proforma-${row.id}`}
+                        >
+                          <Copy className="h-3 w-3 text-accent" aria-hidden />
+                          <span>{isAr ? "تكرار كمسودة" : "Clone draft"}</span>
+                        </Button>
+                      ) : null}
                       <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf(`/api/v1/proformas/${row.id}/pdf`, tradePdfFilename({ invoiceNumber: row.invoice_number, clientName: row.customer_name ?? "CLIENT", clientCode: row.customer_code ?? "NA", country: row.customer_country ?? "NA" })).catch(notifyError)}>{tx("pdf", "PDF")}</Button>
                       <Button type="button" size="sm" variant="outline" disabled={!row.case_id} onClick={() => void api<{ invoiceId: string }>(`/api/v1/proformas/${row.id}/convert`, { method: "POST", body: "{}" }).then(() => { notifySuccess(tx("proformaConverted", "Converted")); return client.invalidateQueries({ queryKey: ["proformas"] }); }).catch(notifyError)}>{tx("proformaConvert", "Convert")}</Button>
                       {row.status === "DRAFT" ? <Button type="button" size="sm" variant="outline" onClick={() => void api(`/api/v1/proformas/${row.id}`, { method: "DELETE" }).then(() => { notifySuccess(tx("tradeDraftDeleted", "Draft deleted")); return client.invalidateQueries({ queryKey: ["proformas"] }); }).catch(notifyError)}>{tx("tradeDeleteDraft", "Delete draft")}</Button> : null}
@@ -178,11 +220,13 @@ export function ProformaEditorPage() {
     queryFn: async () => (await api<Proforma>(`/api/v1/proformas/${id}`)).data,
   });
   if (!isNew && existing.isLoading) return <p className="text-sm text-ink-muted">…</p>;
-  return <ProformaForm initial={existing.data} caseId={params.get("caseId") ?? existing.data?.case_id ?? ""} />;
+  return <ProformaForm key={existing.data?.id ?? id ?? "new"} initial={existing.data} caseId={params.get("caseId") ?? existing.data?.case_id ?? ""} />;
 }
 
 function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string }) {
-  const { tx } = useCopy();
+  const { tx, i18n } = useCopy();
+  const isAr = i18n.language.startsWith("ar");
+  const user = useSession();
   const navigate = useNavigate();
   const client = useQueryClient();
   const banks = useQuery({ queryKey: ["exporter-banks"], queryFn: async () => (await api<BankAccount[]>("/api/v1/settings/exporter-bank-accounts")).data });
@@ -331,9 +375,50 @@ function ProformaForm({ initial, caseId }: { initial?: Proforma; caseId: string 
     };
   }
 
+  async function cloneAsDraft() {
+    if (!initial?.id || busy) return;
+    setBusy(true);
+    try {
+      const created = await api<Proforma>(`/api/v1/proformas/${initial.id}/clone`, {
+        method: "POST",
+        body: "{}",
+      });
+      notifySuccess(
+        isAr
+          ? `تم تكرار الفاتورة المبدئية كمسودة (${created.data.invoice_number})`
+          : `Proforma cloned as a new draft (${created.data.invoice_number})`,
+      );
+      await client.invalidateQueries({ queryKey: ["proformas"] });
+      void navigate(`/proformas/${created.data.id}`);
+    } catch (error) {
+      notifyError(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <PageHeader title={tx("proformaTitle", "Proforma invoice")} subtitle={reference || number || tx("proformaNew", "New proforma")} />
+      <PageHeader
+        title={tx("proformaTitle", "Proforma invoice")}
+        subtitle={reference || number || tx("proformaNew", "New proforma")}
+        actions={
+          initial?.id && can(user, "proformas.edit") ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void cloneAsDraft()}
+              className="gap-1.5"
+              data-testid="clone-proforma-editor-btn"
+            >
+              <Copy className="h-3.5 w-3.5 text-accent" aria-hidden />
+              <span>{isAr ? "تكرار كمسودة" : "Clone draft"}</span>
+            </Button>
+          ) : null
+        }
+      />
       <div className="grid gap-3 rounded-card border border-line bg-card p-4 shadow-card md:grid-cols-2">
         <p className="md:col-span-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{tx("tradeSectionDocument", "Document")}</p>
         <Field label={tx("customer", "Customer")}>

@@ -19,6 +19,8 @@ import { edgeCache } from "../lib/cache";
 import type { Actor } from "./actor";
 import { assertCaseAccess, requireAny, requirePermission } from "./actor";
 import { assertSchemaReady } from "./schema";
+import { auditInsert } from "./audit";
+import { uniqueCopyNumber } from "./cases";
 import { ensureTradeDefaults, listShippingMethodRows, shippingIncludesFreight } from "./trade-defaults";
 import { storeIssuedProformaPdf, storeIssuedTradePdfs } from "./trade-document-files";
 
@@ -1171,6 +1173,49 @@ export async function listProformas(db: D1Database, actor: Actor, caseId?: strin
      ${caseId ? "" : "LIMIT 500"}`,
     ...(caseId ? [caseId] : []),
   );
+}
+
+/**
+ * Clone a proforma into a fresh DRAFT: same customer, commercial header,
+ * print fields and lines; today's date; a unique COPY number; no linked case,
+ * no issued snapshot, no conversion link and no stamp.
+ */
+export async function cloneProforma(db: D1Database, actor: Actor, id: string, requestId?: string) {
+  await ready(db);
+  requirePermission(actor, "proformas.edit");
+  const source = (await getProforma(db, actor, id)) as unknown as Record<string, unknown> & {
+    invoice_number: string;
+    lines: Array<{ line_no: number; description: string; unit_label: string | null; quantity: number; unit_price_minor: number; line_total_minor: number }>;
+  };
+  const number = await uniqueCopyNumber(db, "proforma_invoices", String(source.invoice_number), 40);
+  const cloneId = newId();
+  const now = nowIso();
+  await db.batch([
+    db
+      .prepare(
+        `INSERT INTO proforma_invoices
+           (id, customer_id, case_id, invoice_number, print_reference, invoice_date, origin_of_goods, port_of_loading, port_of_discharge,
+            payment_term_code, payment_term_label, incoterm, shipping_method_label, exporter_bank_account_id, currency, currency_decimals,
+            fob_total_minor, sea_freight_minor, total_minor, is_stamped, print_fields_json, status, issued_snapshot_json, converted_invoice_id,
+            version, created_at, updated_at)
+         SELECT ?, customer_id, NULL, ?, print_reference, ?, origin_of_goods, port_of_loading, port_of_discharge,
+            payment_term_code, payment_term_label, incoterm, shipping_method_label, exporter_bank_account_id, currency, currency_decimals,
+            fob_total_minor, sea_freight_minor, total_minor, 0, print_fields_json, 'DRAFT', NULL, NULL,
+            1, ?, ?
+         FROM proforma_invoices WHERE id = ?`,
+      )
+      .bind(cloneId, number, now.slice(0, 10), now, now, id),
+    ...(source.lines ?? []).map((line) =>
+      db
+        .prepare(
+          `INSERT INTO proforma_lines (id, proforma_id, line_no, description, unit_label, quantity, unit_price_minor, line_total_minor)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(newId(), cloneId, line.line_no, line.description, line.unit_label, line.quantity, line.unit_price_minor, line.line_total_minor),
+    ),
+    auditInsert(db, { actorId: actor.id, entityType: "proforma", entityId: cloneId, action: "proforma.clone", after: { sourceProformaId: id }, requestId }),
+  ]);
+  return getProforma(db, actor, cloneId);
 }
 
 export async function deleteProforma(db: D1Database, actor: Actor, id: string) {

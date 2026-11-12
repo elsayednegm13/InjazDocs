@@ -1,12 +1,13 @@
 import { Dialog, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from "@radix-ui/react-dialog";
-import { Bell, ClipboardList } from "lucide-react";
+import { Bell, ClipboardList, Copy } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { AlertText, DualLane, EmptyState, Ltr, SectionCard } from "@/components/ui/chrome";
 import { StatusBadge } from "@/components/ui/status";
 import { CaseDetailSkeleton } from "@/components/ui/skeleton";
+import { can, useSession } from "@/app/access";
 import { CustomFieldsPanel } from "@/features/fields/CustomFieldsPanel";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
@@ -34,13 +35,17 @@ type CaseOverview = {
 };
 
 export function CaseDetailPage() {
-  const { tx, stored, fail } = useCopy();
+  const { tx, stored, fail, i18n } = useCopy();
+  const isAr = i18n.language.startsWith("ar");
+  const user = useSession();
+  const navigate = useNavigate();
   const { id } = useParams();
   const client = useQueryClient();
   const [tab, setTab] = useState("overview");
   const [caseError, setCaseError] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [cloning, setCloning] = useState(false);
   const query = useQuery({
     queryKey: ["case", id],
     refetchInterval: 15_000,
@@ -77,6 +82,28 @@ export function CaseDetailPage() {
       setClosing(false);
     }
   }
+  async function cloneShipment() {
+    if (!id || cloning) return;
+    setCloning(true);
+    try {
+      const created = await api<{ id: string; caseReference: string }>(`/api/v1/export-cases/${id}/clone`, {
+        method: "POST",
+        body: "{}",
+      });
+      notifySuccess(
+        isAr
+          ? `تم تكرار الشحنة كمسودة جديدة (${created.data.caseReference})`
+          : `Shipment cloned as a new draft (${created.data.caseReference})`,
+      );
+      await client.invalidateQueries({ queryKey: ["cases"] });
+      await client.invalidateQueries({ queryKey: ["dashboard"] });
+      void navigate(`/export-cases/${created.data.id}`);
+    } catch (error) {
+      notifyError(error);
+    } finally {
+      setCloning(false);
+    }
+  }
   const tabs = ["overview", "invoices", "documents", "bank", "courier", "bookings", "reminders", "share"];
   return (
     <div className="space-y-4" data-dossier="loaded">
@@ -92,6 +119,20 @@ export function CaseDetailPage() {
             <p className="mt-1 max-w-3xl text-xs text-ink-muted">{tx("snapshotOf", "snapshot")}: {data.snapshot?.legal_name} · {tx("liveProfile", "live profile is")} {data.customer?.legal_name}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {can(user, "export_cases.create") ? (
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                disabled={cloning}
+                onClick={() => void cloneShipment()}
+                className="gap-1.5"
+                data-testid="clone-case-btn"
+              >
+                <Copy className="h-3.5 w-3.5 text-accent" aria-hidden />
+                <span>{isAr ? "تكرار الشحنة" : "Clone shipment"}</span>
+              </Button>
+            ) : null}
             {data.case.status === "DRAFT" ? (
               <Button size="sm" variant="outline" onClick={async () => {
                 try {

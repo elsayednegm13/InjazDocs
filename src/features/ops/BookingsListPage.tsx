@@ -50,6 +50,7 @@ export function BookingsListPage() {
         .filter(Boolean)
         .join(" "),
     statusOf: (row) => row.status ?? "",
+    isArchivedStatus: (st) => st === "CLOSED" || st === "CANCELLED",
     dateOf: (row) => row.planned_loading_date || row.planned_etd || row.created_at,
     idOf: (row) => row.id,
   });
@@ -163,6 +164,11 @@ export function BookingsListPage() {
         activeFilterCount={list.activeFilterCount}
         onResetFilters={list.resetFilters}
         totalFiltered={list.totalFiltered}
+        quickScope={{
+          value: list.scope,
+          onChange: list.setScope,
+          counts: list.scopeCounts,
+        }}
         exportConfig={{
           filename: "exportflow-bookings",
           sheetName: tx("bookings", "Bookings"),

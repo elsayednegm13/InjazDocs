@@ -138,6 +138,14 @@ async function quoteReviseReplay(db: D1Database, actor: Actor, path: string): Pr
   await quoteReplayScope(db, actor, path);
 }
 
+// A proforma linked to a case follows that case's scope on replay.
+async function proformaReplayScope(db: D1Database, actor: Actor, path: string): Promise<void> {
+  requirePermission(actor, "proformas.view");
+  const row = await one<{ case_id: string | null }>(db, "SELECT case_id FROM proforma_invoices WHERE id = ?", pathId(path, /\/proformas\/([^/]+)/));
+  if (!row) throw errors.notFound();
+  if (row.case_id) await assertCaseAccess(db, actor, row.case_id);
+}
+
 const RULES: ReplayRule[] = [
   { method: "POST", path: /^\/api\/v1\/me\/password$/, extra: async () => undefined },
 
@@ -156,6 +164,7 @@ const RULES: ReplayRule[] = [
   { method: "PUT", path: /^\/api\/v1\/customers\/[^/]+\/custom-fields$/, permission: "customers.edit" },
 
   { method: "POST", path: /^\/api\/v1\/export-cases$/, permission: "export_cases.create" },
+  { method: "POST", path: /^\/api\/v1\/export-cases\/[^/]+\/clone$/, permission: "export_cases.create", caseResolver: caseFromExportCase },
   {
     method: "POST",
     path: /^\/api\/v1\/export-cases\/[^/]+\/status$/,
@@ -239,6 +248,7 @@ const RULES: ReplayRule[] = [
   { method: "PUT", path: /^\/api\/v1\/proformas\/[^/]+$/, permission: "proformas.edit" },
   { method: "POST", path: /^\/api\/v1\/proformas\/[^/]+\/issue$/, permission: "proformas.issue" },
   { method: "POST", path: /^\/api\/v1\/proformas\/[^/]+\/convert$/, permission: "proformas.edit" },
+  { method: "POST", path: /^\/api\/v1\/proformas\/[^/]+\/clone$/, permission: "proformas.edit", extra: proformaReplayScope },
   { method: "DELETE", path: /^\/api\/v1\/proformas\/[^/]+$/, permission: "proformas.delete" },
   { method: "PUT", path: /^\/api\/v1\/invoices\/[^/]+\/trade-header$/, permission: "invoices.edit", caseResolver: caseFromInvoice },
   { method: "PUT", path: /^\/api\/v1\/invoices\/[^/]+\/lines$/, permission: "invoices.edit", caseResolver: caseFromInvoice },

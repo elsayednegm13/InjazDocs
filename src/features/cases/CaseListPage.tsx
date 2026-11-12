@@ -1,5 +1,5 @@
-import { Boxes, CheckCircle2, FileStack, MousePointerClick, Package } from "lucide-react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Boxes, CheckCircle2, Copy, FileStack, MousePointerClick, Package } from "lucide-react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -10,16 +10,21 @@ import { StatusBadge } from "@/components/ui/status";
 import { ResponsiveListSkeleton } from "@/components/ui/skeleton";
 import { can, useSession } from "@/app/access";
 import { api } from "@/lib/api";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
 
 const CASE_STATUS_VALUES = ["DRAFT", "ACTIVE", "READY_FOR_CLOSE", "COMPLETED", "CANCELLED"] as const;
+const ARCHIVED_CASE_STATUSES = new Set(["COMPLETED", "CANCELLED", "ARCHIVED"]);
 
 export function CasesListPage() {
-  const { tx, stored } = useCopy();
+  const { tx, stored, i18n } = useCopy();
+  const isAr = i18n.language.startsWith("ar");
   const user = useSession();
   const navigate = useNavigate();
+  const client = useQueryClient();
   const [params] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [cloningId, setCloningId] = useState<string | null>(null);
   const urlQ = params.get("q") ?? "";
 
   const query = useQuery({
@@ -46,9 +51,33 @@ export function CasesListPage() {
         .filter(Boolean)
         .join(" "),
     statusOf: (row) => row.status ?? "",
+    isArchivedStatus: (st) => ARCHIVED_CASE_STATUSES.has(st.trim().toUpperCase()),
     dateOf: (row) => row.created_at || row.updated_at,
     idOf: (row) => row.id,
   });
+
+  async function cloneSelectedCase(caseId: string) {
+    if (cloningId) return;
+    setCloningId(caseId);
+    try {
+      const created = await api<{ id: string; caseReference: string }>(`/api/v1/export-cases/${caseId}/clone`, {
+        method: "POST",
+        body: "{}",
+      });
+      notifySuccess(
+        isAr
+          ? `تم تكرار الشحنة كمسودة جديدة (${created.data.caseReference})`
+          : `Shipment cloned as a new draft (${created.data.caseReference})`,
+      );
+      await client.invalidateQueries({ queryKey: ["cases"] });
+      await client.invalidateQueries({ queryKey: ["dashboard"] });
+      void navigate(`/export-cases/${created.data.id}`);
+    } catch (error) {
+      notifyError(error);
+    } finally {
+      setCloningId(null);
+    }
+  }
 
   useEffect(() => {
     if (urlQ && urlQ !== list.search) {
@@ -109,6 +138,11 @@ export function CasesListPage() {
         activeFilterCount={list.activeFilterCount}
         onResetFilters={list.resetFilters}
         totalFiltered={list.totalFiltered}
+        quickScope={{
+          value: list.scope,
+          onChange: list.setScope,
+          counts: list.scopeCounts,
+        }}
         exportConfig={{
           filename: "exportflow-cases",
           sheetName: tx("exportOperations", "Export Cases"),
@@ -190,7 +224,22 @@ export function CasesListPage() {
               </div>
             </dl>
             <p className="mt-3 rounded-lg bg-paper/70 px-2.5 py-2 text-xs leading-snug text-ink-muted">{stored(selected.next_action)}</p>
-            <Button asChild className="mt-4 w-full"><Link to={`/export-cases/${selected.id}`}>{tx("openFullCase", "Open full case")}</Link></Button>
+            <div className="mt-4 space-y-2">
+              <Button asChild className="w-full"><Link to={`/export-cases/${selected.id}`}>{tx("openFullCase", "Open full case")}</Link></Button>
+              {can(user, "export_cases.create") ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full gap-1.5"
+                  disabled={cloningId === selected.id}
+                  onClick={() => void cloneSelectedCase(selected.id)}
+                  data-testid="clone-case-preview-btn"
+                >
+                  <Copy className="h-3.5 w-3.5 text-accent" aria-hidden />
+                  <span>{isAr ? "تكرار الشحنة كمسودة" : "Clone shipment"}</span>
+                </Button>
+              ) : null}
+            </div>
           </aside>
         ) : (
           <aside className="hidden rounded-card border border-dashed border-line bg-card p-6 xl:grid xl:place-items-center">

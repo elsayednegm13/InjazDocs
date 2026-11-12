@@ -10,6 +10,7 @@ import { cn } from "../../lib/utils";
 export const LIST_PAGE_SIZE = 80;
 
 export type SortOrder = "desc" | "asc";
+export type QuickScope = "all" | "active" | "archive";
 
 export type ListFilterState = {
   search: string;
@@ -18,6 +19,7 @@ export type ListFilterState = {
   month: string;
   sortOrder: SortOrder;
   page: number;
+  scope?: QuickScope;
 };
 
 export type StatusOption = {
@@ -32,12 +34,16 @@ export type ListFilterConfig<T> = {
   initialSearch?: string;
   /** Optional initial status value */
   initialStatus?: string;
+  /** Optional initial quick scope ('all' | 'active' | 'archive') */
+  initialScope?: QuickScope;
   /** Page size (defaults to 80) */
   pageSize?: number;
   /** Extracts searchable text for a row */
   searchText?: (row: T) => string;
   /** Extracts status/category string for a row */
   statusOf?: (row: T) => string;
+  /** Determines whether a row belongs to the Completed/Archived bucket */
+  isArchivedStatus?: (status: string, row: T) => boolean;
   /** Extracts primary date string (ISO or YYYY-MM-DD) for sorting & Month/Year filtering */
   dateOf?: (row: T) => string | null | undefined;
   /** Extracts unique row ID for deterministic tie-breaking */
@@ -55,7 +61,17 @@ export type ListFilterResult<T> = {
   endIndex: number;
   availableYears: string[];
   activeFilterCount: number;
+  scope: QuickScope;
+  scopeCounts: { all: number; active: number; archive: number };
 };
+
+const DEFAULT_ARCHIVED_STATUSES = new Set([
+  "COMPLETED",
+  "CANCELLED",
+  "ARCHIVED",
+  "CLOSED",
+  "RESOLVED",
+]);
 
 const MONTHS_AR = [
   { value: "01", label: "01 - يناير" },
@@ -171,11 +187,14 @@ export function filterSortPaginateList<T>(
   const statusNorm = state.status.trim();
   const yearNorm = state.year.trim();
   const monthNorm = state.month.trim();
+  const initialScope: QuickScope = config.initialScope ?? "all";
+  const scopeNorm: QuickScope = state.scope ?? initialScope;
+  const checkArchived =
+    config.isArchivedStatus ?? ((st: string) => DEFAULT_ARCHIVED_STATUSES.has(st.trim().toUpperCase()));
+
+  const scopeCounts = { all: 0, active: 0, archive: 0 };
 
   const filtered = items.filter((item) => {
-    if (statusNorm && getStatus(item) !== statusNorm) {
-      return false;
-    }
     if (yearNorm || monthNorm) {
       const parts = parseDateParts(getDate(item));
       if (yearNorm && parts.year !== yearNorm) return false;
@@ -184,6 +203,22 @@ export function filterSortPaginateList<T>(
     if (queryNorm) {
       const hay = getSearchText(item).toLowerCase();
       if (!hay.includes(queryNorm)) return false;
+    }
+
+    const itemStatus = getStatus(item);
+    const archived = checkArchived(itemStatus, item);
+    scopeCounts.all += 1;
+    if (archived) {
+      scopeCounts.archive += 1;
+    } else {
+      scopeCounts.active += 1;
+    }
+
+    if (scopeNorm === "active" && archived) return false;
+    if (scopeNorm === "archive" && !archived) return false;
+
+    if (statusNorm && itemStatus !== statusNorm) {
+      return false;
     }
     return true;
   });
@@ -215,6 +250,7 @@ export function filterSortPaginateList<T>(
   if (yearNorm) activeFilterCount += 1;
   if (monthNorm) activeFilterCount += 1;
   if (state.sortOrder !== "desc") activeFilterCount += 1;
+  if (scopeNorm !== initialScope) activeFilterCount += 1;
 
   return {
     filteredRows: sorted,
@@ -227,10 +263,17 @@ export function filterSortPaginateList<T>(
     endIndex,
     availableYears,
     activeFilterCount,
+    scope: scopeNorm,
+    scopeCounts,
   };
 }
 
-function readStoredState(storageKey?: string, initialSearch = "", initialStatus = ""): ListFilterState {
+function readStoredState(
+  storageKey?: string,
+  initialSearch = "",
+  initialStatus = "",
+  initialScope: QuickScope = "all",
+): ListFilterState {
   const fallback: ListFilterState = {
     search: initialSearch,
     status: initialStatus,
@@ -238,12 +281,17 @@ function readStoredState(storageKey?: string, initialSearch = "", initialStatus 
     month: "",
     sortOrder: "desc",
     page: 1,
+    scope: initialScope,
   };
   if (!storageKey || typeof window === "undefined") return fallback;
   try {
     const raw = window.sessionStorage.getItem(`exportflow.list.${storageKey}`);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as Partial<ListFilterState>;
+    const parsedScope: QuickScope =
+      parsed.scope === "active" || parsed.scope === "archive" || parsed.scope === "all"
+        ? parsed.scope
+        : initialScope;
     return {
       search: initialSearch || (typeof parsed.search === "string" ? parsed.search : ""),
       status: initialStatus || (typeof parsed.status === "string" ? parsed.status : ""),
@@ -251,6 +299,7 @@ function readStoredState(storageKey?: string, initialSearch = "", initialStatus 
       month: typeof parsed.month === "string" ? parsed.month : "",
       sortOrder: parsed.sortOrder === "asc" ? "asc" : "desc",
       page: typeof parsed.page === "number" && parsed.page > 0 ? Math.floor(parsed.page) : 1,
+      scope: parsedScope,
     };
   } catch {
     return fallback;
@@ -258,8 +307,9 @@ function readStoredState(storageKey?: string, initialSearch = "", initialStatus 
 }
 
 export function useListController<T>(items: readonly T[], config: ListFilterConfig<T> = {}) {
+  const initialScope: QuickScope = config.initialScope ?? "all";
   const [state, setState] = useState<ListFilterState>(() =>
-    readStoredState(config.storageKey, config.initialSearch ?? "", config.initialStatus ?? ""),
+    readStoredState(config.storageKey, config.initialSearch ?? "", config.initialStatus ?? "", initialScope),
   );
   const [debouncedSearch, setDebouncedSearch] = useState(() => state.search.trim());
 
@@ -284,10 +334,35 @@ export function useListController<T>(items: readonly T[], config: ListFilterConf
     [items, state, config],
   );
 
+  const checkArchived =
+    config.isArchivedStatus ?? ((st: string) => DEFAULT_ARCHIVED_STATUSES.has(st.trim().toUpperCase()));
+
   const setSearch = (search: string) =>
     setState((prev) => ({ ...prev, search, page: 1 }));
   const setStatus = (status: string) =>
-    setState((prev) => ({ ...prev, status, page: 1 }));
+    setState((prev) => {
+      let nextScope = prev.scope ?? initialScope;
+      if (status) {
+        const sample = items[0];
+        const archived = checkArchived(status, sample as T);
+        if ((nextScope === "active" && archived) || (nextScope === "archive" && !archived)) {
+          nextScope = "all";
+        }
+      }
+      return { ...prev, status, scope: nextScope, page: 1 };
+    });
+  const setScope = (scope: QuickScope) =>
+    setState((prev) => {
+      let nextStatus = prev.status;
+      if (nextStatus && scope !== "all") {
+        const sample = items[0];
+        const archived = checkArchived(nextStatus, sample as T);
+        if ((scope === "active" && archived) || (scope === "archive" && !archived)) {
+          nextStatus = "";
+        }
+      }
+      return { ...prev, scope, status: nextStatus, page: 1 };
+    });
   const setYear = (year: string) =>
     setState((prev) => ({ ...prev, year, page: 1 }));
   const setMonth = (month: string) =>
@@ -305,6 +380,7 @@ export function useListController<T>(items: readonly T[], config: ListFilterConf
       month: "",
       sortOrder: "desc",
       page: 1,
+      scope: initialScope,
     });
 
   return {
@@ -313,6 +389,7 @@ export function useListController<T>(items: readonly T[], config: ListFilterConf
     debouncedSearch,
     setSearch,
     setStatus,
+    setScope,
     setYear,
     setMonth,
     setSortOrder,
@@ -320,6 +397,17 @@ export function useListController<T>(items: readonly T[], config: ListFilterConf
     resetFilters,
   };
 }
+
+export type QuickScopeProps = {
+  value: QuickScope;
+  onChange: (next: QuickScope) => void;
+  counts: { all: number; active: number; archive: number };
+  labels?: {
+    all?: string;
+    active?: string;
+    archive?: string;
+  };
+};
 
 export type ListToolbarProps<T> = {
   search: string;
@@ -342,6 +430,7 @@ export type ListToolbarProps<T> = {
   activeFilterCount: number;
   onResetFilters: () => void;
   totalFiltered: number;
+  quickScope?: QuickScopeProps;
   exportConfig?: {
     filename: string;
     sheetName?: string;
@@ -373,6 +462,7 @@ export function ListToolbar<T>({
   activeFilterCount,
   onResetFilters,
   totalFiltered,
+  quickScope,
   exportConfig,
   extraActions,
   children,
@@ -408,8 +498,66 @@ export function ListToolbar<T>({
     </div>
   );
 
+  const scopeOptions: Array<{ key: QuickScope; label: string; count: number }> | null = quickScope
+    ? [
+        {
+          key: "all",
+          label: quickScope.labels?.all ?? (isAr ? "الكل" : "All"),
+          count: quickScope.counts.all,
+        },
+        {
+          key: "active",
+          label: quickScope.labels?.active ?? (isAr ? "الجارية النشطة" : "Active"),
+          count: quickScope.counts.active,
+        },
+        {
+          key: "archive",
+          label: quickScope.labels?.archive ?? (isAr ? "المكتملة والأرشيف" : "Completed & Archive"),
+          count: quickScope.counts.archive,
+        },
+      ]
+    : null;
+
   return (
     <div className="space-y-2.5 rounded-card border border-line bg-card p-3 shadow-card" data-testid="list-toolbar">
+      {scopeOptions && quickScope ? (
+        <div
+          role="tablist"
+          aria-label={isAr ? "نطاق العرض السريع" : "Quick scope filter"}
+          className="inline-flex flex-wrap items-center gap-1 rounded-control border border-line bg-paper p-1"
+          data-testid="list-quick-scope"
+        >
+          {scopeOptions.map((opt) => {
+            const active = quickScope.value === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                data-scope={opt.key}
+                onClick={() => quickScope.onChange(opt.key)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-control px-2.5 py-1 text-xs font-semibold transition",
+                  active
+                    ? "bg-card text-accent shadow-card ring-1 ring-accent/30"
+                    : "text-ink-muted hover:bg-card/60 hover:text-ink",
+                )}
+              >
+                <span>{opt.label}</span>
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums",
+                    active ? "bg-accent/10 text-accent" : "bg-card text-ink-muted",
+                  )}
+                >
+                  <Ltr>{opt.count}</Ltr>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         {onSearchSubmit ? (
           <form

@@ -1,6 +1,7 @@
 import type { Hono } from "hono";
 import { requirePermission } from "../../services/actor";
 import {
+  cloneCase,
   correctCompletedInvoice,
   createCase,
   createInvoice,
@@ -13,6 +14,7 @@ import {
 } from "../../services/cases";
 import { createCustomer, getCustomer, listCustomers, updateCustomer } from "../../services/customers";
 import { changeDocumentRoute } from "../../services/documents";
+import { globalSearch } from "../../services/search";
 import { jsonSuccess } from "../errors";
 import type { AppEnv } from "../types";
 import { mountCustomFields } from "./mount-custom-fields";
@@ -49,6 +51,10 @@ export function mountCaseRoutes(api: Hono<AppEnv>) {
     return jsonSuccess(result.rows, c.get("requestId"), { page: result.page, pageSize: result.pageSize, total: result.total });
   });
   api.post("/export-cases", async (c) => jsonSuccess(await createCase(c.env.DB, c.get("actor"), c.env, await c.req.json(), c.get("requestId")), c.get("requestId"), {}, 201));
+  api.post("/export-cases/:id/clone", async (c) =>
+    jsonSuccess(await cloneCase(c.env.DB, c.get("actor"), c.env, c.req.param("id"), c.get("requestId")), c.get("requestId"), {}, 201),
+  );
+  api.get("/search", async (c) => jsonSuccess(await globalSearch(c.env.DB, c.get("actor"), c.req.query("q")), c.get("requestId")));
   api.get("/export-cases/:id", async (c) => jsonSuccess(await getCaseOverview(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
   mountCustomFields(api, "/export-cases/:id", "EXPORT_CASE");
   mountCustomFields(api, "/invoices/:id", "INVOICE");

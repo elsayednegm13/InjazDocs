@@ -1,5 +1,6 @@
 import type { Hono } from "hono";
 import {
+  cloneProforma,
   convertProforma,
   createProforma,
   deleteProductPreset,
@@ -72,6 +73,7 @@ export function mountTradeRoutes(api: Hono<AppEnv>) {
   api.post("/proformas/:id/issue", async (c) => jsonSuccess(await issueProforma(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id")), c.get("requestId")));
   api.get("/proformas/:id/pdf", async (c) => pdfResponse(await proformaPdfBytes(c.env.DB, c.env.DOCUMENTS, c.get("actor"), c.req.param("id")), await tradePdfFilenameFor(c.env.DB, "proforma", c.req.param("id"))));
   api.post("/proformas/:id/convert", async (c) => jsonSuccess(await convertProforma(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
+  api.post("/proformas/:id/clone", async (c) => jsonSuccess(await cloneProforma(c.env.DB, c.get("actor"), c.req.param("id"), c.get("requestId")), c.get("requestId"), {}, 201));
   api.delete("/proformas/:id", async (c) => jsonSuccess(await deleteProforma(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
 
   api.get("/invoices/:id/trade-sheet", async (c) => jsonSuccess(await tradeSheet(c.env.DB, c.get("actor"), c.req.param("id")), c.get("requestId")));
