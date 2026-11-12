@@ -497,7 +497,7 @@ export async function listQuotations(
   await assertQuotationSchemaReady(db);
   requirePermission(actor, "quotations.view");
   const pageSizeRaw = Number(query.pageSize);
-  const pageSize = Number.isFinite(pageSizeRaw) && pageSizeRaw > 0 ? Math.min(100, Math.floor(pageSizeRaw)) : 20;
+  const pageSize = Number.isFinite(pageSizeRaw) && pageSizeRaw > 0 ? Math.min(500, Math.floor(pageSizeRaw)) : 20;
   const page = Math.max(1, Math.floor(Number(query.page) || 1));
   const showArchived = query.archived === "1" || query.archived === "true";
   const viewAll = actor.permissions.has("quotations.view_all");
@@ -529,7 +529,7 @@ export async function listQuotations(
      LEFT JOIN export_cases c ON c.id = q.case_id
      LEFT JOIN customers cu ON cu.id = q.customer_id
      ${where}
-     ORDER BY COALESCE(q.issued_at, q.created_at) DESC
+     ORDER BY COALESCE(q.issued_at, q.created_at) DESC, q.id DESC
      LIMIT ? OFFSET ?`,
     ...binds,
     pageSize,

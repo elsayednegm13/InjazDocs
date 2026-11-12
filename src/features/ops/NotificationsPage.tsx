@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Ltr, PageHeader } from "@/components/ui/chrome";
+import { ListToolbar, PaginationFooter, useListController } from "@/components/ui/list-toolbar";
 import { SkeletonCardList } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { formatWhen, useCopy } from "@/lib/copy";
@@ -36,17 +37,69 @@ export function NotificationsPage() {
       void client.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
-  const rows = query.data ?? [];
-  const unread = rows.filter((row) => Number(row.is_read) === 0).length;
+
+  const allRows = query.data ?? [];
+  const unread = allRows.filter((row) => Number(row.is_read) === 0).length;
+
+  const list = useListController(allRows, {
+    storageKey: "notifications",
+    searchText: (row) =>
+      [String(row.case_reference ?? ""), stored(String(row.reason ?? "")), String(row.reason ?? ""), stored(String(row.next_action ?? ""))]
+        .filter(Boolean)
+        .join(" "),
+    statusOf: (row) => (Number(row.is_read) === 1 ? "READ" : "UNREAD"),
+    dateOf: (row) => String(row.created_at ?? ""),
+    idOf: (row) => String(row.id ?? ""),
+  });
+
+  const statusOptions = [
+    { value: "UNREAD", label: i18n.language.startsWith("ar") ? "غير مقروءة" : "Unread" },
+    { value: "READ", label: i18n.language.startsWith("ar") ? "مقروءة" : "Read" },
+  ];
+
+  const exportColumns = [
+    { header: tx("case", "Case"), value: (r: Record<string, string | number>) => String(r.case_reference || "—") },
+    { header: tx("reason", "Reason"), value: (r: Record<string, string | number>) => stored(String(r.reason || "")) },
+    { header: tx("nextAction", "Next action"), value: (r: Record<string, string | number>) => stored(String(r.next_action || "")) },
+    { header: tx("status", "Status"), value: (r: Record<string, string | number>) => (Number(r.is_read) === 1 ? "Read" : "Unread") },
+    { header: tx("updated", "Created"), value: (r: Record<string, string | number>) => String(r.created_at || "").slice(0, 16) },
+  ];
+
   return (
     <div className="space-y-4" data-notifications={query.isLoading ? "loading" : "ready"}>
       <PageHeader
         title={tx("notifications", "Notifications")}
         subtitle={unread ? tx("notificationsUnread", "Unread notifications are highlighted; opening one marks it as read.") : tx("inboxEmpty", "Inbox is empty.")}
       />
+
+      <ListToolbar
+        search={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder={tx("searchNotifications", i18n.language.startsWith("ar") ? "ابحث في الإشعارات..." : "Search notifications...")}
+        status={list.status}
+        onStatusChange={list.setStatus}
+        statusOptions={statusOptions}
+        year={list.year}
+        onYearChange={list.setYear}
+        availableYears={list.availableYears}
+        month={list.month}
+        onMonthChange={list.setMonth}
+        sortOrder={list.sortOrder}
+        onSortOrderChange={list.setSortOrder}
+        activeFilterCount={list.activeFilterCount}
+        onResetFilters={list.resetFilters}
+        totalFiltered={list.totalFiltered}
+        exportConfig={{
+          filename: "exportflow-notifications",
+          sheetName: tx("notifications", "Notifications"),
+          columns: exportColumns,
+          rows: list.filteredRows,
+        }}
+      />
+
       {query.isLoading ? <SkeletonCardList rows={4} /> : null}
       <div className="grid gap-3">
-        {rows.map((row) => {
+        {list.pagedRows.map((row) => {
           const isRead = Number(row.is_read) === 1;
           return (
             <Button
@@ -73,7 +126,16 @@ export function NotificationsPage() {
           );
         })}
       </div>
-      {!query.isLoading && !rows.length ? <EmptyState>{tx("inboxEmpty", "Inbox is empty.")}</EmptyState> : null}
+      {!query.isLoading && !list.pagedRows.length ? <EmptyState>{tx("inboxEmpty", "Inbox is empty.")}</EmptyState> : null}
+
+      <PaginationFooter
+        page={list.page}
+        totalPages={list.totalPages}
+        totalItems={list.totalFiltered}
+        startIndex={list.startIndex}
+        endIndex={list.endIndex}
+        onPageChange={list.setPage}
+      />
     </div>
   );
 }

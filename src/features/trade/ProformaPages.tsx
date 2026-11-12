@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Ltr, PageHeader } from "@/components/ui/chrome";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
+import { ListToolbar, PaginationFooter, useListController } from "@/components/ui/list-toolbar";
 import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { useCopy } from "@/lib/copy";
@@ -45,14 +46,42 @@ type Proforma = {
   stamp_scale?: number | null;
   stamp_rotation?: number | null;
   print_fields_json?: string | null;
+  created_at?: string;
   lines?: Array<{ description: string; unit_label: string | null; quantity: number; unit_price_minor: number }>;
 };
 
 export function ProformaListPage() {
   const { tx } = useCopy();
   const client = useQueryClient();
-  const list = useQuery({ queryKey: ["proformas"], queryFn: async () => (await api<Proforma[]>("/api/v1/proformas")).data });
-  const rows = list.data ?? [];
+  const listQuery = useQuery({ queryKey: ["proformas"], queryFn: async () => (await api<Proforma[]>("/api/v1/proformas")).data });
+  const rawRows = listQuery.data ?? [];
+
+  const list = useListController(rawRows, {
+    storageKey: "proformas",
+    searchText: (row) =>
+      [row.invoice_number, row.print_reference, row.customer_name, row.customer_code, row.shipping_method_label, row.status]
+        .filter(Boolean)
+        .join(" "),
+    statusOf: (row) => row.status,
+    dateOf: (row) => row.invoice_date || row.created_at,
+    idOf: (row) => row.id,
+  });
+
+  const statusOptions = [
+    { value: "DRAFT", label: tx("status.DRAFT", "Draft") },
+    { value: "ISSUED", label: tx("status.ISSUED", "Issued") },
+  ];
+
+  const exportColumns = [
+    { header: tx("invoiceNumber", "Invoice"), value: (r: Proforma) => r.invoice_number },
+    { header: tx("customer", "Customer"), value: (r: Proforma) => r.customer_name || "—" },
+    { header: tx("invoiceDate", "Invoice Date"), value: (r: Proforma) => r.invoice_date },
+    { header: tx("shippingMethod", "Shipping"), value: (r: Proforma) => r.shipping_method_label || r.incoterm || "—" },
+    { header: tx("tradeBeforeFreight", "Before freight"), value: (r: Proforma) => moneyText(r.fob_total_minor) },
+    { header: tx("tradeAfterFreight", "After freight"), value: (r: Proforma) => moneyText(r.total_minor) },
+    { header: tx("status", "Status"), value: (r: Proforma) => r.status },
+  ];
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -60,7 +89,33 @@ export function ProformaListPage() {
         subtitle={tx("proformasHint", "A proforma can stand alone, then be linked to an export operation and converted.")}
         actions={<Button asChild size="sm"><Link to="/proformas/new">{tx("proformaNew", "New proforma")}</Link></Button>}
       />
-      {rows.length === 0 ? <EmptyState>{tx("proformaEmpty", "No proforma invoices yet.")}</EmptyState> : (
+
+      <ListToolbar
+        search={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder={tx("searchProforma", "Search by invoice number, customer, or reference")}
+        status={list.status}
+        onStatusChange={list.setStatus}
+        statusOptions={statusOptions}
+        year={list.year}
+        onYearChange={list.setYear}
+        availableYears={list.availableYears}
+        month={list.month}
+        onMonthChange={list.setMonth}
+        sortOrder={list.sortOrder}
+        onSortOrderChange={list.setSortOrder}
+        activeFilterCount={list.activeFilterCount}
+        onResetFilters={list.resetFilters}
+        totalFiltered={list.totalFiltered}
+        exportConfig={{
+          filename: "exportflow-proformas",
+          sheetName: tx("proformas", "Proformas"),
+          columns: exportColumns,
+          rows: list.filteredRows,
+        }}
+      />
+
+      {list.pagedRows.length === 0 ? <EmptyState>{tx("proformaEmpty", "No proforma invoices yet.")}</EmptyState> : (
         <div className="overflow-x-auto rounded-card border border-line bg-card shadow-card">
           <table className="w-full min-w-[920px] border-collapse text-start text-sm">
             <thead className="bg-paper text-[11px] uppercase tracking-wide text-ink-muted">
@@ -75,7 +130,7 @@ export function ProformaListPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {list.pagedRows.map((row) => (
                 <tr key={row.id} className="border-t border-line">
                   <td className="px-3 py-2">
                     <span className="font-medium text-ink">{row.customer_name}</span>
@@ -100,6 +155,15 @@ export function ProformaListPage() {
           </table>
         </div>
       )}
+
+      <PaginationFooter
+        page={list.page}
+        totalPages={list.totalPages}
+        totalItems={list.totalFiltered}
+        startIndex={list.startIndex}
+        endIndex={list.endIndex}
+        onPageChange={list.setPage}
+      />
     </div>
   );
 }

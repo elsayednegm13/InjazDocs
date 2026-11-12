@@ -1,16 +1,18 @@
 import { Boxes, CheckCircle2, FileStack, MousePointerClick, Package } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Ltr, PageHeader, StatCard } from "@/components/ui/chrome";
 import { DataCard, DataCards, DataCell, DataFrame, DataHead, DataHeadCell, DataRow } from "@/components/ui/data-view";
-import { Input } from "@/components/ui/input";
+import { ListToolbar, PaginationFooter, useListController } from "@/components/ui/list-toolbar";
 import { StatusBadge } from "@/components/ui/status";
 import { ResponsiveListSkeleton } from "@/components/ui/skeleton";
 import { can, useSession } from "@/app/access";
 import { api } from "@/lib/api";
 import { useCopy } from "@/lib/copy";
+
+const CASE_STATUS_VALUES = ["DRAFT", "ACTIVE", "READY_FOR_CLOSE", "COMPLETED", "CANCELLED"] as const;
 
 export function CasesListPage() {
   const { tx, stored } = useCopy();
@@ -18,17 +20,60 @@ export function CasesListPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const q = params.get("q") ?? "";
+  const urlQ = params.get("q") ?? "";
+
   const query = useQuery({
-    queryKey: ["cases", q],
+    queryKey: ["cases", urlQ],
     queryFn: async () =>
-      (await api<Array<Record<string, string>>>(q ? `/api/v1/export-cases?pageSize=100&q=${encodeURIComponent(q)}` : "/api/v1/export-cases")).data,
+      (
+        await api<Array<Record<string, string>>>(
+          urlQ ? `/api/v1/export-cases?pageSize=500&q=${encodeURIComponent(urlQ)}` : "/api/v1/export-cases?pageSize=500",
+        )
+      ).data,
+    placeholderData: keepPreviousData,
   });
+
   const counts = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => (await api<{ counts: Record<string, number> }>("/api/v1/dashboard")).data,
   });
-  const selected = query.data?.find((row) => row.id === selectedId) ?? null;
+
+  const list = useListController(query.data ?? [], {
+    storageKey: "export-cases",
+    initialSearch: urlQ,
+    searchText: (row) =>
+      [row.case_reference, row.customer_name, row.invoice_numbers, row.destination_country, row.document_route, row.status]
+        .filter(Boolean)
+        .join(" "),
+    statusOf: (row) => row.status ?? "",
+    dateOf: (row) => row.created_at || row.updated_at,
+    idOf: (row) => row.id,
+  });
+
+  useEffect(() => {
+    if (urlQ && urlQ !== list.search) {
+      list.setSearch(urlQ);
+    }
+  }, [urlQ]);
+
+  const selected = list.filteredRows.find((row) => row.id === selectedId) ?? null;
+
+  const statusOptions = CASE_STATUS_VALUES.map((st) => ({
+    value: st,
+    label: tx(`status.${st}`, st),
+  }));
+
+  const exportColumns = [
+    { header: tx("case", "Case"), value: (r: Record<string, string>) => r.case_reference },
+    { header: tx("customer", "Customer"), value: (r: Record<string, string>) => r.customer_name },
+    { header: tx("invoices", "Invoices"), value: (r: Record<string, string>) => r.invoice_numbers || "—" },
+    { header: tx("country", "Country"), value: (r: Record<string, string>) => r.destination_country || "—" },
+    { header: tx("documentRoute", "Document route"), value: (r: Record<string, string>) => tx(`status.${r.document_route}`, r.document_route) },
+    { header: tx("status", "Status"), value: (r: Record<string, string>) => tx(`status.${r.status}`, r.status) },
+    { header: tx("nextAction", "Next action"), value: (r: Record<string, string>) => stored(r.next_action) },
+    { header: tx("updated", "Date"), value: (r: Record<string, string>) => (r.created_at || r.updated_at || "").slice(0, 10) },
+  ];
+
   return (
     <div className="space-y-4" data-cases={query.isLoading ? "loading" : "ready"}>
       <PageHeader
@@ -44,23 +89,40 @@ export function CasesListPage() {
           <StatCard label={tx("courierOpen", "Courier in transit")} value={counts.data.counts.courier_open} icon={<Package className="h-5 w-5" />} tone="teal" />
         </div>
       ) : null}
-      <form
-        className="flex flex-wrap items-center gap-2 rounded-card border border-line bg-card p-4 shadow-card"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const next = String(new FormData(event.currentTarget).get("q") ?? "").trim();
-          navigate(next ? `/export-cases?q=${encodeURIComponent(next)}` : "/export-cases");
+
+      <ListToolbar
+        search={list.search}
+        onSearchChange={list.setSearch}
+        onSearchSubmit={(next) => navigate(next ? `/export-cases?q=${encodeURIComponent(next)}` : "/export-cases")}
+        searchPlaceholder={tx("search", "Search by case, invoice, booking, container, or customer")}
+        searchAriaLabel={tx("search", "Search by case, invoice, booking, container, or customer")}
+        status={list.status}
+        onStatusChange={list.setStatus}
+        statusOptions={statusOptions}
+        year={list.year}
+        onYearChange={list.setYear}
+        availableYears={list.availableYears}
+        month={list.month}
+        onMonthChange={list.setMonth}
+        sortOrder={list.sortOrder}
+        onSortOrderChange={list.setSortOrder}
+        activeFilterCount={list.activeFilterCount}
+        onResetFilters={list.resetFilters}
+        totalFiltered={list.totalFiltered}
+        exportConfig={{
+          filename: "exportflow-cases",
+          sheetName: tx("exportOperations", "Export Cases"),
+          columns: exportColumns,
+          rows: list.filteredRows,
         }}
-      >
-        <Input key={q} name="q" defaultValue={q} aria-label={tx("search", "Search by case, invoice, booking, container, or customer")} placeholder={tx("search", "Search by case, invoice, booking, container, or customer")} className="max-w-md border-line bg-paper" />
-        <Button type="submit" variant="outline">{tx("searchAction", "Search")}</Button>
-      </form>
+      />
+
       {query.isLoading ? <ResponsiveListSkeleton rows={5} columns={5} /> : null}
       {query.isError ? <p className="text-danger">{tx("casesError", "Could not load cases.")}</p> : null}
-      {!query.isLoading && !query.isError && !query.data?.length ? <EmptyState>{tx("noCases", "No export cases match this filter.")}</EmptyState> : null}
+      {!query.isLoading && !query.isError && !list.pagedRows.length ? <EmptyState>{tx("noCases", "No export cases match this filter.")}</EmptyState> : null}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_16rem]">
         <DataCards>
-          {query.data?.map((row) => (
+          {list.pagedRows.map((row) => (
             <DataCard
               key={row.id}
               href={`/export-cases/${row.id}`}
@@ -88,7 +150,7 @@ export function CasesListPage() {
             <DataHeadCell>{tx("status", "Status")}</DataHeadCell>
           </DataHead>
           <tbody>
-            {query.data?.map((row) => (
+            {list.pagedRows.map((row) => (
               <DataRow key={row.id} selected={selectedId === row.id} onClick={() => setSelectedId(row.id)}>
                 <DataCell className="whitespace-nowrap"><Link aria-label={`${row.case_reference} ${row.customer_name}`} className="font-semibold text-accent" to={`/export-cases/${row.id}`}><Ltr>{row.case_reference}</Ltr></Link></DataCell>
                 <DataCell>{row.customer_name}</DataCell>
@@ -139,6 +201,15 @@ export function CasesListPage() {
           </aside>
         )}
       </div>
+
+      <PaginationFooter
+        page={list.page}
+        totalPages={list.totalPages}
+        totalItems={list.totalFiltered}
+        startIndex={list.startIndex}
+        endIndex={list.endIndex}
+        onPageChange={list.setPage}
+      />
     </div>
   );
 }

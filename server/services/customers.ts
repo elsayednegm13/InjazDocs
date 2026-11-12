@@ -18,8 +18,8 @@ export async function listCustomers(
   const total = await one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM customers ${where}`, ...binds);
   const rows = await all(
     db,
-    `SELECT id, legal_name, trade_name, customer_code, country_code, updated_at
-     FROM customers ${where} ORDER BY legal_name LIMIT ? OFFSET ?`,
+    `SELECT id, legal_name, trade_name, customer_code, country_code, created_at, updated_at
+     FROM customers ${where} ORDER BY created_at DESC, legal_name ASC, id DESC LIMIT ? OFFSET ?`,
     ...binds,
     page.pageSize,
     page.offset,

@@ -108,7 +108,7 @@ export async function listBookings(db: D1Database, actor: Actor, query: { page?:
      LEFT JOIN export_cases c ON c.id = b.case_id
      LEFT JOIN customers cu ON cu.id = c.customer_id
      WHERE ${filters.join(" AND ")}
-     ORDER BY COALESCE(b.planned_loading_date, b.planned_etd, b.created_at) DESC
+     ORDER BY COALESCE(b.created_at, b.planned_loading_date, b.planned_etd) DESC, b.id DESC
      LIMIT ? OFFSET ?`,
     ...binds,
     page.pageSize,
@@ -585,8 +585,8 @@ export async function listContainers(db: D1Database, actor: Actor, query: { q?: 
      WHERE (ct.case_id IS NULL OR (${vis.sql}))
        AND (? IS NULL OR ct.official_number LIKE ? OR b.booking_number LIKE ?)
        AND (? IS NULL OR ct.status = ?)
-     ORDER BY ct.updated_at DESC
-     LIMIT 200`,
+     ORDER BY COALESCE(ct.created_at, ct.updated_at) DESC, ct.id DESC
+     LIMIT 500`,
     ...vis.binds,
     query.q ?? null,
     query.q ? `%${query.q}%` : null,

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Ltr, PageHeader } from "@/components/ui/chrome";
+import { ListToolbar, PaginationFooter, useListController } from "@/components/ui/list-toolbar";
 import { StatusBadge } from "@/components/ui/status";
 import { SkeletonCardList } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -59,23 +60,65 @@ export function RemindersPage() {
       void client.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
-  const rows = query.data ?? [];
+
+  const allRows = query.data ?? [];
+
+  const list = useListController(allRows, {
+    storageKey: `reminders-${filter}`,
+    searchText: (row) =>
+      [row.case_reference, stored(row.reason), row.reason, stored(row.next_action), row.next_action]
+        .filter(Boolean)
+        .join(" "),
+    statusOf: (row) => row.status ?? "",
+    dateOf: (row) => row.due_at || row.created_at,
+    idOf: (row) => row.id,
+  });
+
+  const exportColumns = [
+    { header: tx("case", "Case"), value: (r: Record<string, string>) => r.case_reference },
+    { header: tx("status", "Status"), value: (r: Record<string, string>) => tx(`status.${r.status}`, r.status) },
+    { header: tx("reason", "Reason"), value: (r: Record<string, string>) => stored(r.reason) },
+    { header: tx("nextAction", "Next action"), value: (r: Record<string, string>) => stored(r.next_action) },
+    { header: tx("dueAt", "Due at"), value: (r: Record<string, string>) => (r.due_at || "").slice(0, 16) },
+  ];
+
   return (
     <div className="space-y-4" data-reminders={query.isLoading ? "loading" : "ready"}>
       <PageHeader title={tx("reminders", "Reminders")} subtitle={tx("remindersHint", "Snoozing applies immediately; the list stays live without a refresh.")} />
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-[var(--shadow-card)]">
+
+      <ListToolbar
+        search={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder={tx("searchReminders", i18n.language.startsWith("ar") ? "ابحث برقم العملية أو سبب التذكير..." : "Search by case or reminder reason...")}
+        year={list.year}
+        onYearChange={list.setYear}
+        availableYears={list.availableYears}
+        month={list.month}
+        onMonthChange={list.setMonth}
+        sortOrder={list.sortOrder}
+        onSortOrderChange={list.setSortOrder}
+        activeFilterCount={list.activeFilterCount}
+        onResetFilters={list.resetFilters}
+        totalFiltered={list.totalFiltered}
+        exportConfig={{
+          filename: `exportflow-reminders-${filter}`,
+          sheetName: tx("reminders", "Reminders"),
+          columns: exportColumns,
+          rows: list.filteredRows,
+        }}
+      >
         {REMINDER_FILTERS.map((value) => (
           <FilterChip key={value} active={filter === value} onClick={() => setFilter(value)}>
             {tx(value, value)}
           </FilterChip>
         ))}
-        <span className="ms-auto text-xs tabular-nums text-ink-muted"><Ltr>{rows.length}</Ltr></span>
-      </div>
+      </ListToolbar>
+
       {query.isLoading ? (
         <SkeletonCardList rows={4} />
       ) : null}
       <div className="grid gap-3">
-        {rows.map((row) => {
+        {list.pagedRows.map((row) => {
           const overdue = row.status === "ACTIVE" && row.due_at ? new Date(row.due_at).getTime() < now : false;
           const busy = snooze.isPending && snooze.variables?.id === row.id;
           const tile = dueTile(row.due_at, i18n.language);
@@ -118,7 +161,16 @@ export function RemindersPage() {
           );
         })}
       </div>
-      {!query.isLoading && !rows.length ? <EmptyState>{tx("noRemindersView", "No reminders in this view.")}</EmptyState> : null}
+      {!query.isLoading && !list.pagedRows.length ? <EmptyState>{tx("noRemindersView", "No reminders in this view.")}</EmptyState> : null}
+
+      <PaginationFooter
+        page={list.page}
+        totalPages={list.totalPages}
+        totalItems={list.totalFiltered}
+        startIndex={list.startIndex}
+        endIndex={list.endIndex}
+        onPageChange={list.setPage}
+      />
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { ListToolbar, PaginationFooter, useListController } from "@/components/ui/list-toolbar";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Ltr, PageHeader, SectionCard, StatCard } from "@/components/ui/chrome";
 import { SkeletonCardList, SkeletonRegion, SkeletonRows, SkeletonText } from "@/components/ui/skeleton";
@@ -1709,17 +1710,70 @@ export function ActivityPage() {
     queryKey: ["activity"],
     queryFn: async () => (await api<Array<Record<string, string>>>("/api/v1/activity")).data,
   });
-  const rows = query.data ?? [];
+  const allRows = query.data ?? [];
+
+  const list = useListController(allRows, {
+    storageKey: "activity",
+    searchText: (row) =>
+      [activity(row.action), row.action, tx(`entity.${row.entity_type}`, String(row.entity_type)), row.entity_type, row.entity_id]
+        .filter(Boolean)
+        .join(" "),
+    statusOf: (row) => String(row.entity_type ?? ""),
+    dateOf: (row) => row.created_at,
+    idOf: (row) => row.id,
+  });
+
+  const entityOptions = Array.from(new Set(allRows.map((r) => String(r.entity_type || "")).filter(Boolean)))
+    .sort()
+    .map((type) => ({
+      value: type,
+      label: tx(`entity.${type}`, type),
+    }));
+
+  const exportColumns = [
+    { header: tx("actionCol", "Action"), value: (r: Record<string, string>) => activity(r.action) },
+    { header: tx("entityType", "Entity"), value: (r: Record<string, string>) => tx(`entity.${r.entity_type}`, String(r.entity_type)) },
+    { header: tx("entityId", "Record ID"), value: (r: Record<string, string>) => String(r.entity_id || "—") },
+    { header: tx("updated", "Timestamp"), value: (r: Record<string, string>) => r.created_at || "—" },
+  ];
+
   return (
     <div className="space-y-4" data-activity={query.isLoading ? "loading" : "ready"}>
       <PageHeader title={tx("activity", "Activity")} subtitle={tx("activityHint", "The audit trail: every recorded action, newest first.")} />
+
+      <ListToolbar
+        search={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder={tx("searchActivity", i18n.language.startsWith("ar") ? "ابحث في سجل المراجعة..." : "Search audit log...")}
+        status={list.status}
+        onStatusChange={list.setStatus}
+        statusOptions={entityOptions}
+        allStatusesLabel={tx("allEntities", i18n.language.startsWith("ar") ? "كل الأنواع" : "All entity types")}
+        year={list.year}
+        onYearChange={list.setYear}
+        availableYears={list.availableYears}
+        month={list.month}
+        onMonthChange={list.setMonth}
+        sortOrder={list.sortOrder}
+        onSortOrderChange={list.setSortOrder}
+        activeFilterCount={list.activeFilterCount}
+        onResetFilters={list.resetFilters}
+        totalFiltered={list.totalFiltered}
+        exportConfig={{
+          filename: "exportflow-audit-log",
+          sheetName: tx("auditTrail", "Audit Trail"),
+          columns: exportColumns,
+          rows: list.filteredRows,
+        }}
+      />
+
       {query.isLoading ? <SkeletonCardList rows={4} /> : null}
-      {!query.isLoading && !rows.length ? <EmptyState>{tx("noActivity", "No activity recorded yet.")}</EmptyState> : null}
-      {rows.length ? (
-        <SectionCard title={tx("auditTrail", "Audit trail")} icon={<History className="h-4 w-4" />} action={<span className="text-xs text-ink-muted"><Ltr>{rows.length}</Ltr></span>}>
+      {!query.isLoading && !list.pagedRows.length ? <EmptyState>{tx("noActivity", "No activity recorded yet.")}</EmptyState> : null}
+      {list.pagedRows.length ? (
+        <SectionCard title={tx("auditTrail", "Audit trail")} icon={<History className="h-4 w-4" />} action={<span className="text-xs text-ink-muted"><Ltr>{list.totalFiltered}</Ltr></span>}>
           <ol className="relative space-y-3 ps-5">
             <span className="absolute bottom-2 start-[5px] top-2 w-px bg-line" aria-hidden />
-            {rows.map((row) => (
+            {list.pagedRows.map((row) => (
               <li key={row.id} className="relative">
                 <span className="absolute -start-5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-accent" aria-hidden />
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper/40 px-3 py-2.5">
@@ -1736,6 +1790,15 @@ export function ActivityPage() {
           </ol>
         </SectionCard>
       ) : null}
+
+      <PaginationFooter
+        page={list.page}
+        totalPages={list.totalPages}
+        totalItems={list.totalFiltered}
+        startIndex={list.startIndex}
+        endIndex={list.endIndex}
+        onPageChange={list.setPage}
+      />
     </div>
   );
 }

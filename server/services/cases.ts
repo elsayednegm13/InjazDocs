@@ -82,7 +82,7 @@ export async function listCases(
   const rows = await all(
     db,
     `SELECT c.id, c.case_reference, c.status, c.document_route, c.bank_path_status, c.direct_path_status,
-            c.destination_country, c.next_action, c.updated_at, c.assigned_to,
+            c.destination_country, c.next_action, c.created_at, c.updated_at, c.assigned_to,
             cu.legal_name AS customer_name,
             GROUP_CONCAT(DISTINCT i.invoice_number) AS invoice_numbers
      FROM export_cases c
@@ -90,7 +90,7 @@ export async function listCases(
      LEFT JOIN export_invoices i ON i.case_id = c.id
      ${where}
      GROUP BY c.id
-     ORDER BY c.updated_at DESC
+     ORDER BY c.created_at DESC, c.updated_at DESC, c.id DESC
      LIMIT ? OFFSET ?`,
     ...binds,
     page.pageSize,

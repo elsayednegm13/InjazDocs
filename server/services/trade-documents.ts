@@ -1167,8 +1167,8 @@ export async function listProformas(db: D1Database, actor: Actor, caseId?: strin
      FROM proforma_invoices p
      JOIN customers c ON c.id = p.customer_id
      ${caseId ? "WHERE p.case_id = ?" : ""}
-     ORDER BY p.created_at DESC
-     ${caseId ? "" : "LIMIT 100"}`,
+     ORDER BY COALESCE(p.created_at, p.invoice_date) DESC, p.id DESC
+     ${caseId ? "" : "LIMIT 500"}`,
     ...(caseId ? [caseId] : []),
   );
 }

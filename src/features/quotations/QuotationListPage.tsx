@@ -1,15 +1,14 @@
-import { useState } from "react";
 import { Link } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Ltr } from "@/components/ui/chrome";
-import { Input } from "@/components/ui/input";
+import { ListToolbar, PaginationFooter, useListController } from "@/components/ui/list-toolbar";
 import { ResponsiveListSkeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status";
 import { api } from "@/lib/api";
 import { useCopy } from "@/lib/copy";
-import { QUOTATION_PATHS } from "@shared/api";
+import { QUOTATION_PATHS, QUOTATION_STATUSES } from "@shared/api";
 
 import { effectiveStatusOf, formatUsd, useCan } from "./quotation-model";
 import type { QuotationRow } from "./quotation-model";
@@ -18,12 +17,42 @@ export function QuotationsListPage() {
   const { tx } = useCopy();
   const canCreate = useCan("quotations.create");
   const canExport = useCan("quotations.export");
-  const [query, setQuery] = useState("");
-  const list = useQuery({
-    queryKey: ["quotations", query],
+
+  const listQuery = useQuery({
+    queryKey: ["quotations"],
     queryFn: async () =>
-      (await api<{ rows: QuotationRow[]; total: number }>(`${QUOTATION_PATHS.list}?q=${encodeURIComponent(query)}`)).data,
+      (await api<{ rows: QuotationRow[]; total: number }>(`${QUOTATION_PATHS.list}?pageSize=500`)).data,
+    placeholderData: keepPreviousData,
   });
+
+  const rawRows = listQuery.data?.rows ?? [];
+
+  const list = useListController(rawRows, {
+    storageKey: "quotations",
+    searchText: (row) =>
+      [row.quote_number, row.quote_number_display, row.title, row.customer_name, row.case_reference]
+        .filter(Boolean)
+        .join(" "),
+    statusOf: (row) => effectiveStatusOf(row),
+    dateOf: (row) => row.issued_at || row.created_at,
+    idOf: (row) => row.id,
+  });
+
+  const statusOptions = QUOTATION_STATUSES.map((st) => ({
+    value: st,
+    label: tx(`status.${st}`, st),
+  }));
+
+  const exportColumns = [
+    { header: tx("quotationNumber", "Quote no."), value: (r: QuotationRow) => r.quote_number_display },
+    { header: tx("quotationTitle", "Title"), value: (r: QuotationRow) => r.title || "—" },
+    { header: tx("quotationCustomer", "Customer"), value: (r: QuotationRow) => r.customer_name || "—" },
+    { header: tx("quotationStatus", "Status"), value: (r: QuotationRow) => tx(`status.${effectiveStatusOf(r)}`, effectiveStatusOf(r)) },
+    { header: tx("quotationValidUntil", "Valid until"), value: (r: QuotationRow) => (r.valid_until ? r.valid_until.slice(0, 10) : "—") },
+    { header: tx("quotationSubtotal", "Subtotal"), value: (r: QuotationRow) => formatUsd(r.subtotal_minor) },
+    { header: tx("quotationCaseRef", "Case ref"), value: (r: QuotationRow) => r.case_reference || "—" },
+    { header: tx("updated", "Created"), value: (r: QuotationRow) => (r.issued_at || r.created_at || "").slice(0, 10) },
+  ];
 
   return (
     <div className="space-y-4" data-testid="quotations-list">
@@ -49,24 +78,43 @@ export function QuotationsListPage() {
           ) : null}
         </div>
       </div>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          setQuery(new FormData(event.currentTarget).get("q")?.toString().trim() ?? "");
+
+      <ListToolbar
+        search={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder={tx("quotationSearch", "Search by number, title or customer")}
+        searchAriaLabel={tx("search", "Search")}
+        status={list.status}
+        onStatusChange={list.setStatus}
+        statusOptions={statusOptions}
+        year={list.year}
+        onYearChange={list.setYear}
+        availableYears={list.availableYears}
+        month={list.month}
+        onMonthChange={list.setMonth}
+        sortOrder={list.sortOrder}
+        onSortOrderChange={list.setSortOrder}
+        activeFilterCount={list.activeFilterCount}
+        onResetFilters={list.resetFilters}
+        totalFiltered={list.totalFiltered}
+        exportConfig={{
+          filename: "exportflow-quotations",
+          sheetName: tx("quotations", "Quotations"),
+          columns: exportColumns,
+          rows: list.filteredRows,
         }}
-      >
-        <Input name="q" aria-label={tx("search", "Search")} placeholder={tx("quotationSearch", "Search by number, title or customer")} className="max-w-md" />
-      </form>
-      {list.isLoading ? <ResponsiveListSkeleton rows={5} columns={6} label={tx("loading", "Loading…")} /> : null}
-      {list.isError ? <p className="text-sm text-danger">{tx("errorState", "Could not load the list.")}</p> : null}
-      {!list.isLoading && !list.isError && list.data && list.data.rows.length === 0 ? (
+      />
+
+      {listQuery.isLoading ? <ResponsiveListSkeleton rows={5} columns={6} label={tx("loading", "Loading…")} /> : null}
+      {listQuery.isError ? <p className="text-sm text-danger">{tx("errorState", "Could not load the list.")}</p> : null}
+      {!listQuery.isLoading && !listQuery.isError && list.pagedRows.length === 0 ? (
         <EmptyState>{tx("quotationEmpty", "No quotations yet.")}</EmptyState>
       ) : null}
-      {list.data && list.data.rows.length > 0 ? (
-        <div className="overflow-x-auto rounded-xl border border-line bg-card">
+      {list.pagedRows.length > 0 ? (
+        <div className="overflow-x-auto rounded-xl border border-line bg-card shadow-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-muted">
+              <tr className="border-b border-line bg-paper text-xs uppercase tracking-wide text-ink-muted">
                 <th className="p-3 text-start">{tx("quotationNumber", "Quote no.")}</th>
                 <th className="p-3 text-start">{tx("quotationTitle", "Title")}</th>
                 <th className="p-3 text-start">{tx("quotationCustomer", "Customer")}</th>
@@ -77,7 +125,7 @@ export function QuotationsListPage() {
               </tr>
             </thead>
             <tbody>
-              {list.data.rows.map((row) => (
+              {list.pagedRows.map((row) => (
                 <tr key={row.id} className="border-b border-line/60 last:border-0 hover:bg-paper/60">
                   <td className="p-3 font-semibold">
                     <Link to={`/quotations/${row.id}`} className="text-accent hover:underline">
@@ -100,6 +148,15 @@ export function QuotationsListPage() {
           </table>
         </div>
       ) : null}
+
+      <PaginationFooter
+        page={list.page}
+        totalPages={list.totalPages}
+        totalItems={list.totalFiltered}
+        startIndex={list.startIndex}
+        endIndex={list.endIndex}
+        onPageChange={list.setPage}
+      />
     </div>
   );
 }

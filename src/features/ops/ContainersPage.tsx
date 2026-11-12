@@ -1,12 +1,12 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Boxes, CheckCircle2, CircleDashed, Search, Ship } from "lucide-react";
+import { Boxes, CheckCircle2, CircleDashed, Ship } from "lucide-react";
 import { can, useSession } from "@/app/access";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Ltr, PageHeader, StatCard } from "@/components/ui/chrome";
 import { DataCard, DataCards, DataCell, DataFrame, DataHead, DataHeadCell, DataRow } from "@/components/ui/data-view";
-import { Input, Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
+import { ListToolbar, PaginationFooter, useListController } from "@/components/ui/list-toolbar";
 import { StatusBadge } from "@/components/ui/status";
 import { ResponsiveListSkeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -14,9 +14,10 @@ import { useContainerStatusMutation } from "@/lib/containers";
 import { formatWhen, useCopy } from "@/lib/copy";
 import { nextContainerStatuses } from "@shared/container-flow";
 
-import { FilterChip, JourneyRail } from "./ops-parts";
+import { JourneyRail } from "./ops-parts";
 
 const CONTAINER_FILTERS = [
+  "PLANNED",
   "NUMBER_ASSIGNED",
   "GATED_IN",
   "LOADED",
@@ -77,38 +78,50 @@ export function ContainersPage() {
   const { tx, i18n } = useCopy();
   const user = useSession();
   const manage = can(user, "containers.manage");
-  const [search, setSearch] = useState("");
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
   const move = useContainerStatusMutation();
 
-  useEffect(() => {
-    const timer = setTimeout(() => setQ(search.trim()), 300);
-    return () => clearTimeout(timer);
-  }, [search]);
-
   const query = useQuery({
-    queryKey: ["containers", q, status],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (q) params.set("q", q);
-      if (status) params.set("status", status);
-      const suffix = params.toString();
-      return (await api<Array<Record<string, string>>>(`/api/v1/containers${suffix ? `?${suffix}` : ""}`)).data;
-    },
+    queryKey: ["containers"],
+    queryFn: async () => (await api<Array<Record<string, string>>>("/api/v1/containers")).data,
     placeholderData: keepPreviousData,
   });
 
-  const rows = query.data ?? [];
+  const allRows = query.data ?? [];
+
+  const list = useListController(allRows, {
+    storageKey: "containers",
+    searchText: (row) =>
+      [row.official_number, row.booking_number, row.case_reference, row.seal_number, row.status]
+        .filter(Boolean)
+        .join(" "),
+    statusOf: (row) => row.status ?? "",
+    dateOf: (row) => row.created_at || row.updated_at,
+    idOf: (row) => row.id,
+  });
+
   const counts = {
-    total: rows.length,
-    awaiting: rows.filter((row) => row.status === "PLANNED").length,
-    transit: rows.filter((row) => ["GATED_IN", "LOADED", "DEPARTED"].includes(row.status)).length,
-    delivered: rows.filter((row) => row.status === "DELIVERED_TO_CUSTOMER").length,
+    total: allRows.length,
+    awaiting: allRows.filter((row) => row.status === "PLANNED").length,
+    transit: allRows.filter((row) => ["GATED_IN", "LOADED", "DEPARTED"].includes(row.status)).length,
+    delivered: allRows.filter((row) => row.status === "DELIVERED_TO_CUSTOMER").length,
   };
   const busyId = move.isPending ? move.variables?.id : null;
   const moveContainer = (row: Record<string, string>, next: string) =>
     move.mutate({ id: row.id, status: next, version: row.version });
+
+  const statusOptions = CONTAINER_FILTERS.map((value) => ({
+    value,
+    label: tx(`status.${value}`, value),
+  }));
+
+  const exportColumns = [
+    { header: tx("containers", "Container"), value: (r: Record<string, string>) => r.official_number || tx("awaitingNumber", "Awaiting number") },
+    { header: tx("slot", "Slot"), value: (r: Record<string, string>) => Number(r.slot_index || 1) },
+    { header: tx("bookings", "Booking"), value: (r: Record<string, string>) => r.booking_number || "—" },
+    { header: tx("case", "Case"), value: (r: Record<string, string>) => r.case_reference || tx("unlinkedBooking", "Not linked") },
+    { header: tx("status", "Status"), value: (r: Record<string, string>) => tx(`status.${r.status}`, r.status) },
+    { header: tx("updatedAt", "Last update"), value: (r: Record<string, string>) => (r.updated_at || r.created_at || "").slice(0, 10) },
+  ];
 
   return (
     <div className="space-y-4" data-containers={query.isLoading ? "loading" : "ready"}>
@@ -119,31 +132,37 @@ export function ContainersPage() {
         <StatCard label={tx("inTransit", "In transit")} value={counts.transit} icon={<Ship className="h-5 w-5" />} tone="teal" />
         <StatCard label={tx("deliveredToCustomer", "Delivered to customer")} value={counts.delivered} icon={<CheckCircle2 className="h-5 w-5" />} tone="green" />
       </div>
-      <div className="flex flex-wrap items-center gap-2 rounded-card border border-line bg-card p-4 shadow-card">
-        <div className="relative min-w-56 flex-1">
-          <Search className="pointer-events-none absolute start-3 top-3 h-4 w-4 text-ink-muted" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={tx("searchContainer", "Search by container or booking number")}
-            aria-label={tx("searchContainer", "Search by container or booking number")}
-            className="border-line bg-paper ps-9"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <FilterChip active={!status} onClick={() => setStatus("")}>{tx("allStatuses", "All statuses")}</FilterChip>
-          {CONTAINER_FILTERS.map((value) => (
-            <FilterChip key={value} active={status === value} onClick={() => setStatus(status === value ? "" : value)}>
-              {tx(`status.${value}`, value)}
-            </FilterChip>
-          ))}
-        </div>
-      </div>
+
+      <ListToolbar
+        search={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder={tx("searchContainer", "Search by container or booking number")}
+        searchAriaLabel={tx("searchContainer", "Search by container or booking number")}
+        status={list.status}
+        onStatusChange={list.setStatus}
+        statusOptions={statusOptions}
+        year={list.year}
+        onYearChange={list.setYear}
+        availableYears={list.availableYears}
+        month={list.month}
+        onMonthChange={list.setMonth}
+        sortOrder={list.sortOrder}
+        onSortOrderChange={list.setSortOrder}
+        activeFilterCount={list.activeFilterCount}
+        onResetFilters={list.resetFilters}
+        totalFiltered={list.totalFiltered}
+        exportConfig={{
+          filename: "exportflow-containers",
+          sheetName: tx("containers", "Containers"),
+          columns: exportColumns,
+          rows: list.filteredRows,
+        }}
+      />
 
       {query.isLoading ? <ResponsiveListSkeleton rows={5} columns={5} /> : null}
-      {!query.isLoading && rows.length === 0 ? <EmptyState>{tx("noContainers", "No containers match this filter.")}</EmptyState> : null}
+      {!query.isLoading && list.pagedRows.length === 0 ? <EmptyState>{tx("noContainers", "No containers match this filter.")}</EmptyState> : null}
 
-      {rows.length ? (
+      {list.pagedRows.length ? (
         <DataFrame label={tx("containers", "Containers")} className="min-w-[1000px]">
           <DataHead>
             <DataHeadCell>{tx("containers", "Containers")}</DataHeadCell>
@@ -155,7 +174,7 @@ export function ContainersPage() {
             {manage ? <DataHeadCell align="end">{tx("actionCol", "Action")}</DataHeadCell> : null}
           </DataHead>
           <tbody>
-            {rows.map((row) => {
+            {list.pagedRows.map((row) => {
               const busy = busyId === row.id;
               return (
                 <DataRow key={row.id} selected={busy}>
@@ -188,9 +207,9 @@ export function ContainersPage() {
         </DataFrame>
       ) : null}
 
-      {rows.length ? (
+      {list.pagedRows.length ? (
         <DataCards>
-          {rows.map((row) => {
+          {list.pagedRows.map((row) => {
             const busy = busyId === row.id;
             return (
               <DataCard
@@ -212,6 +231,15 @@ export function ContainersPage() {
           })}
         </DataCards>
       ) : null}
+
+      <PaginationFooter
+        page={list.page}
+        totalPages={list.totalPages}
+        totalItems={list.totalFiltered}
+        startIndex={list.startIndex}
+        endIndex={list.endIndex}
+        onPageChange={list.setPage}
+      />
     </div>
   );
 }

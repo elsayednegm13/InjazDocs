@@ -64,7 +64,7 @@ export function mountReportRoutes(api: Hono<AppEnv>) {
 
   api.get("/activity", async (c) => {
     requirePermission(c.get("actor"), "audit.view");
-    const rows = await all(c.env.DB, "SELECT id, actor_id, entity_type, entity_id, action, created_at FROM audit_log ORDER BY created_at DESC LIMIT 200");
+    const rows = await all(c.env.DB, "SELECT id, actor_id, entity_type, entity_id, action, created_at FROM audit_log ORDER BY created_at DESC, id DESC LIMIT 500");
     return jsonSuccess(rows, c.get("requestId"));
   });
 }

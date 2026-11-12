@@ -1,12 +1,13 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Boxes, CheckCircle2, CircleDashed, Search, Ship } from "lucide-react";
+import { Boxes, CheckCircle2, CircleDashed, Ship } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormDisclosure } from "@/components/ui/form-disclosure";
 import { EmptyState, Ltr, PageHeader, StatCard } from "@/components/ui/chrome";
 import { DataCard, DataCards, DataCell, DataFrame, DataHead, DataHeadCell, DataRow } from "@/components/ui/data-view";
 import { Field, Input } from "@/components/ui/input";
+import { ListToolbar, PaginationFooter, useListController } from "@/components/ui/list-toolbar";
 import { StatusBadge } from "@/components/ui/status";
 import { ResponsiveListSkeleton } from "@/components/ui/skeleton";
 import { can, useSession } from "@/app/access";
@@ -14,7 +15,17 @@ import { api } from "@/lib/api";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { formatDay, useCopy } from "@/lib/copy";
 
-import { FilterChip } from "./ops-parts";
+const BOOKING_FILTERS = [
+  "DRAFT",
+  "REQUESTED",
+  "CONFIRMED",
+  "LOADING_IN_PROGRESS",
+  "LOADED",
+  "DEPARTED",
+  "ARRIVED_PORT",
+  "CLOSED",
+  "CANCELLED",
+] as const;
 
 export function BookingsListPage() {
   const { tx, i18n } = useCopy();
@@ -23,29 +34,49 @@ export function BookingsListPage() {
   const client = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState("");
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
-  useEffect(() => {
-    const timer = setTimeout(() => setQ(search.trim()), 300);
-    return () => clearTimeout(timer);
-  }, [search]);
+
   const query = useQuery({
-    queryKey: ["bookings", q],
-    queryFn: async () => {
-      const suffix = q ? `?q=${encodeURIComponent(q)}` : "";
-      return (await api<Array<Record<string, string>>>(`/api/v1/bookings${suffix}`)).data;
-    },
+    queryKey: ["bookings"],
+    queryFn: async () => (await api<Array<Record<string, string>>>("/api/v1/bookings?pageSize=500")).data,
     placeholderData: keepPreviousData,
   });
+
   const allRows = query.data ?? [];
-  const rows = allRows.filter((row) => !status || row.status === status);
+
+  const list = useListController(allRows, {
+    storageKey: "bookings",
+    searchText: (row) =>
+      [row.booking_number, row.ucr, row.shipping_line, row.customer_name, row.case_reference, row.port_of_loading, row.port_of_discharge]
+        .filter(Boolean)
+        .join(" "),
+    statusOf: (row) => row.status ?? "",
+    dateOf: (row) => row.planned_loading_date || row.planned_etd || row.created_at,
+    idOf: (row) => row.id,
+  });
+
   const counts = {
     total: allRows.length,
     drafts: allRows.filter((row) => ["DRAFT", "REQUESTED"].includes(row.status)).length,
     moving: allRows.filter((row) => ["LOADING_IN_PROGRESS", "LOADED", "DEPARTED", "ARRIVED_PORT"].includes(row.status)).length,
     closed: allRows.filter((row) => row.status === "CLOSED").length,
   };
+
+  const statusOptions = BOOKING_FILTERS.map((value) => ({
+    value,
+    label: tx(`status.${value}`, value.replaceAll("_", " ")),
+  }));
+
+  const exportColumns = [
+    { header: tx("bookingNumber", "Booking number"), value: (r: Record<string, string>) => r.booking_number },
+    { header: tx("customer", "Customer"), value: (r: Record<string, string>) => r.customer_name || "—" },
+    { header: tx("case", "Case"), value: (r: Record<string, string>) => r.case_reference || tx("unlinkedBooking", "Not linked") },
+    { header: tx("shippingLine", "Shipping line"), value: (r: Record<string, string>) => r.shipping_line || "—" },
+    { header: tx("plannedEtd", "Planned ETD"), value: (r: Record<string, string>) => r.planned_etd || "—" },
+    { header: tx("plannedEta", "Planned ETA"), value: (r: Record<string, string>) => r.planned_eta || "—" },
+    { header: tx("slots", "Slots"), value: (r: Record<string, string>) => Number(r.expected_containers || 0) },
+    { header: tx("status", "Status"), value: (r: Record<string, string>) => tx(`status.${r.status}`, r.status) },
+  ];
+
   return (
     <div className="space-y-4" data-bookings={query.isLoading ? "loading" : "ready"}>
       <PageHeader
@@ -113,31 +144,37 @@ export function BookingsListPage() {
         <StatCard label={tx("inProgress", "In progress")} value={counts.moving} icon={<Ship className="h-5 w-5" />} tone="teal" />
         <StatCard label={tx("status.CLOSED", "Closed")} value={counts.closed} icon={<CheckCircle2 className="h-5 w-5" />} tone="green" />
       </div>
-      <div className="flex flex-wrap items-center gap-2 rounded-card border border-line bg-card p-4 shadow-card">
-        <div className="relative min-w-56 flex-1">
-          <Search className="pointer-events-none absolute start-3 top-3 h-4 w-4 text-ink-muted" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={tx("searchBooking", "Search by booking or case reference")}
-            aria-label={tx("searchBooking", "Search by booking or case reference")}
-            className="border-line bg-paper ps-9"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <FilterChip active={!status} onClick={() => setStatus("")}>{tx("allStatuses", "All statuses")}</FilterChip>
-          {BOOKING_FILTERS.map((value) => (
-            <FilterChip key={value} active={status === value} onClick={() => setStatus(status === value ? "" : value)}>
-              {tx(`status.${value}`, value.replaceAll("_", " "))}
-            </FilterChip>
-          ))}
-        </div>
-      </div>
+
+      <ListToolbar
+        search={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder={tx("searchBooking", "Search by booking or case reference")}
+        searchAriaLabel={tx("searchBooking", "Search by booking or case reference")}
+        status={list.status}
+        onStatusChange={list.setStatus}
+        statusOptions={statusOptions}
+        year={list.year}
+        onYearChange={list.setYear}
+        availableYears={list.availableYears}
+        month={list.month}
+        onMonthChange={list.setMonth}
+        sortOrder={list.sortOrder}
+        onSortOrderChange={list.setSortOrder}
+        activeFilterCount={list.activeFilterCount}
+        onResetFilters={list.resetFilters}
+        totalFiltered={list.totalFiltered}
+        exportConfig={{
+          filename: "exportflow-bookings",
+          sheetName: tx("bookings", "Bookings"),
+          columns: exportColumns,
+          rows: list.filteredRows,
+        }}
+      />
 
       {query.isLoading ? <ResponsiveListSkeleton rows={5} columns={5} /> : null}
-      {!query.isLoading && rows.length === 0 ? <EmptyState>{tx("noBookings", "No bookings match this filter.")}</EmptyState> : null}
+      {!query.isLoading && list.pagedRows.length === 0 ? <EmptyState>{tx("noBookings", "No bookings match this filter.")}</EmptyState> : null}
 
-      {rows.length ? (
+      {list.pagedRows.length ? (
         <DataFrame label={tx("bookings", "Shipping bookings")} className="min-w-[1000px]">
           <DataHead>
             <DataHeadCell>{tx("bookingNumber", "Booking number")}</DataHeadCell>
@@ -150,7 +187,7 @@ export function BookingsListPage() {
             <DataHeadCell align="end">{tx("actionCol", "Action")}</DataHeadCell>
           </DataHead>
           <tbody>
-            {rows.map((row) => (
+            {list.pagedRows.map((row) => (
               <DataRow key={row.id}>
                 <DataCell className="whitespace-nowrap">
                   <Link className="inline-flex items-center gap-2 font-semibold text-ink" to={`/bookings/${row.id}`}>
@@ -173,9 +210,9 @@ export function BookingsListPage() {
         </DataFrame>
       ) : null}
 
-      {rows.length ? (
+      {list.pagedRows.length ? (
         <DataCards>
-          {rows.map((row) => (
+          {list.pagedRows.map((row) => (
             <DataCard
               key={row.id}
               title={<Ltr>{row.booking_number}</Ltr>}
@@ -200,18 +237,15 @@ export function BookingsListPage() {
           ))}
         </DataCards>
       ) : null}
+
+      <PaginationFooter
+        page={list.page}
+        totalPages={list.totalPages}
+        totalItems={list.totalFiltered}
+        startIndex={list.startIndex}
+        endIndex={list.endIndex}
+        onPageChange={list.setPage}
+      />
     </div>
   );
 }
-
-const BOOKING_FILTERS = [
-  "DRAFT",
-  "REQUESTED",
-  "CONFIRMED",
-  "LOADING_IN_PROGRESS",
-  "LOADED",
-  "DEPARTED",
-  "ARRIVED_PORT",
-  "CLOSED",
-  "CANCELLED",
-] as const;
